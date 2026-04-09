@@ -1,6 +1,26 @@
 import React, { useEffect, useState } from 'react'
 import { supabase } from '@shared/lib/supabase.js'
 import { getSessionRunId } from '@shared/lib/runtimeContext.js'
+import { decodeSavePrompt, decodePlayerSavePrompt } from '@shared/lib/combatRules.js'
+
+/** Player-visible combat log line; null omits internal / duplicate prompt payloads. */
+function formatPlayerFeedEvent(event) {
+  if (!event) return null
+  if (event.type === 'player-save-prompt') return null
+  if (decodePlayerSavePrompt(event.text)) return null
+  if (event.type === 'save-prompt-resolved') {
+    const p = decodeSavePrompt(event.text)
+    return p?.resolutionText ?? null
+  }
+  if (event.type === 'save-prompt') {
+    const p = decodeSavePrompt(event.text)
+    if (p) {
+      const names = (p.targets || []).map(t => t.name).filter(Boolean).join(', ')
+      return `${p.casterName || 'Someone'} casts ${p.spellName || 'a spell'}: ${p.saveAbility} save DC ${p.saveDc}${names ? ` (${names})` : ''}`
+    }
+  }
+  return event.text
+}
 
 export default function CombatFeed() {
   const [feed, setFeed] = useState([])
@@ -130,23 +150,39 @@ export default function CombatFeed() {
             Waiting for combat to begin…
           </div>
         ) : (
-          feed.map((event, i) => (
-            <div key={event.id || i} style={{
-              color: event.type === 'damage' ? '#c49070'
-                : event.type === 'heal' ? 'var(--green-bright)'
-                : event.type === 'round' ? 'var(--text-muted)'
-                : event.type === 'system' ? '#c4a060'
-                : 'var(--text-secondary)',
-              fontFamily: event.type === 'round' ? 'var(--font-mono)' : 'var(--font-body)',
-              fontSize: event.type === 'round' ? 11 : 14,
-              borderTop: event.type === 'round' ? '1px solid var(--border)' : 'none',
-              paddingTop: event.type === 'round' ? 6 : 0,
-              marginTop: event.type === 'round' ? 4 : 0,
-              opacity: i > 5 ? Math.max(0.3, 1 - (i - 5) * 0.12) : 1
-            }}>
-              {event.text}
-            </div>
-          ))
+          (() => {
+            const visible = feed.reduce((acc, event) => {
+              const line = formatPlayerFeedEvent(event)
+              if (line == null) return acc
+              acc.push({ event, line })
+              return acc
+            }, [])
+            if (visible.length === 0) {
+              return (
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                  No shared combat updates yet…
+                </div>
+              )
+            }
+            return visible.map(({ event, line }, i) => (
+              <div key={event.id || i} style={{
+                color: event.type === 'damage' ? '#c49070'
+                  : event.type === 'heal' ? 'var(--green-bright)'
+                  : event.type === 'round' ? 'var(--text-muted)'
+                  : event.type === 'system' ? '#c4a060'
+                  : event.type === 'save-prompt-resolved' ? 'var(--green-bright)'
+                  : 'var(--text-secondary)',
+                fontFamily: event.type === 'round' ? 'var(--font-mono)' : 'var(--font-body)',
+                fontSize: event.type === 'round' ? 11 : 14,
+                borderTop: event.type === 'round' ? '1px solid var(--border)' : 'none',
+                paddingTop: event.type === 'round' ? 6 : 0,
+                marginTop: event.type === 'round' ? 4 : 0,
+                opacity: i > 5 ? Math.max(0.3, 1 - (i - 5) * 0.12) : 1
+              }}>
+                {line}
+              </div>
+            ))
+          })()
         )}
       </div>
     </div>
