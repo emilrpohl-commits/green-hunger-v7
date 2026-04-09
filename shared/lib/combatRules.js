@@ -211,3 +211,35 @@ export function decodePlayerSavePrompt(text) {
     return null
   }
 }
+
+/**
+ * Build damage metadata for player-side resolution of monster save-based abilities.
+ * Parses parenthetical XdY from stat-block strings (e.g. Toll the Dead: 2d12 hurt / 2d8 full HP).
+ */
+export function buildSavePromptDamageMeta(selected) {
+  if (!selected || selected.type !== 'save') return null
+  const raw = selected.damage
+  if (raw == null) return null
+  const str = String(raw)
+  const matches = [...str.matchAll(/\((\d+)d(\d+)\)/g)]
+  const damageTypeMatch = str.match(/\b(acid|cold|fire|force|lightning|necrotic|poison|psychic|radiant|thunder|bludgeoning|piercing|slashing)\b/i)
+  const damageType = damageTypeMatch ? damageTypeMatch[1].toLowerCase() : null
+  if (matches.length >= 2) {
+    return {
+      variant: 'toll-the-dead',
+      diceWhenHurt: { count: Number(matches[0][1]), sides: Number(matches[0][2]) },
+      diceWhenFullHp: { count: Number(matches[1][1]), sides: Number(matches[1][2]) },
+      halfOnSuccess: true,
+      damageType,
+    }
+  }
+  if (matches.length === 1) {
+    return {
+      variant: 'single',
+      diceOnFail: { count: Number(matches[0][1]), sides: Number(matches[0][2]) },
+      halfOnSuccess: true,
+      damageType,
+    }
+  }
+  return null
+}

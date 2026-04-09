@@ -794,6 +794,87 @@ export const usePlayerStore = create((set, get) => ({
     }
   },
 
+  /** PC takes damage (character_states + combat_state + shared feed). Mirrors applyHealingToCharacter / applyDamageToEnemy temp HP rules. */
+  applyDamageToCharacter: async (targetId, amount, sourceName, label, damageType = null) => {
+    if (!targetId || !amount || amount <= 0) return
+    const {
+      characters,
+      combatActive,
+      combatRound,
+      sessionRunId,
+      combatActiveCombatantIndex,
+      initiativePhase,
+      ilyaAssignedTo,
+    } = get()
+    const rulesetContext = getRulesetContext()
+    const target = characters.find(c => c.id === targetId)
+    const staticChar = get().playerCharacters[targetId]
+    if (!target && !staticChar) return
+    const maxHp = staticChar?.stats?.maxHp || target?.maxHp || 0
+    const currentHp = target?.curHp ?? maxHp
+    const list = await get().fetchCombatantsForWrite()
+    const combatRow = list.find(c => c.id === targetId)
+    let tempHp = combatRow?.tempHp || 0
+    let remaining = amount
+    if (tempHp > 0) {
+      const absorbed = Math.min(tempHp, remaining)
+      tempHp -= absorbed
+      remaining -= absorbed
+    }
+    const newHp = Math.max(0, currentHp - remaining)
+
+    const updatedChars = target
+      ? characters.map(c => (c.id === targetId ? { ...c, curHp: newHp } : c))
+      : characters
+    set({ characters: updatedChars })
+
+    const typeStr = damageType ? ` ${damageType}` : ''
+    const displayName = staticChar?.name || target?.name || targetId
+
+    try {
+      await supabase.from('character_states').upsert({
+        id: targetId,
+        cur_hp: newHp,
+        updated_at: new Date().toISOString(),
+      })
+
+      if (combatActive) {
+        const msg = `${sourceName}'s ${label}:${typeStr} ${amount} → ${displayName} (${newHp}/${maxHp} HP)`
+        await supabase.from('combat_feed').insert({
+          session_id: sessionRunId,
+          round: combatRound,
+          text: msg,
+          type: 'damage',
+          shared: true,
+          timestamp: new Date().toISOString(),
+        })
+        const updatedCombatants = list.map(c => {
+          if (c.id !== targetId) return c
+          return { ...c, curHp: newHp, tempHp }
+        })
+        if (updatedCombatants.some(c => c.id === targetId)) {
+          set({ combatCombatants: updatedCombatants })
+          const ts = new Date().toISOString()
+          await supabase.from('combat_state').upsert({
+            id: sessionRunId,
+            session_run_id: sessionRunId,
+            active: combatActive,
+            round: combatRound,
+            combatants: updatedCombatants,
+            active_combatant_index: combatActiveCombatantIndex,
+            initiative_phase: initiativePhase,
+            ilya_assigned_to: ilyaAssignedTo,
+            ruleset_context: rulesetContext,
+            updated_at: ts,
+          })
+          get().bumpCombatStateSyncedFromWrite(ts)
+        }
+      }
+    } catch (e) {
+      console.error('Failed to apply damage to character:', e)
+    }
+  },
+
   // Grant a bardic inspiration buff to a character
   grantBardicInspiration: (targetId, fromCharId) => {
     const { activeBuffs, bardicInspirationUses } = get()

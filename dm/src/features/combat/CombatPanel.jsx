@@ -4,7 +4,7 @@ import { decodeSavePrompt, applyDeterministicRollModifiers, getAcWithEffects } f
 import { supabase } from '@shared/lib/supabase.js'
 import { getSessionRunId } from '@shared/lib/runtimeContext.js'
 import { qaHoldSavePromptChannelName } from '@shared/lib/qaDevChannels.js'
-import { encodePlayerSavePrompt } from '@shared/lib/combatRules.js'
+import { encodePlayerSavePrompt, buildSavePromptDamageMeta } from '@shared/lib/combatRules.js'
 
 const CONDITIONS = ['Blinded', 'Charmed', 'Frightened', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious', 'Grappled', 'Paralysed']
 
@@ -117,7 +117,8 @@ function CombatantCard({ combatant, isActive, flashActive = false, players = [] 
               saveAbility: saveType,
               saveDc: dc,
               targetId: atkTarget.id,
-              outcome: selected.effect || selected.desc || null
+              outcome: selected.effect || selected.desc || null,
+              damageMeta: buildSavePromptDamageMeta(selected),
             }),
             type: 'player-save-prompt',
             target_id: atkTarget.id,
@@ -142,7 +143,8 @@ function CombatantCard({ combatant, isActive, flashActive = false, players = [] 
                 saveAbility: saveType,
                 saveDc: dc,
                 targetId: atkTarget.id,
-                outcome: selected.effect || selected.desc || null
+                outcome: selected.effect || selected.desc || null,
+                damageMeta: buildSavePromptDamageMeta(selected),
               }),
               type: 'player-save-prompt',
               target_id: atkTarget.id,
@@ -718,7 +720,7 @@ export default function CombatPanel() {
               Combat Log
             </div>
             <div style={{ flex: 1, overflow: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {feed.map(event => (
+              {feed.filter(e => e.type !== 'player-save-prompt').map(event => (
                 <div key={event.id} style={{
                   fontSize: event.type === 'round' ? 9 : 12,
                   fontFamily: event.type === 'round' ? 'var(--font-mono)' : 'var(--font-body)',
