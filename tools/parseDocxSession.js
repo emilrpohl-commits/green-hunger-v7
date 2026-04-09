@@ -585,6 +585,7 @@ export function parseSessionMarkdown(markdown) {
         dmNotes: clean(dmNotes),
         mechanicalEffect,
         statBlockRef: null,
+        statBlockSourceIndex: null,
       }
 
       // Link beats to stat blocks: check heading and content against any known stat block name
@@ -598,6 +599,7 @@ export function parseSessionMarkdown(markdown) {
       })
       if (sbRef) {
         beat.statBlockRef = sbRef.name
+        beat.statBlockSourceIndex = sbRef.slug || sbRef.index || null
       }
 
       scene.beats.push(beat)

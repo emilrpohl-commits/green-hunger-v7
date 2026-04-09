@@ -3,6 +3,8 @@ import { supabase } from '@shared/lib/supabase.js'
 import { SESSION_1_PLAYER, CHARACTERS } from '@shared/content/session1.js'
 import { PLAYER_CHARACTERS } from '@shared/content/playerCharacters.js'
 import { parseCastingTimeMeta, consumeActionEconomy, ensureActionEconomy, encodeSavePrompt, decodePlayerSavePrompt } from '@shared/lib/combatRules.js'
+import { featureFlags } from '@shared/lib/featureFlags.js'
+import { mapApiSpellToCharacterSpell } from '@shared/lib/engine/mappers.js'
 
 /** Player client: PCs only (exclude DM companion NPCs from party list). */
 const PLAYER_RUNTIME_CHARACTERS = CHARACTERS.filter(c => !c.isNPC)
@@ -28,6 +30,18 @@ function mergeSpellWithOverride(baseSpell = {}, overrides = {}) {
     merged.healDice = { ...(baseSpell.healDice || {}), ...(overrides.healDice || {}) }
   }
   return merged
+}
+
+function toEngineCompendiumSpell(row, charStats = {}) {
+  if (!row) return null
+  const payload = row.payload || {}
+  const mapped = mapApiSpellToCharacterSpell({
+    ...payload,
+    ruleset: row.ruleset,
+    source_index: row.source_index,
+    source_url: row.source_url,
+  }, charStats)
+  return mapped
 }
 
 function withSpellIds(characterMap) {
@@ -93,6 +107,7 @@ export const usePlayerStore = create((set, get) => ({
   initiativePhase: false,
   companionSpellSlots: {},
   spellCompendium: {},
+  knownConditions: [],
 
   /** Monotonic guard for combat_state realtime/HTTP (mirrors DM combatStore) */
   _combatStateSyncedAt: null,
@@ -297,10 +312,30 @@ export const usePlayerStore = create((set, get) => ({
   // Load characters and spells from Supabase, overwriting the hardcoded fallback
   loadCharacters: async () => {
     try {
-      const [{ data: charRows }, { data: spellRows }, { data: compendiumRows }] = await Promise.all([
+      const [
+        { data: charRows },
+        { data: spellRows },
+        { data: compendiumRows },
+        { data: rulesSpellRows },
+        { data: conditionRows },
+      ] = await Promise.all([
         supabase.from('characters').select('*'),
         supabase.from('character_spells').select('*').order('order_index'),
-        supabase.from('spells').select('*')
+        supabase.from('spells').select('*'),
+        featureFlags.use5eEngine
+          ? supabase
+            .from('rules_entities')
+            .select('*')
+            .eq('entity_type', 'spells')
+            .eq('ruleset', '2024')
+          : Promise.resolve({ data: [] }),
+        featureFlags.use5eEngine && featureFlags.engineConditions
+          ? supabase
+            .from('rules_entities')
+            .select('source_index,name,payload,ruleset,source_url')
+            .eq('entity_type', 'conditions')
+            .eq('ruleset', '2024')
+          : Promise.resolve({ data: [] }),
       ])
       if (!charRows || charRows.length === 0) return
 
@@ -342,6 +377,14 @@ export const usePlayerStore = create((set, get) => ({
             area: row.area || {},
             rules: row.rules_json || {},
           },
+        }
+      })
+      ;(rulesSpellRows || []).forEach((row) => {
+        const mapped = toEngineCompendiumSpell(row)
+        if (!mapped?.spellId) return
+        // DB spell rows override engine row if both exist.
+        if (!spellCompendium[mapped.spellId]) {
+          spellCompendium[mapped.spellId] = mapped
         }
       })
 
@@ -412,7 +455,12 @@ export const usePlayerStore = create((set, get) => ({
       if (playerCharacters.ilya) {
         playerCharacters.ilya = sanitizeIlyaSheet(playerCharacters.ilya)
       }
-      set({ playerCharacters: withSpellIds(playerCharacters), spellCompendium })
+      const knownConditions = (conditionRows || []).map((row) => ({
+        index: row.source_index,
+        name: row.name,
+        desc: Array.isArray(row.payload?.desc) ? row.payload.desc.join('\n\n') : (row.payload?.desc || ''),
+      }))
+      set({ playerCharacters: withSpellIds(playerCharacters), spellCompendium, knownConditions })
     } catch (e) {
       console.log('Could not load characters from server, using defaults.')
     }

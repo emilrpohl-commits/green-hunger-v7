@@ -41,6 +41,11 @@ const SPELL_DB_COLUMNS = [
   'source',
   'classes',
   'notes',
+  'ruleset',
+  'source_index',
+  'source_url',
+  'source_version',
+  'imported_at',
   'updated_at',
 ]
 
