@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
 import ImportModal from '../builder/ImportModal'
 import { PLAYER_CHARACTERS } from '@shared/content/playerCharacters.js'
+import { parseCastingTimeMeta } from '@shared/lib/combatRules.js'
 
 const SCHOOLS = ['Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation']
 
@@ -267,6 +268,9 @@ export default function SpellLibrary() {
 
       <div style={{ display: 'grid', gap: 8 }}>
         {filtered.map(spell => (
+          (() => {
+            const castingMeta = parseCastingTimeMeta(spell.casting_time)
+            return (
           <div key={spell.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
             {activeTab === 'compendium' && (
               (() => {
@@ -292,6 +296,9 @@ export default function SpellLibrary() {
                 {spell.casting_time ? ` · ${spell.casting_time}` : ''}
               </div>
               <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                <span style={{ ...mono, fontSize: 9, color: castingMeta.isBonusAction ? 'var(--warning)' : castingMeta.isReaction ? '#9fb4ff' : 'var(--green-bright)' }}>
+                  {castingMeta.castingTimeLabel}
+                </span>
                 {spell.spell_id && <span style={{ ...mono, fontSize: 9, color: '#9bb0d8' }}>id:{spell.spell_id}</span>}
                 {spell.resolution_type && <span style={{ ...mono, fontSize: 9, color: 'var(--warning)' }}>{spell.resolution_type}</span>}
                 {spell.target_mode && <span style={{ ...mono, fontSize: 9, color: 'var(--text-muted)' }}>{spell.target_mode}</span>}
@@ -307,6 +314,8 @@ export default function SpellLibrary() {
               <button onClick={() => startEdit({ ...spell, name: `${spell.name} (Override)` }, true)} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text-secondary)', ...mono, fontSize: 9, textTransform: 'uppercase' }}>Create Override</button>
             )}
           </div>
+            )
+          })()
         ))}
       </div>
 

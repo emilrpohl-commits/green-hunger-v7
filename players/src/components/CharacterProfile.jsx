@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { usePlayerStore } from '../stores/playerStore'
+import { parseCastingTimeMeta, buildSpellEffectMetadata, ensureActionEconomy } from '@shared/lib/combatRules.js'
 
 // ─── Dice helpers ────────────────────────────────────────────────────────────
 const rollDie = (sides) => Math.floor(Math.random() * sides) + 1
@@ -311,13 +312,17 @@ export default function CharacterProfile({ characterId }) {
   const grantBardicInspiration = usePlayerStore(s => s.grantBardicInspiration)
   const consumeBuff = usePlayerStore(s => s.consumeBuff)
   const pushRoll = usePlayerStore(s => s.pushRoll)
+  const pushSavePrompt = usePlayerStore(s => s.pushSavePrompt)
   const useSpellSlot = usePlayerStore(s => s.useSpellSlot)
   const dmRoll = usePlayerStore(s => s.dmRoll)
   const clearDmRoll = usePlayerStore(s => s.clearDmRoll)
   const playerCharacters = usePlayerStore(s => s.playerCharacters)
   const companionSpellSlots = usePlayerStore(s => s.companionSpellSlots)
   const initiativePhase = usePlayerStore(s => s.initiativePhase)
+  const combatActiveCombatantIndex = usePlayerStore(s => s.combatActiveCombatantIndex)
   const submitInitiative = usePlayerStore(s => s.submitInitiative)
+  const tryUseCombatActionType = usePlayerStore(s => s.tryUseCombatActionType)
+  const getCombatantActionEconomy = usePlayerStore(s => s.getCombatantActionEconomy)
 
   const char = playerCharacters[characterId]
   const liveChar = characters.find(c => c.id === characterId)
@@ -352,11 +357,19 @@ export default function CharacterProfile({ characterId }) {
     : []
 
   const partyChars = characters.filter(c => c.id !== characterId)
+  const myCombatantIndex = combatCombatants.findIndex(c => c.id === characterId)
+  const myTurnActive = combatActive && myCombatantIndex >= 0 && myCombatantIndex === combatActiveCombatantIndex
+  const myEconomy = ensureActionEconomy(getCombatantActionEconomy(characterId))
+  const nextCombatant = combatCombatants[(combatActiveCombatantIndex + 1) % Math.max(combatCombatants.length, 1)]
 
   const resolveSpellForCasting = (spell) => {
     const next = { ...spell }
     if (!next.mechanic) next.mechanic = next.combatProfile?.resolutionType || 'utility'
     if (!next.targetMode) next.targetMode = next.combatProfile?.targetMode || 'single'
+    const castingMeta = parseCastingTimeMeta(next.castingTime)
+    next.actionType = next.actionType || castingMeta.actionType
+    next.isBonusAction = next.isBonusAction ?? castingMeta.isBonusAction
+    next.isReaction = next.isReaction ?? castingMeta.isReaction
     if (!next.target) {
       if (next.targetMode === 'self') next.target = 'self'
       else if (next.targetMode === 'single' || next.targetMode === 'multi_select' || next.targetMode.startsWith('area')) next.target = 'enemy'
@@ -380,6 +393,16 @@ export default function CharacterProfile({ characterId }) {
     return next
   }
 
+  const canSpendActionType = async (actionType, label) => {
+    if (!combatActive || !actionType || actionType === 'special') return true
+    const result = await tryUseCombatActionType(characterId, actionType, label)
+    if (result?.ok) return true
+    const reason = result?.reason === 'not_your_turn'
+      ? `It is not your turn. Resolve "${label}" manually?`
+      : `${actionType.replace('_', ' ')} already used this turn. Resolve "${label}" manually?`
+    return window.confirm(reason)
+  }
+
   // ── Roll functions ──
   const rollSkill = (skill) => {
     const d20 = rollDie(20)
@@ -401,7 +424,10 @@ export default function CharacterProfile({ characterId }) {
     pushRoll(`${save.name} save: d20(${d20}) + ${mod} = ${total}${label}`, char.name)
   }
 
-  const rollAttack = (weapon, target) => {
+  const rollAttack = async (weapon, target) => {
+    const actionType = parseCastingTimeMeta(weapon.action || 'Action').actionType
+    const canUse = await canSpendActionType(actionType, weapon.name)
+    if (!canUse) return
     if (!isAttackRoll(weapon.hit)) {
       // Save spell — keep two-step so DM can declare whether save succeeds
       setRollResult({ type: 'save-spell', weaponName: weapon.name, saveStr: weapon.save || weapon.hit, weapon, target })
@@ -469,7 +495,10 @@ export default function CharacterProfile({ characterId }) {
     pushRoll(`Bardic Inspiration used: +${bonusRoll} (d${buff.die})`, char.name)
   }
 
-  const rollHeal = (healAction, slotLvl, target) => {
+  const rollHeal = async (healAction, slotLvl, target) => {
+    const actionType = parseCastingTimeMeta(healAction.action || 'Action').actionType
+    const canUse = await canSpendActionType(actionType, healAction.name)
+    if (!canUse) return
     const { baseDice, perLevelBonus, dice } = healAction
     let count, sides, modifier
     if (baseDice) {
@@ -498,7 +527,9 @@ export default function CharacterProfile({ characterId }) {
     pushRoll(`${healAction.name}: [${rolls.join('+')}]${modifier ? `+${modifier}` : ''} = +${total} HP → ${targetName}`, char.name)
   }
 
-  const grantBardic = (targetId) => {
+  const grantBardic = async (targetId) => {
+    const canUse = await canSpendActionType('bonus_action', 'Bardic Inspiration')
+    if (!canUse) return
     const ok = grantBardicInspiration(targetId, characterId)
     if (ok) {
       const staticTarget = playerCharacters[targetId]
@@ -532,6 +563,8 @@ export default function CharacterProfile({ characterId }) {
   }
 
   const castSpell = async (spell, slotLevel, target, targets = []) => {
+    const canUse = await canSpendActionType(spell.actionType || parseCastingTimeMeta(spell.castingTime).actionType, spell.name)
+    if (!canUse) return
     const slotLvl = slotLevel ?? spell.minSlot ?? null
     // Consume slot (cantrips have no slot)
     if (slotLvl) {
@@ -573,6 +606,7 @@ export default function CharacterProfile({ characterId }) {
           ? ` → ${selectedTargets.map(t => t.name).join(', ')}`
           : primaryTarget ? ` → ${primaryTarget.name}` : ''
         pushRoll(`${spell.name} (${spell.saveType} DC ${spell.saveDC}): [${rolls.join('+')}]${dd.mod ? `+${dd.mod}` : ''} = ${total} ${dd.type}${targetStr}`, char.name)
+        pushSavePrompt(`${char.name} casts ${spell.name} — ${spell.saveType} save DC ${spell.saveDC}${targetStr}. DM resolve success/failure.`)
         closeSpellPanel()
       } else {
         // Save with no damage (Bane, Command, Charm, etc.)
@@ -582,8 +616,11 @@ export default function CharacterProfile({ characterId }) {
           ? ` → ${selectedTargets.map(t => t.name).join(', ')}`
           : primaryTarget ? ` → ${primaryTarget.name}` : ''
         pushRoll(`${spell.name}: ${spell.saveType} DC ${spell.saveDC}${targetStr}`, char.name)
+        pushSavePrompt(`${char.name} casts ${spell.name} — ${spell.saveType} save DC ${spell.saveDC}${targetStr}. DM resolve success/failure.`)
         for (const t of (selectedTargets.length > 0 ? selectedTargets : primaryTarget ? [primaryTarget] : [])) {
           if (spell.appliesCondition) applyConditionToEnemy(t.id, spell.appliesCondition, char.name)
+          const fx = buildSpellEffectMetadata(spell)
+          if (fx) applyConditionToEnemy(t.id, fx.name, char.name)
         }
         closeSpell()
       }
@@ -710,6 +747,24 @@ export default function CharacterProfile({ characterId }) {
             DM Roll
           </div>
           <div style={{ fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.5 }}>{dmRoll.text}</div>
+        </div>
+      )}
+
+      {combatActive && (
+        <div style={{ margin: '10px 0 12px', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', background: myTurnActive ? `${char.colour}12` : 'var(--bg-card)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: myTurnActive ? char.colour : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              {myTurnActive ? 'Your Turn' : `Active: ${combatCombatants[combatActiveCombatantIndex]?.name || '—'}`}
+            </div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>
+              Next: {nextCombatant?.name || '—'}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+            <span style={{ padding: '2px 8px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', color: myEconomy.actionAvailable ? 'var(--green-bright)' : 'var(--danger)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>Action {myEconomy.actionAvailable ? 'ready' : 'used'}</span>
+            <span style={{ padding: '2px 8px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', color: myEconomy.bonusActionAvailable ? 'var(--green-bright)' : 'var(--danger)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>Bonus {myEconomy.bonusActionAvailable ? 'ready' : 'used'}</span>
+            <span style={{ padding: '2px 8px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', color: myEconomy.reactionAvailable ? 'var(--green-bright)' : 'var(--danger)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>Reaction {myEconomy.reactionAvailable ? 'ready' : 'used'}</span>
+          </div>
         </div>
       )}
 
@@ -1016,6 +1071,9 @@ export default function CharacterProfile({ characterId }) {
 
                   {/* Mechanic badge */}
                   <div style={{ marginBottom: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, padding: '2px 8px', background: spell.actionType === 'bonus_action' ? 'rgba(196,160,64,0.2)' : spell.actionType === 'reaction' ? 'rgba(120,140,220,0.2)' : 'rgba(122,184,106,0.12)', border: '1px solid var(--border)', borderRadius: 4, color: spell.actionType === 'bonus_action' ? 'var(--warning)' : spell.actionType === 'reaction' ? '#a6b5ff' : 'var(--green-bright)' }}>
+                      {spell.actionType === 'bonus_action' ? 'Bonus Action' : spell.actionType === 'reaction' ? 'Reaction' : spell.actionType === 'action' ? 'Action' : spell.castingTime}
+                    </span>
                     {spell.mechanic === 'attack' && (
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, padding: '2px 8px', background: 'rgba(180,80,80,0.15)', border: '1px solid rgba(180,80,80,0.3)', borderRadius: 4, color: 'var(--danger)' }}>
                         Attack +{spell.toHit} · {spell.damage ? `${spell.damage.count}d${spell.damage.sides}${spell.damage.mod ? `+${spell.damage.mod}` : ''} ${spell.damage.type}` : 'on hit effect'}
@@ -1185,6 +1243,9 @@ export default function CharacterProfile({ characterId }) {
                                : displaySpell.mechanic === 'auto' ? `${displaySpell.missiles} missiles · ${displaySpell.damage?.count}d${displaySpell.damage?.sides}+${displaySpell.damage?.mod} ${displaySpell.damage?.type}`
                                : displaySpell.mechanic === 'heal' ? `${displaySpell.healDice?.count}d${displaySpell.healDice?.sides}+${displaySpell.healDice?.mod} HP`
                                : displaySpell.castingTime}
+                            </div>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: displaySpell.actionType === 'bonus_action' ? 'var(--warning)' : displaySpell.actionType === 'reaction' ? '#a6b5ff' : 'var(--text-muted)', marginTop: 2 }}>
+                              {displaySpell.actionType === 'bonus_action' ? 'Bonus Action' : displaySpell.actionType === 'reaction' ? 'Reaction' : displaySpell.actionType === 'action' ? 'Action' : displaySpell.castingTime}
                             </div>
                           </div>
                           <button

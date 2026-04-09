@@ -3,6 +3,7 @@ import { supabase } from '@shared/lib/supabase.js'
 import { CHARACTERS } from '@shared/content/session1.js'
 import { SESSION_2_ENEMIES } from '@shared/content/session2.js'
 import { useSessionStore } from './sessionStore.js'
+import { makeActionEconomy, ensureActionEconomy, consumeActionEconomy, sortCombatantsByInitiative } from '@shared/lib/combatRules.js'
 
 const CORRUPTED_WOLF = {
   id: 'corrupted-wolf',
@@ -54,6 +55,7 @@ export const useCombatStore = create((set, get) => ({
       }
     }
     if (!Array.isArray(combatants)) combatants = []
+    combatants = combatants.map(c => ({ ...c, actionEconomy: ensureActionEconomy(c) }))
 
     let nextLast = lastApplied ?? null
     if (incomingTs != null) {
@@ -190,7 +192,7 @@ export const useCombatStore = create((set, get) => ({
     try {
       const { data, error } = await supabase
         .from('stat_blocks')
-        .select('slug, ac, max_hp, portrait_url')
+        .select('slug, ac, max_hp, portrait_url, actions, bonus_actions, reactions, ability_scores, saving_throws')
         .in('slug', slugs)
       if (error) {
         console.warn('startEncounter stat_blocks lookup failed:', error)
@@ -238,6 +240,7 @@ export const useCombatStore = create((set, get) => ({
         effects: [],
         concentration: false,
         image: c.image || null,
+        actionEconomy: makeActionEconomy(),
       }
     })
 
@@ -259,6 +262,14 @@ export const useCombatStore = create((set, get) => ({
         effects: [],
         concentration: false,
         image: sb?.portrait_url || e.portrait_url || null,
+        actionEconomy: makeActionEconomy(),
+        abilityScores: sb?.ability_scores || {},
+        savingThrows: sb?.saving_throws || [],
+        actionOptions: [
+          ...((sb?.actions || []).map(a => ({ ...a, actionType: 'action' }))),
+          ...((sb?.bonus_actions || []).map(a => ({ ...a, actionType: 'bonus_action' }))),
+          ...((sb?.reactions || []).map(a => ({ ...a, actionType: 'reaction' }))),
+        ],
       }
     })
 
@@ -303,7 +314,7 @@ export const useCombatStore = create((set, get) => ({
   // Sort initiative order and end initiative phase
   sortInitiative: async () => {
     const { combatants } = get()
-    const sorted = [...combatants].sort((a, b) => b.initiative - a.initiative)
+    const sorted = sortCombatantsByInitiative(combatants)
     set({ combatants: sorted, activeCombatantIndex: 0, initiativePhase: false })
     await get().syncCombatState()
   },
@@ -335,7 +346,11 @@ export const useCombatStore = create((set, get) => ({
       }
       if (eligible(combatants[idx])) break
     }
-    set({ activeCombatantIndex: idx, round: newRound })
+    const updatedCombatants = combatants.map((c, i) => {
+      if (i === idx) return { ...c, actionEconomy: makeActionEconomy() }
+      return c
+    })
+    set({ activeCombatantIndex: idx, round: newRound, combatants: updatedCombatants })
     await get().pushFeedEvent(`${combatants[idx]?.name}'s turn.`, 'turn', false)
     await get().syncCombatState()
   },
@@ -428,6 +443,26 @@ export const useCombatStore = create((set, get) => ({
     })
     set({ combatants: updated })
     await get().syncCombatState()
+  },
+
+  useCombatantActionType: async (combatantId, actionType, label = null) => {
+    if (!combatantId || !actionType || actionType === 'special') return true
+    const { combatants } = get()
+    const idx = combatants.findIndex(c => c.id === combatantId)
+    if (idx === -1) return false
+    const actor = combatants[idx]
+    const consumed = consumeActionEconomy(actor, actionType)
+    if (!consumed.ok) return false
+    const updated = combatants.map((c, i) => (
+      i === idx ? { ...c, actionEconomy: consumed.actionEconomy } : c
+    ))
+    set({ combatants: updated })
+    if (label) {
+      const readable = actionType === 'bonus_action' ? 'bonus action' : actionType
+      await get().pushFeedEvent(`${actor.name} uses ${readable}: ${label}`, 'action', false)
+    }
+    await get().syncCombatState()
+    return true
   },
 
   // Push a feed event

@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { supabase } from '@shared/lib/supabase.js'
 import { SESSION_1_PLAYER, CHARACTERS } from '@shared/content/session1.js'
 import { PLAYER_CHARACTERS } from '@shared/content/playerCharacters.js'
+import { parseCastingTimeMeta, consumeActionEconomy, ensureActionEconomy } from '@shared/lib/combatRules.js'
 
 /** Player client: PCs only (exclude DM companion NPCs from party list). */
 const PLAYER_RUNTIME_CHARACTERS = CHARACTERS.filter(c => !c.isNPC)
@@ -87,6 +88,7 @@ export const usePlayerStore = create((set, get) => ({
   combatActive: false,
   combatRound: 1,
   combatCombatants: [],
+  combatActiveCombatantIndex: 0,
   ilyaAssignedTo: null,
   initiativePhase: false,
   companionSpellSlots: {},
@@ -144,6 +146,7 @@ export const usePlayerStore = create((set, get) => ({
       }
     }
     if (!Array.isArray(combatants)) combatants = []
+    combatants = combatants.map(c => ({ ...c, actionEconomy: ensureActionEconomy(c) }))
 
     let nextLast = lastApplied ?? null
     if (incomingTs != null) {
@@ -154,6 +157,7 @@ export const usePlayerStore = create((set, get) => ({
       combatActive: row.active ?? false,
       combatRound: row.round ?? 1,
       combatCombatants: combatants,
+      combatActiveCombatantIndex: row.active_combatant_index ?? 0,
       ilyaAssignedTo: row.ilya_assigned_to ?? null,
       initiativePhase: row.initiative_phase ?? false,
       _combatStateSyncedAt: nextLast,
@@ -287,6 +291,7 @@ export const usePlayerStore = create((set, get) => ({
       ;(compendiumRows || []).forEach((row) => {
         const spellId = normalizeSpellId(row.spell_id || row.name)
         if (!spellId) return
+        const castingMeta = parseCastingTimeMeta(row.casting_time)
         const mechanic = row.rules_json?.inferred_mechanic || row.resolution_type || 'utility'
         const target = row.rules_json?.inferred_target
           || (row.target_mode && row.target_mode.startsWith('area') ? 'enemy' : null)
@@ -297,6 +302,9 @@ export const usePlayerStore = create((set, get) => ({
           school: row.school,
           mechanic,
           castingTime: row.casting_time,
+          actionType: castingMeta.actionType,
+          isBonusAction: castingMeta.isBonusAction,
+          isReaction: castingMeta.isReaction,
           range: row.range,
           duration: row.duration,
           ritual: !!row.ritual,
@@ -336,6 +344,9 @@ export const usePlayerStore = create((set, get) => ({
           const withCompat = {
             ...mergedSpell,
             spellId: rowSpellId || normalizeSpellId(mergedSpell.name),
+            actionType: mergedSpell.actionType || parseCastingTimeMeta(mergedSpell.castingTime).actionType,
+            isBonusAction: mergedSpell.isBonusAction ?? parseCastingTimeMeta(mergedSpell.castingTime).isBonusAction,
+            isReaction: mergedSpell.isReaction ?? parseCastingTimeMeta(mergedSpell.castingTime).isReaction,
             mechanic,
             targetMode: mergedSpell.targetMode || mergedSpell.combatProfile?.targetMode || 'special',
             target: mergedSpell.target
@@ -695,5 +706,64 @@ export const usePlayerStore = create((set, get) => ({
     } catch (e) {
       // Non-critical — roll display continues even if push fails
     }
+  },
+
+  pushSavePrompt: async (text) => {
+    const { combatRound } = get()
+    try {
+      await supabase.from('combat_feed').insert({
+        session_id: 'session-1',
+        round: combatRound,
+        text,
+        type: 'save-prompt',
+        shared: true,
+        timestamp: new Date().toISOString()
+      })
+    } catch (e) {}
+  },
+
+  tryUseCombatActionType: async (characterId, actionType, context = 'action') => {
+    const { combatActive, combatRound, initiativePhase, ilyaAssignedTo, combatActiveCombatantIndex } = get()
+    if (!combatActive || !actionType || actionType === 'special') return { ok: true, reason: null }
+    const combatCombatants = await get().fetchCombatantsForWrite()
+    const idx = combatCombatants.findIndex(c => c.id === characterId)
+    if (idx === -1) return { ok: true, reason: null }
+    if (combatActiveCombatantIndex !== idx) {
+      return { ok: false, reason: 'not_your_turn' }
+    }
+    const actor = combatCombatants[idx]
+    const consumed = consumeActionEconomy(actor, actionType)
+    if (!consumed.ok) {
+      return { ok: false, reason: `${actionType}_unavailable` }
+    }
+    const updatedCombatants = combatCombatants.map((c, i) => (
+      i === idx ? { ...c, actionEconomy: consumed.actionEconomy } : c
+    ))
+    set({ combatCombatants: updatedCombatants })
+    const ts = new Date().toISOString()
+    try {
+      await supabase.from('combat_state').upsert({
+        id: 'session-1',
+        active: combatActive,
+        round: combatRound,
+        combatants: updatedCombatants,
+        active_combatant_index: combatActiveCombatantIndex,
+        initiative_phase: initiativePhase,
+        ilya_assigned_to: ilyaAssignedTo,
+        updated_at: ts
+      })
+      get().bumpCombatStateSyncedFromWrite(ts)
+      const readable = actionType === 'bonus_action' ? 'bonus action' : actionType
+      await get().pushRoll(`${context}: spent ${readable}`, characterId)
+      return { ok: true, reason: null }
+    } catch (e) {
+      console.error('Failed to spend action economy:', e)
+      return { ok: true, reason: null }
+    }
+  },
+
+  getCombatantActionEconomy: (characterId) => {
+    const c = get().combatCombatants.find(x => x.id === characterId)
+    return ensureActionEconomy(c || {})
   }
 }))
