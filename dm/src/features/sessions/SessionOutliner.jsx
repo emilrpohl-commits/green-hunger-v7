@@ -703,7 +703,7 @@ function SessionRow({ session, allScenes, statBlocks, onImport }) {
   }
 
   const handleDelete = async () => {
-    if (!window.confirm(`Delete session "${session.title}" and all its scenes/beats? This cannot be undone.`)) return
+    if (!window.confirm(`Archive session "${session.title}"? It will be hidden from active builder/runtime views.`)) return
     await deleteSession(session.id)
     syncContentFromDb(useCampaignStore.getState().sessions)
   }
@@ -759,7 +759,7 @@ function SessionRow({ session, allScenes, statBlocks, onImport }) {
           <button onClick={() => setEditingMeta(v => !v)} style={{ ...btnSm, color: editingMeta ? 'var(--green-bright)' : 'var(--text-secondary)', fontSize: 10 }}>
             {editingMeta ? 'close' : 'Edit'}
           </button>
-          <button onClick={handleDelete} style={{ ...btnDanger, fontSize: 10 }}>Delete</button>
+          <button onClick={handleDelete} style={{ ...btnDanger, fontSize: 10 }}>Archive</button>
           <button
             onClick={() => setShowMoreMenu(v => !v)}
             style={{ ...btnSm, fontSize: 12 }}
@@ -858,9 +858,12 @@ function SessionRow({ session, allScenes, statBlocks, onImport }) {
 // ─── SessionOutliner (main export) ────────────────────────────────────────────
 export default function SessionOutliner({ onImport }) {
   const sessions = useCampaignStore(s => s.sessions)
+  const archivedSessions = useCampaignStore(s => s.archivedSessions)
+  const restoreSession = useCampaignStore(s => s.restoreSession)
   const statBlocks = useCampaignStore(s => s.statBlocks)
   const createSession = useCampaignStore(s => s.createSession)
   const syncContentFromDb = useSessionStore(s => s.syncContentFromDb)
+  const [showArchivedSessions, setShowArchivedSessions] = useState(false)
 
   const [newTitle, setNewTitle] = useState('')
   const [creating, setCreating] = useState(false)
@@ -909,6 +912,12 @@ export default function SessionOutliner({ onImport }) {
         >
           Import Markdown
         </button>
+        <button
+          onClick={() => setShowArchivedSessions(v => !v)}
+          style={{ ...btnSm, padding: '7px 14px', fontSize: 10, border: '1px solid var(--border-bright)', color: showArchivedSessions ? 'var(--warning)' : 'var(--text-secondary)' }}
+        >
+          {showArchivedSessions ? 'Hide Archived' : `Archived (${archivedSessions.length})`}
+        </button>
       </div>
 
       {createError && (
@@ -932,6 +941,40 @@ export default function SessionOutliner({ onImport }) {
           onImport={onImport}
         />
       ))}
+
+      {showArchivedSessions && (
+        <div style={{ marginTop: 20 }}>
+          <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+            Archived Sessions
+          </div>
+          {archivedSessions.length === 0 && (
+            <div style={{ padding: '10px 12px', border: '1px dashed var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-muted)', fontSize: 12 }}>
+              No archived sessions.
+            </div>
+          )}
+          {archivedSessions.map(session => (
+            <div key={session.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: 6 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                  Session {session.session_number || session.order || '?'} — {session.title}
+                </div>
+                <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)' }}>
+                  {session.archived_at ? `Archived: ${new Date(session.archived_at).toLocaleString()}` : 'Archived'}
+                </div>
+              </div>
+              <button
+                onClick={async () => {
+                  const result = await restoreSession(session.id)
+                  if (!result?.error) syncContentFromDb(useCampaignStore.getState().sessions)
+                }}
+                style={{ ...btnSm }}
+              >
+                Restore
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

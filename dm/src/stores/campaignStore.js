@@ -58,6 +58,8 @@ export const useCampaignStore = create((set, get) => ({
   spells: [],
   npcs: [],
   assets: [],
+  archivedSessions: [],
+  archivedStatBlocks: [],
 
   // Loading / error
   loading: false,
@@ -87,8 +89,11 @@ export const useCampaignStore = create((set, get) => ({
         .order('name')
       if (sbe) throw new Error(`stat_blocks: ${sbe.message}`)
 
+      const allStatBlocks = statBlocks || []
+      const activeStatBlocks = allStatBlocks.filter(sb => !sb.archived_at)
+      const archivedStatBlocks = allStatBlocks.filter(sb => !!sb.archived_at)
       const statBlockMap = {}
-      ;(statBlocks || []).forEach(sb => {
+      ;activeStatBlocks.forEach(sb => {
         statBlockMap[sb.slug] = sb
         statBlockMap[sb.id] = sb
       })
@@ -133,25 +138,32 @@ export const useCampaignStore = create((set, get) => ({
       const seen = new Set()
       const sessions = (sessionsRaw || []).filter(s => {
         const key = s.session_number ?? s.order
+        if (s.archived_at) return false
         if (seen.has(key)) return false
         seen.add(key)
         return true
       })
+      const archivedSessionsRaw = (sessionsRaw || []).filter(s => !!s.archived_at)
 
       // Load scenes + beats + branches for each session
       const sessionsWithContent = await Promise.all(
         sessions.map(s => get().loadSessionContent(s))
+      )
+      const archivedSessions = await Promise.all(
+        archivedSessionsRaw.map(s => get().loadSessionContent(s))
       )
 
       set({
         campaign,
         adventureId,
         sessions: sessionsWithContent,
-        statBlocks: statBlocks || [],
+        statBlocks: activeStatBlocks,
+        archivedStatBlocks,
         statBlockMap,
         spells: spells || [],
         npcs: npcs || [],
         assets: assets || [],
+        archivedSessions,
         loading: false,
         lastLoaded: new Date(),
       })
@@ -232,11 +244,37 @@ export const useCampaignStore = create((set, get) => ({
   },
 
   deleteStatBlock: async (id) => {
-    const { error } = await supabase.from('stat_blocks').delete().eq('id', id)
-    if (error) return { error: error.message }
+    // Soft-delete guard: archive rather than destructive delete.
+    const { error } = await supabase
+      .from('stat_blocks')
+      .update({ archived_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) {
+      return { error: `Archive failed: ${error.message}. Ensure archived_at column exists on stat_blocks.` }
+    }
     const { statBlocks } = get()
-    set({ statBlocks: statBlocks.filter(sb => sb.id !== id) })
+    const archived = statBlocks.find(sb => sb.id === id)
+    set({
+      statBlocks: statBlocks.filter(sb => sb.id !== id),
+      archivedStatBlocks: archived ? [{ ...archived, archived_at: new Date().toISOString() }, ...get().archivedStatBlocks] : get().archivedStatBlocks,
+    })
     return { success: true }
+  },
+
+  restoreStatBlock: async (id) => {
+    const { error, data } = await supabase
+      .from('stat_blocks')
+      .update({ archived_at: null })
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) return { error: error.message }
+    const { archivedStatBlocks, statBlocks } = get()
+    set({
+      archivedStatBlocks: archivedStatBlocks.filter(sb => sb.id !== id),
+      statBlocks: [...statBlocks, data].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''))),
+    })
+    return { data }
   },
 
   duplicateStatBlock: async (id) => {
@@ -356,9 +394,29 @@ export const useCampaignStore = create((set, get) => ({
   // ---------------------------------------------------------------------------
 
   deleteSession: async (id) => {
-    const { error } = await supabase.from('sessions').delete().eq('id', id)
+    // Soft-delete guard: archive rather than destructive delete.
+    const { error } = await supabase
+      .from('sessions')
+      .update({ archived_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) {
+      return { error: `Archive failed: ${error.message}. Ensure archived_at column exists on sessions.` }
+    }
+    const removed = get().sessions.find(s => s.id === id)
+    set({
+      sessions: get().sessions.filter(s => s.id !== id),
+      archivedSessions: removed ? [{ ...removed, archived_at: new Date().toISOString() }, ...get().archivedSessions] : get().archivedSessions,
+    })
+    return { success: true }
+  },
+
+  restoreSession: async (id) => {
+    const { error } = await supabase
+      .from('sessions')
+      .update({ archived_at: null })
+      .eq('id', id)
     if (error) return { error: error.message }
-    set({ sessions: get().sessions.filter(s => s.id !== id) })
+    await get().loadCampaign()
     return { success: true }
   },
 

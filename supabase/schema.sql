@@ -72,6 +72,7 @@ create table if not exists sessions (
   objectives text[],
   contingency_notes text,
   post_session_notes text,
+  archived_at timestamptz,
   notes text,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
@@ -192,6 +193,7 @@ create table if not exists stat_blocks (
   portrait_url text,
   token_url text,
   tags text[],
+  archived_at timestamptz,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
