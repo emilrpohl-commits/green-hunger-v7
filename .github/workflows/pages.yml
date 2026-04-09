@@ -55,6 +55,26 @@ jobs:
           cp -R dm/dist/* _site/dm/
           cp -R players/dist/* _site/players/
           cp docs/landing-bg.png _site/landing-bg.png
+          cp docs/icon.png _site/icon.png
+          cp docs/icon.png _site/dm/icon.png
+          cp docs/icon.png _site/players/icon.png
+          python - <<'PY'
+from pathlib import Path
+
+def inject_icon(path: Path, href: str):
+    if not path.exists():
+        return
+    html = path.read_text(encoding='utf-8')
+    if 'rel="icon"' in html:
+        return
+    marker = '<head>'
+    if marker in html:
+        html = html.replace(marker, marker + f'\n    <link rel="icon" type="image/png" href="{href}" />', 1)
+        path.write_text(html, encoding='utf-8')
+
+inject_icon(Path('_site/dm/index.html'), './icon.png')
+inject_icon(Path('_site/players/index.html'), './icon.png')
+PY
           cat > _site/index.html <<'EOF'
           <!doctype html>
           <html lang="en">
@@ -62,6 +82,7 @@ jobs:
               <meta charset="UTF-8" />
               <meta name="viewport" content="width=device-width,initial-scale=1" />
               <title>The Green Hunger</title>
+              <link rel="icon" type="image/png" href="./icon.png" />
               <style>
                 :root {
                   --bg-deep: #0a0f0c;
