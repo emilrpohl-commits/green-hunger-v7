@@ -776,7 +776,7 @@ function SessionRow({ session, allScenes, statBlocks, onImport }) {
                 onClick={() => { setShowMoreMenu(false); onImport && onImport(session.id) }}
                 style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 13 }}
               >
-                Import from DOCX
+                Import from Markdown
               </button>
             </div>
           )}
@@ -907,7 +907,7 @@ export default function SessionOutliner({ onImport }) {
           onClick={() => onImport && onImport(null)}
           style={{ ...btnSm, padding: '7px 14px', fontSize: 10, border: '1px solid var(--border-bright)', color: 'var(--text-secondary)' }}
         >
-          Import DOCX
+          Import Markdown
         </button>
       </div>
 
@@ -919,7 +919,7 @@ export default function SessionOutliner({ onImport }) {
 
       {sessions.length === 0 && (
         <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-          No sessions yet. Create one above or import a DOCX session document.
+          No sessions yet. Create one above or import a Markdown session document.
         </div>
       )}
 
