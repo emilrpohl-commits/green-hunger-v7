@@ -11,6 +11,25 @@ import { qaHoldSavePromptChannelName } from '@shared/lib/qaDevChannels.js'
 /** Player client: PCs only (exclude DM companion NPCs from party list). */
 const PLAYER_RUNTIME_CHARACTERS = CHARACTERS.filter(c => !c.isNPC)
 
+function getLoggedInCharacterId() {
+  try {
+    return sessionStorage.getItem('gh_player')
+  } catch {
+    return null
+  }
+}
+
+/** Targeted prompts/rolls only update this tab's store when `gh_player` matches (Section 6 / Ilya assignment). */
+function shouldAcceptDmTargetForClient(rowTargetId, decodedTargetId, ilyaAssignedTo) {
+  const tid = rowTargetId ?? decodedTargetId
+  if (!tid || tid === 'all') return true
+  const me = getLoggedInCharacterId()
+  if (!me) return true
+  if (String(tid) === String(me)) return true
+  if (String(tid) === 'ilya' && ilyaAssignedTo && String(ilyaAssignedTo) === String(me)) return true
+  return false
+}
+
 function normalizeSpellId(value) {
   return String(value || '')
     .toLowerCase()
@@ -300,6 +319,7 @@ export const usePlayerStore = create((set, get) => ({
         const isSameRun = rowSession === sessionRunId || payload.new.session_id === 'session-1'
         if (!isSameRun) return
         if (payload.new.type === 'dm-roll') {
+          if (!shouldAcceptDmTargetForClient(payload.new.target_id, null, get().ilyaAssignedTo)) return
           set({
             dmRoll: {
               text: payload.new.text,
@@ -312,6 +332,7 @@ export const usePlayerStore = create((set, get) => ({
         }
         if (payload.new.type === 'player-save-prompt') {
           const decoded = decodePlayerSavePrompt(payload.new.text)
+          if (!shouldAcceptDmTargetForClient(payload.new.target_id, decoded?.targetId, get().ilyaAssignedTo)) return
           if (!decoded) {
             set({
               dmRoll: {
@@ -352,6 +373,12 @@ export const usePlayerStore = create((set, get) => ({
         const row = Array.isArray(data) && data.length > 0 ? data[0] : null
         if (!row || seenDmPromptIds.includes(row.id)) return
         const decoded = decodePlayerSavePrompt(row.text)
+        if (!shouldAcceptDmTargetForClient(row.target_id, decoded?.targetId, get().ilyaAssignedTo)) {
+          set((state) => ({
+            seenDmPromptIds: [row.id, ...(state.seenDmPromptIds || [])].slice(0, 100),
+          }))
+          return
+        }
         set((state) => ({
           dmRoll: decoded
             ? {

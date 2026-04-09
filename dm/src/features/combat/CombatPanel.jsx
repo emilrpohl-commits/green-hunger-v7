@@ -8,8 +8,8 @@ import { encodePlayerSavePrompt, buildSavePromptDamageMeta } from '@shared/lib/c
 
 const CONDITIONS = ['Blinded', 'Charmed', 'Frightened', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious', 'Grappled', 'Paralysed']
 
-// Spell effects with their mechanical display
-const SPELL_EFFECTS = [
+// Debuffs / monster-oriented effects (DM applies to enemies)
+const HOSTILE_SPELL_EFFECTS = [
   { name: 'Bane',           colour: '#a060c0', mechanic: '−1d4 attacks & saves',    concentration: true,  source: null },
   { name: 'Hex',            colour: '#8040a0', mechanic: '−1d4 ability checks',      concentration: true,  source: null },
   { name: 'Faerie Fire',    colour: '#80c0ff', mechanic: 'Advantage on attacks vs.', concentration: true,  source: null },
@@ -20,6 +20,13 @@ const SPELL_EFFECTS = [
   { name: 'Silvery Barbs',  colour: '#c0c0ff', mechanic: 'Reroll next success',      concentration: false, source: null },
   { name: 'Command',        colour: '#e0a040', mechanic: 'Obeying command',          concentration: false, source: null },
   { name: 'Charm',          colour: '#ff80a0', mechanic: 'Charmed by caster',        concentration: false, source: null },
+]
+
+// Buffs DM applies to PCs / Ilya (deterministic in shared/lib/combatRules.js)
+const PC_BUFF_SPELL_EFFECTS = [
+  { name: 'Bless',           colour: '#6080c0', mechanic: '+1d4 attacks & saves', concentration: true,  source: null },
+  { name: 'Shield of Faith', colour: '#8090ff', mechanic: '+2 AC',                concentration: true,  source: null },
+  { name: 'Guidance',        colour: '#90b070', mechanic: '+1d4 ability checks',  concentration: true,  source: null },
 ]
 
 const HP_COLOUR = (pct, curHp) => {
@@ -71,7 +78,10 @@ function CombatantCard({ combatant, isActive, flashActive = false, players = [] 
   const hpPct = combatant.maxHp > 0 ? (combatant.curHp / combatant.maxHp) * 100 : 0
   const hpColour = HP_COLOUR(hpPct, combatant.curHp)
   const isEnemy = combatant.type === 'enemy'
+  const isPlayerCombatant = combatant.type === 'player'
   const isDead = combatant.curHp === 0 && isEnemy
+  const effectPickerList = isEnemy ? HOSTILE_SPELL_EFFECTS : PC_BUFF_SPELL_EFFECTS
+  const canPickEffects = (isEnemy && !isDead) || isPlayerCombatant
   const effects = combatant.effects || []
   const economy = combatant.actionEconomy || {}
 
@@ -415,7 +425,7 @@ function CombatantCard({ combatant, isActive, flashActive = false, players = [] 
         <button onClick={() => { setShowConditions(!showConditions); setShowEffects(false) }} style={{
           padding: '2px 7px', fontSize: 10, background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-muted)', cursor: 'pointer'
         }}>+ condition</button>
-        {isEnemy && (
+        {canPickEffects && (
           <button onClick={() => { setShowEffects(!showEffects); setShowConditions(false) }} style={{
             padding: '2px 7px', fontSize: 10, background: 'transparent', border: '1px solid rgba(160,96,192,0.35)', borderRadius: 'var(--radius)', color: '#a060c0', cursor: 'pointer'
           }}>✦ effect</button>
@@ -436,9 +446,9 @@ function CombatantCard({ combatant, isActive, flashActive = false, players = [] 
 
         {showEffects && (
           <div style={{ position: 'absolute', zIndex: 20, top: '100%', left: 0, marginTop: 4, padding: '10px 12px', background: 'var(--bg-raised)', border: '1px solid rgba(160,96,192,0.3)', borderRadius: 'var(--radius-lg)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', minWidth: 280 }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Apply Spell Effect</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>{isEnemy ? 'Apply Spell Effect' : 'Apply Buff (PC)'}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {SPELL_EFFECTS.map(eff => {
+              {effectPickerList.map(eff => {
                 const already = effects.find(e => e.name === eff.name)
                 return (
                   <div key={eff.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>

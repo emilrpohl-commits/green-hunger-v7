@@ -961,7 +961,7 @@ export default function CharacterProfile({ characterId }) {
         {/* Quick stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 16 }}>
           {[
-            { label: 'AC', value: char.stats.ac },
+            { label: 'AC', value: combatActive && myCombatant ? getAcWithEffects(myCombatant) : char.stats.ac },
             { label: 'Speed', value: char.stats.speed + ' ft.' },
             { label: 'Init', value: char.stats.initiative },
             { label: 'Prof', value: char.stats.proficiencyBonus },
