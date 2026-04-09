@@ -737,7 +737,7 @@ export default function CharacterProfile({ characterId }) {
   useEffect(() => {
     if (!dmRoll) return
     // Only show if targeted at this character or all
-    const relevant = dmRoll.targetId === 'all' || dmRoll.targetId === characterId
+    const relevant = !dmRoll.targetId || dmRoll.targetId === 'all' || dmRoll.targetId === characterId
     if (!relevant) return
     const t = setTimeout(clearDmRoll, 10000)
     return () => clearTimeout(t)
@@ -750,7 +750,7 @@ export default function CharacterProfile({ characterId }) {
     return () => clearTimeout(t)
   }, [myTurnActive, combatActive, combatRound])
 
-  const showDmRoll = dmRoll && (dmRoll.targetId === 'all' || dmRoll.targetId === characterId)
+  const showDmRoll = dmRoll && (!dmRoll.targetId || dmRoll.targetId === 'all' || dmRoll.targetId === characterId)
 
   const resolveIncomingSavePrompt = (isManual = false, manualTotal = null) => {
     if (!dmRoll?.savePrompt) return
