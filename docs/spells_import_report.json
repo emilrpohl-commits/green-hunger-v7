@@ -1,0 +1,24 @@
+{
+  "source_count": 519,
+  "scoped_count": 37,
+  "scope": "used-by-party",
+  "counts": {
+    "resolution_type": {
+      "heal": 5,
+      "utility": 17,
+      "save": 7,
+      "attack": 4,
+      "special": 3,
+      "auto": 1
+    },
+    "target_mode": {
+      "single": 21,
+      "special": 4,
+      "area": 2,
+      "multi_select": 2,
+      "self": 6,
+      "area_all": 2
+    },
+    "manual_resolution": 7
+  }
+}

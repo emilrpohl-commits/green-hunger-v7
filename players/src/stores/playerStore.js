@@ -6,6 +6,44 @@ import { PLAYER_CHARACTERS } from '@shared/content/playerCharacters.js'
 /** Player client: PCs only (exclude DM companion NPCs from party list). */
 const PLAYER_RUNTIME_CHARACTERS = CHARACTERS.filter(c => !c.isNPC)
 
+function normalizeSpellId(value) {
+  return String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
+function mergeSpellWithOverride(baseSpell = {}, overrides = {}) {
+  const merged = {
+    ...baseSpell,
+    ...overrides,
+  }
+  if (baseSpell.damage || overrides.damage) {
+    merged.damage = { ...(baseSpell.damage || {}), ...(overrides.damage || {}) }
+  }
+  if (baseSpell.healDice || overrides.healDice) {
+    merged.healDice = { ...(baseSpell.healDice || {}), ...(overrides.healDice || {}) }
+  }
+  return merged
+}
+
+function withSpellIds(characterMap) {
+  const next = {}
+  for (const [id, char] of Object.entries(characterMap || {})) {
+    const spells = {}
+    for (const [levelKey, list] of Object.entries(char.spells || {})) {
+      spells[levelKey] = (list || []).map((spell) => ({
+        ...spell,
+        spellId: spell.spellId || normalizeSpellId(spell.name),
+      }))
+    }
+    next[id] = { ...char, spells }
+  }
+  return next
+}
+
 function sanitizeIlyaSheet(character) {
   if (!character || character.id !== 'ilya') return character
   const sanitized = { ...character }
@@ -43,7 +81,7 @@ export const usePlayerStore = create((set, get) => ({
   characters: PLAYER_RUNTIME_CHARACTERS,
 
   // Static character data (loaded from Supabase, falls back to hardcoded)
-  playerCharacters: PLAYER_CHARACTERS,
+  playerCharacters: withSpellIds(PLAYER_CHARACTERS),
 
   // Combat state (synced from DM console)
   combatActive: false,
@@ -52,6 +90,7 @@ export const usePlayerStore = create((set, get) => ({
   ilyaAssignedTo: null,
   initiativePhase: false,
   companionSpellSlots: {},
+  spellCompendium: {},
 
   /** Monotonic guard for combat_state realtime/HTTP (mirrors DM combatStore) */
   _combatStateSyncedAt: null,
@@ -237,11 +276,49 @@ export const usePlayerStore = create((set, get) => ({
   // Load characters and spells from Supabase, overwriting the hardcoded fallback
   loadCharacters: async () => {
     try {
-      const [{ data: charRows }, { data: spellRows }] = await Promise.all([
+      const [{ data: charRows }, { data: spellRows }, { data: compendiumRows }] = await Promise.all([
         supabase.from('characters').select('*'),
-        supabase.from('character_spells').select('*').order('order_index')
+        supabase.from('character_spells').select('*').order('order_index'),
+        supabase.from('spells').select('*')
       ])
       if (!charRows || charRows.length === 0) return
+
+      const spellCompendium = {}
+      ;(compendiumRows || []).forEach((row) => {
+        const spellId = normalizeSpellId(row.spell_id || row.name)
+        if (!spellId) return
+        const mechanic = row.rules_json?.inferred_mechanic || row.resolution_type || 'utility'
+        const target = row.rules_json?.inferred_target
+          || (row.target_mode && row.target_mode.startsWith('area') ? 'enemy' : null)
+        spellCompendium[spellId] = {
+          spellId,
+          name: row.name,
+          level: row.level,
+          school: row.school,
+          mechanic,
+          castingTime: row.casting_time,
+          range: row.range,
+          duration: row.duration,
+          ritual: !!row.ritual,
+          concentration: !!row.concentration,
+          description: row.description,
+          higher_levels: row.higher_level_effect,
+          saveType: row.save_type || row.save_ability || null,
+          attack_type: row.attack_type,
+          targetMode: row.target_mode || 'special',
+          target,
+          source: row.source || null,
+          area: row.area || null,
+          scaling: row.scaling || {},
+          combatProfile: {
+            resolutionType: row.resolution_type || 'special',
+            targetMode: row.target_mode || 'special',
+            saveAbility: row.save_ability || null,
+            area: row.area || {},
+            rules: row.rules_json || {},
+          },
+        }
+      })
 
       // Group spells by character + slot level
       const spellsByChar = {}
@@ -251,7 +328,21 @@ export const usePlayerStore = create((set, get) => ({
           if (!spellsByChar[cid]) spellsByChar[cid] = {}
           const key = row.slot_level === 'cantrip' ? 'cantrips' : row.slot_level
           if (!spellsByChar[cid][key]) spellsByChar[cid][key] = []
-          spellsByChar[cid][key].push(row.spell_data)
+          const rowSpellId = normalizeSpellId(row.spell_id || row.spell_data?.spellId || row.spell_data?.name)
+          const compendiumSpell = rowSpellId ? spellCompendium[rowSpellId] : null
+          const baseSpell = compendiumSpell || row.spell_data || {}
+          const mergedSpell = mergeSpellWithOverride(baseSpell, row.overrides_json || {})
+          const mechanic = mergedSpell.mechanic || mergedSpell.combatProfile?.resolutionType || 'utility'
+          const withCompat = {
+            ...mergedSpell,
+            spellId: rowSpellId || normalizeSpellId(mergedSpell.name),
+            mechanic,
+            targetMode: mergedSpell.targetMode || mergedSpell.combatProfile?.targetMode || 'special',
+            target: mergedSpell.target
+              || (mergedSpell.targetMode && mergedSpell.targetMode.startsWith('area') ? 'enemy' : null),
+            saveType: mergedSpell.saveType || mergedSpell.combatProfile?.saveAbility || null,
+          }
+          spellsByChar[cid][key].push(withCompat)
         }
       }
 
@@ -293,7 +384,7 @@ export const usePlayerStore = create((set, get) => ({
       if (playerCharacters.ilya) {
         playerCharacters.ilya = sanitizeIlyaSheet(playerCharacters.ilya)
       }
-      set({ playerCharacters })
+      set({ playerCharacters: withSpellIds(playerCharacters), spellCompendium })
     } catch (e) {
       console.log('Could not load characters from server, using defaults.')
     }

@@ -201,6 +201,7 @@ create table if not exists stat_blocks (
 create table if not exists spells (
   id uuid primary key default gen_random_uuid(),
   campaign_id uuid references campaigns(id) on delete set null,
+  spell_id text,
   name text not null,
   level int not null,                         -- 0 = cantrip
   school text,
@@ -217,6 +218,12 @@ create table if not exists spells (
   healing_dice text,
   save_type text,                             -- 'STR'|'DEX'|'CON'|'INT'|'WIS'|'CHA'
   attack_type text,                           -- 'melee'|'ranged'|null
+  resolution_type text,                       -- 'attack'|'save'|'auto'|'heal'|'utility'|'special'
+  target_mode text,                           -- 'single'|'multi_select'|'area_all'|'area'|'special'|...
+  save_ability text,                          -- 'STR'|'DEX'|'CON'|'INT'|'WIS'|'CHA'|null
+  area jsonb default '{}',                    -- { shape, size, origin }
+  scaling jsonb default '{}',                 -- parsed scaling metadata
+  rules_json jsonb default '{}',              -- enriched parser output + confidence flags
   tags text[],
   source text,
   classes text[],
@@ -224,6 +231,45 @@ create table if not exists spells (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+create table if not exists spells_raw (
+  id uuid primary key default gen_random_uuid(),
+  spell_id text not null,
+  source_file text not null default 'docs/Green_Hunger_Spells_App_Ready.json',
+  raw_json jsonb not null,
+  normalized_hash text,
+  imported_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Player-side character spell mapping (used by players/src/stores/playerStore.js)
+create table if not exists character_spells (
+  id uuid primary key default gen_random_uuid(),
+  character_id text not null,
+  slot_level text not null,                   -- 'cantrip' | '1' | '2' ...
+  order_index int not null default 0,
+  spell_id text,                              -- canonical link to spells.spell_id
+  spell_data jsonb default '{}',              -- fallback/legacy payload
+  overrides_json jsonb default '{}',          -- per-character tuning
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table character_spells
+  add column if not exists spell_id text,
+  add column if not exists spell_data jsonb default '{}',
+  add column if not exists overrides_json jsonb default '{}',
+  add column if not exists order_index int not null default 0,
+  add column if not exists updated_at timestamptz default now();
+
+alter table spells
+  alter column spell_id set not null;
+create unique index if not exists spells_spell_id_unique on spells(spell_id);
+create unique index if not exists spells_raw_spell_id_unique on spells_raw(spell_id);
+create index if not exists spells_resolution_type_idx on spells(resolution_type);
+create index if not exists spells_level_name_idx on spells(level, name);
+create index if not exists character_spells_character_slot_order_idx on character_spells(character_id, slot_level, order_index);
+create index if not exists character_spells_spell_id_idx on character_spells(spell_id);
 
 create table if not exists npcs (
   id uuid primary key default gen_random_uuid(),
@@ -375,12 +421,14 @@ alter table scene_branches enable row level security;
 alter table consequences enable row level security;
 alter table stat_blocks enable row level security;
 alter table spells enable row level security;
+alter table spells_raw enable row level security;
 alter table npcs enable row level security;
 alter table encounters enable row level security;
 alter table items enable row level security;
 alter table locations enable row level security;
 alter table factions enable row level security;
 alter table assets enable row level security;
+alter table character_spells enable row level security;
 alter table revealed_content enable row level security;
 
 -- Allow all while running without auth (remove when adding auth)
@@ -401,12 +449,14 @@ begin
     ('consequences',    'allow_all_consequences'),
     ('stat_blocks',     'allow_all_stat_blocks'),
     ('spells',          'allow_all_spells'),
+    ('spells_raw',      'allow_all_spells_raw'),
     ('npcs',            'allow_all_npcs'),
     ('encounters',      'allow_all_encounters'),
     ('items',           'allow_all_items'),
     ('locations',       'allow_all_locations'),
     ('factions',        'allow_all_factions'),
     ('assets',          'allow_all_assets'),
+    ('character_spells','allow_all_character_spells'),
     ('revealed_content','allow_all_revealed_content')
   loop
     if not exists (

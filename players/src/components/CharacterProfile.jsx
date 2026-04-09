@@ -15,6 +15,13 @@ const parseModNum = (modStr) => {
 const isAttackRoll = (hitStr) => /^[+-]?\d+$/.test(String(hitStr).trim())
 
 const fmtMod = (n) => (n >= 0 ? `+${n}` : `${n}`)
+const parseDiceNotation = (notation) => {
+  if (!notation || typeof notation !== 'string') return null
+  const m = notation.trim().match(/(\d+)d(\d+)(?:\s*([+-])\s*(\d+))?/)
+  if (!m) return null
+  const modVal = m[4] ? Number(m[4]) * (m[3] === '-' ? -1 : 1) : 0
+  return { count: Number(m[1]), sides: Number(m[2]), mod: modVal }
+}
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 const Section = ({ title, children }) => (
@@ -325,6 +332,7 @@ export default function CharacterProfile({ characterId }) {
   const [activeSpell, setActiveSpell] = useState(null)   // spell object being cast
   const [spellSlotLevel, setSpellSlotLevel] = useState(null)
   const [spellTarget, setSpellTarget] = useState(null)
+  const [spellTargets, setSpellTargets] = useState([])
   const [pendingSpellDmg, setPendingSpellDmg] = useState(null) // { spell, target, slotLevel, crit }
 
   if (!char) return null
@@ -344,6 +352,33 @@ export default function CharacterProfile({ characterId }) {
     : []
 
   const partyChars = characters.filter(c => c.id !== characterId)
+
+  const resolveSpellForCasting = (spell) => {
+    const next = { ...spell }
+    if (!next.mechanic) next.mechanic = next.combatProfile?.resolutionType || 'utility'
+    if (!next.targetMode) next.targetMode = next.combatProfile?.targetMode || 'single'
+    if (!next.target) {
+      if (next.targetMode === 'self') next.target = 'self'
+      else if (next.targetMode === 'single' || next.targetMode === 'multi_select' || next.targetMode.startsWith('area')) next.target = 'enemy'
+    }
+    if (!next.saveType) next.saveType = next.combatProfile?.saveAbility || null
+    if (!next.saveDC && next.saveType) next.saveDC = char.stats.spellSaveDC
+    if (!next.toHit && next.mechanic === 'attack') {
+      const parsed = parseInt(String(char.stats.spellAttack || '').replace('+', ''), 10)
+      next.toHit = Number.isNaN(parsed) ? 0 : parsed
+    }
+    if (!next.damage && next.damage_dice) {
+      const parsed = parseDiceNotation(next.damage_dice)
+      if (parsed) {
+        next.damage = { ...parsed, type: next.damage_type || 'Force' }
+      }
+    }
+    if (!next.healDice && next.healing_dice) {
+      const parsed = parseDiceNotation(next.healing_dice)
+      if (parsed) next.healDice = parsed
+    }
+    return next
+  }
 
   // ── Roll functions ──
   const rollSkill = (skill) => {
@@ -475,9 +510,11 @@ export default function CharacterProfile({ characterId }) {
 
   // ── Spell casting ──
   const openSpell = (spell) => {
-    setActiveSpell(spell)
-    setSpellSlotLevel(spell.minSlot || null)
+    const resolved = resolveSpellForCasting(spell)
+    setActiveSpell(resolved)
+    setSpellSlotLevel(resolved.minSlot || (resolved.level > 0 ? resolved.level : null))
     setSpellTarget(null)
+    setSpellTargets([])
     setPendingSpellDmg(null)
     setRollResult(null)
   }
@@ -486,6 +523,7 @@ export default function CharacterProfile({ characterId }) {
     setActiveSpell(null)
     setSpellSlotLevel(null)
     setSpellTarget(null)
+    setSpellTargets([])
   }
 
   const closeSpell = () => {
@@ -493,7 +531,7 @@ export default function CharacterProfile({ characterId }) {
     setPendingSpellDmg(null)
   }
 
-  const castSpell = async (spell, slotLevel, target) => {
+  const castSpell = async (spell, slotLevel, target, targets = []) => {
     const slotLvl = slotLevel ?? spell.minSlot ?? null
     // Consume slot (cantrips have no slot)
     if (slotLvl) {
@@ -502,6 +540,7 @@ export default function CharacterProfile({ characterId }) {
     }
     const extraLevels = slotLvl && spell.minSlot ? slotLvl - spell.minSlot : 0
     const targetName = target?.name ?? (spell.target === 'self' ? char.name : null)
+    const selectedTargets = targets.length > 0 ? targets : (target ? [target] : [])
 
     if (spell.mechanic === 'attack') {
       const d20 = rollDie(20)
@@ -527,18 +566,24 @@ export default function CharacterProfile({ characterId }) {
         const totalDice = dd.count + extraDice
         const rolls = rollDice(totalDice, spell.damageIfHurt?.sides || dd.sides)
         const total = rolls.reduce((a, b) => a + b, 0) + dd.mod
-        setRollResult({ type: 'save-spell', weaponName: spell.name, saveStr: `${spell.saveType} DC ${spell.saveDC}`, weapon: spell, target, rolls, modifier: dd.mod, damageTotal: total, damageType: dd.type })
-        setPendingSpellDmg({ spell, target, slotLevel: slotLvl, crit: false, extraLevels, precomputedDamage: total })
-        const targetStr = target ? ` → ${target.name}` : ''
+        const primaryTarget = selectedTargets[0] || target || null
+        setRollResult({ type: 'save-spell', weaponName: spell.name, saveStr: `${spell.saveType} DC ${spell.saveDC}`, weapon: spell, target: primaryTarget, rolls, modifier: dd.mod, damageTotal: total, damageType: dd.type })
+        setPendingSpellDmg({ spell, target: primaryTarget, targets: selectedTargets, slotLevel: slotLvl, crit: false, extraLevels, precomputedDamage: total })
+        const targetStr = selectedTargets.length > 1
+          ? ` → ${selectedTargets.map(t => t.name).join(', ')}`
+          : primaryTarget ? ` → ${primaryTarget.name}` : ''
         pushRoll(`${spell.name} (${spell.saveType} DC ${spell.saveDC}): [${rolls.join('+')}]${dd.mod ? `+${dd.mod}` : ''} = ${total} ${dd.type}${targetStr}`, char.name)
         closeSpellPanel()
       } else {
         // Save with no damage (Bane, Command, Charm, etc.)
-        setRollResult({ type: 'save-spell', weaponName: spell.name, saveStr: `${spell.saveType} DC ${spell.saveDC}`, weapon: spell, target })
-        const targetStr = target ? ` → ${target.name}` : ''
+        const primaryTarget = selectedTargets[0] || target || null
+        setRollResult({ type: 'save-spell', weaponName: spell.name, saveStr: `${spell.saveType} DC ${spell.saveDC}`, weapon: spell, target: primaryTarget })
+        const targetStr = selectedTargets.length > 1
+          ? ` → ${selectedTargets.map(t => t.name).join(', ')}`
+          : primaryTarget ? ` → ${primaryTarget.name}` : ''
         pushRoll(`${spell.name}: ${spell.saveType} DC ${spell.saveDC}${targetStr}`, char.name)
-        if (target && spell.appliesCondition) {
-          applyConditionToEnemy(target.id, spell.appliesCondition, char.name)
+        for (const t of (selectedTargets.length > 0 ? selectedTargets : primaryTarget ? [primaryTarget] : [])) {
+          if (spell.appliesCondition) applyConditionToEnemy(t.id, spell.appliesCondition, char.name)
         }
         closeSpell()
       }
@@ -585,11 +630,12 @@ export default function CharacterProfile({ characterId }) {
 
   const rollSpellDamage = () => {
     if (!pendingSpellDmg) return
-    const { spell, target, crit, extraLevels, precomputedDamage } = pendingSpellDmg
+    const { spell, target, targets, crit, extraLevels, precomputedDamage } = pendingSpellDmg
+    const damageTargets = targets?.length ? targets : (target ? [target] : [])
     if (precomputedDamage != null) {
-      if (target) {
-        applyDamageToEnemy(target.id, precomputedDamage, char.name, spell.name)
-        const targetStr = ` → ${target.name}`
+      if (damageTargets.length > 0) {
+        for (const t of damageTargets) applyDamageToEnemy(t.id, precomputedDamage, char.name, spell.name)
+        const targetStr = ` → ${damageTargets.map(t => t.name).join(', ')}`
         pushRoll(`${spell.name} damage (applied): ${precomputedDamage} ${spell.damage?.type || ''}${targetStr}`, char.name)
       }
       setRollResult({
@@ -599,7 +645,7 @@ export default function CharacterProfile({ characterId }) {
         modifier: 0,
         total: precomputedDamage,
         damageType: spell.damage?.type,
-        target,
+        target: damageTargets[0] || target,
         crit: false
       })
       setPendingSpellDmg(null)
@@ -612,11 +658,13 @@ export default function CharacterProfile({ characterId }) {
     const baseCount = crit ? (dd.count + extraDice) * 2 : dd.count + extraDice
     const rolls = rollDice(baseCount, dd.sides)
     const total = rolls.reduce((a, b) => a + b, 0) + dd.mod
-    setRollResult({ type: 'damage', weaponName: spell.name, rolls, modifier: dd.mod, total, damageType: dd.type, target, crit })
+    setRollResult({ type: 'damage', weaponName: spell.name, rolls, modifier: dd.mod, total, damageType: dd.type, target: damageTargets[0] || target, crit })
     setPendingSpellDmg(null)
-    if (target) applyDamageToEnemy(target.id, total, char.name, spell.name)
+    if (damageTargets.length > 0) {
+      for (const t of damageTargets) applyDamageToEnemy(t.id, total, char.name, spell.name)
+    }
     const critStr = crit ? ' (crit)' : ''
-    const targetStr = target ? ` → ${target.name}` : ''
+    const targetStr = damageTargets.length > 0 ? ` → ${damageTargets.map(t => t.name).join(', ')}` : ''
     pushRoll(`${spell.name} damage${critStr}: [${rolls.join('+')}]${dd.mod ? `+${dd.mod}` : ''} = ${total} ${dd.type}${targetStr}`, char.name)
     closeSpell()
   }
@@ -936,12 +984,14 @@ export default function CharacterProfile({ characterId }) {
             {activeSpell && (() => {
               const spell = activeSpell
               const needsEnemyTarget = combatActive && (spell.target === 'enemy' || spell.target === 'any')
+              const isAreaOrMulti = spell.targetMode === 'area_all' || spell.targetMode === 'area_selective' || spell.targetMode === 'area' || spell.targetMode === 'multi_select'
               const needsAllyTarget = spell.target === 'ally'
               const isCantrip = spell.level === 0
               const slotLvl = spellSlotLevel ?? spell.minSlot
               const slotsForLvl = slotLvl ? (spellSlots[slotLvl] || { max: 0, used: 0 }) : null
               const noSlotLeft = !isCantrip && slotsForLvl && slotsForLvl.used >= slotsForLvl.max
-              const canCast = !noSlotLeft && (!needsEnemyTarget || spellTarget) && (!needsAllyTarget || spellTarget)
+              const enemyTargetReady = isAreaOrMulti ? spellTargets.length > 0 : !!spellTarget
+              const canCast = !noSlotLeft && (!needsEnemyTarget || enemyTargetReady) && (!needsAllyTarget || spellTarget)
 
               return (
                 <div style={{
@@ -992,6 +1042,11 @@ export default function CharacterProfile({ characterId }) {
                         Utility
                       </span>
                     )}
+                    {(spell.combatProfile?.rules?.needs_manual_resolution || spell.targetMode === 'special') && (
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, padding: '2px 8px', background: 'rgba(176,144,48,0.15)', border: '1px solid rgba(176,144,48,0.3)', borderRadius: 4, color: 'var(--warning)' }}>
+                        Manual Resolution
+                      </span>
+                    )}
                   </div>
 
                   {/* Slot level picker */}
@@ -1026,9 +1081,23 @@ export default function CharacterProfile({ characterId }) {
                         ? <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', fontStyle: 'italic' }}>No living enemies in combat</div>
                         : (
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            <button onClick={() => setSpellTarget(null)} style={{ padding: '5px 10px', fontFamily: 'var(--font-mono)', fontSize: 10, background: !spellTarget ? 'var(--bg-raised)' : 'transparent', border: `1px solid ${!spellTarget ? 'var(--border-bright)' : 'var(--border)'}`, borderRadius: 'var(--radius)', color: !spellTarget ? 'var(--text-secondary)' : 'var(--text-muted)', cursor: 'pointer' }}>Free Roll</button>
+                            {!isAreaOrMulti && <button onClick={() => setSpellTarget(null)} style={{ padding: '5px 10px', fontFamily: 'var(--font-mono)', fontSize: 10, background: !spellTarget ? 'var(--bg-raised)' : 'transparent', border: `1px solid ${!spellTarget ? 'var(--border-bright)' : 'var(--border)'}`, borderRadius: 'var(--radius)', color: !spellTarget ? 'var(--text-secondary)' : 'var(--text-muted)', cursor: 'pointer' }}>Free Roll</button>}
                             {enemies.map(e => (
-                              <button key={e.id} onClick={() => setSpellTarget(e)} style={{ padding: '5px 10px', fontFamily: 'var(--font-mono)', fontSize: 10, background: spellTarget?.id === e.id ? `${char.colour}20` : 'transparent', border: `1px solid ${spellTarget?.id === e.id ? char.colour + '60' : 'var(--border)'}`, borderRadius: 'var(--radius)', color: spellTarget?.id === e.id ? 'var(--text-primary)' : 'var(--text-muted)', cursor: 'pointer' }}>
+                              <button
+                                key={e.id}
+                                onClick={() => {
+                                  if (isAreaOrMulti) {
+                                    setSpellTargets(prev => (
+                                      prev.some(t => t.id === e.id)
+                                        ? prev.filter(t => t.id !== e.id)
+                                        : [...prev, e]
+                                    ))
+                                  } else {
+                                    setSpellTarget(e)
+                                  }
+                                }}
+                                style={{ padding: '5px 10px', fontFamily: 'var(--font-mono)', fontSize: 10, background: (isAreaOrMulti ? spellTargets.some(t => t.id === e.id) : spellTarget?.id === e.id) ? `${char.colour}20` : 'transparent', border: `1px solid ${(isAreaOrMulti ? spellTargets.some(t => t.id === e.id) : spellTarget?.id === e.id) ? char.colour + '60' : 'var(--border)'}`, borderRadius: 'var(--radius)', color: (isAreaOrMulti ? spellTargets.some(t => t.id === e.id) : spellTarget?.id === e.id) ? 'var(--text-primary)' : 'var(--text-muted)', cursor: 'pointer' }}
+                              >
                                 {e.name} ({e.curHp}/{e.maxHp} HP)
                               </button>
                             ))}
@@ -1058,7 +1127,7 @@ export default function CharacterProfile({ characterId }) {
                   )}
 
                   <button
-                    onClick={() => canCast && castSpell(spell, spellSlotLevel ?? spell.minSlot, spellTarget)}
+                    onClick={() => canCast && castSpell(spell, spellSlotLevel ?? spell.minSlot, spellTarget, spellTargets)}
                     disabled={!canCast}
                     style={{
                       width: '100%', padding: '10px',
@@ -1084,19 +1153,20 @@ export default function CharacterProfile({ characterId }) {
               <Section key={level} title={level === 'cantrips' ? 'Cantrips' : `Level ${level} Spells`}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {spells.map(spell => {
-                    const isActive = activeSpell?.name === spell.name
-                    const slotKey = spell.minSlot
+                    const displaySpell = resolveSpellForCasting(spell)
+                    const isActive = activeSpell?.name === displaySpell.name
+                    const slotKey = displaySpell.minSlot || (displaySpell.level > 0 ? displaySpell.level : null)
                     const slot = slotKey ? (spellSlots[slotKey] || { max: 0, used: 0 }) : null
                     const noSlots = !!(slot && slot.used >= slot.max)
-                    const isCantrip = spell.level === 0
-                    const mechColour = spell.mechanic === 'attack' ? 'var(--danger)'
-                      : spell.mechanic === 'save' ? 'var(--warning)'
-                      : spell.mechanic === 'auto' ? '#a0a0ff'
-                      : spell.mechanic === 'heal' ? 'var(--green-bright)'
+                    const isCantrip = displaySpell.level === 0
+                    const mechColour = displaySpell.mechanic === 'attack' ? 'var(--danger)'
+                      : displaySpell.mechanic === 'save' ? 'var(--warning)'
+                      : displaySpell.mechanic === 'auto' ? '#a0a0ff'
+                      : displaySpell.mechanic === 'heal' ? 'var(--green-bright)'
                       : 'var(--text-muted)'
 
                     return (
-                      <div key={spell.name} style={{
+                      <div key={displaySpell.name} style={{
                         background: isActive ? `${char.colour}15` : 'var(--bg-raised)',
                         border: `1px solid ${isActive ? char.colour + '50' : 'var(--border)'}`,
                         borderRadius: 'var(--radius-lg)', padding: '10px 12px',
@@ -1105,20 +1175,20 @@ export default function CharacterProfile({ characterId }) {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>{spell.name}</span>
-                              {spell.concentration && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--warning)', border: '1px solid rgba(196,160,64,0.3)', borderRadius: 3, padding: '1px 4px' }}>CONC</span>}
-                              {spell.limitedUse && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 3, padding: '1px 4px' }}>{spell.limitedUse}</span>}
+                              <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>{displaySpell.name}</span>
+                              {displaySpell.concentration && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--warning)', border: '1px solid rgba(196,160,64,0.3)', borderRadius: 3, padding: '1px 4px' }}>CONC</span>}
+                              {displaySpell.limitedUse && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 3, padding: '1px 4px' }}>{displaySpell.limitedUse}</span>}
                             </div>
                             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: mechColour, marginTop: 2 }}>
-                              {spell.mechanic === 'attack' ? `+${spell.toHit} to hit · ${spell.damage?.count}d${spell.damage?.sides} ${spell.damage?.type}`
-                               : spell.mechanic === 'save' ? `${spell.saveType} DC ${spell.saveDC}${spell.damage ? ` · ${spell.damage.count}d${spell.damage.sides} ${spell.damage.type}` : ''}`
-                               : spell.mechanic === 'auto' ? `${spell.missiles} missiles · ${spell.damage?.count}d${spell.damage?.sides}+${spell.damage?.mod} ${spell.damage?.type}`
-                               : spell.mechanic === 'heal' ? `${spell.healDice?.count}d${spell.healDice?.sides}+${spell.healDice?.mod} HP`
-                               : spell.castingTime}
+                              {displaySpell.mechanic === 'attack' ? `+${displaySpell.toHit} to hit · ${displaySpell.damage?.count}d${displaySpell.damage?.sides} ${displaySpell.damage?.type}`
+                               : displaySpell.mechanic === 'save' ? `${displaySpell.saveType} DC ${displaySpell.saveDC}${displaySpell.damage ? ` · ${displaySpell.damage.count}d${displaySpell.damage.sides} ${displaySpell.damage.type}` : ''}`
+                               : displaySpell.mechanic === 'auto' ? `${displaySpell.missiles} missiles · ${displaySpell.damage?.count}d${displaySpell.damage?.sides}+${displaySpell.damage?.mod} ${displaySpell.damage?.type}`
+                               : displaySpell.mechanic === 'heal' ? `${displaySpell.healDice?.count}d${displaySpell.healDice?.sides}+${displaySpell.healDice?.mod} HP`
+                               : displaySpell.castingTime}
                             </div>
                           </div>
                           <button
-                            onClick={() => isActive ? closeSpell() : openSpell(spell)}
+                            onClick={() => isActive ? closeSpell() : openSpell(displaySpell)}
                             style={{
                               padding: '5px 12px', fontFamily: 'var(--font-mono)', fontSize: 10,
                               textTransform: 'uppercase', letterSpacing: '0.06em',
@@ -1132,14 +1202,14 @@ export default function CharacterProfile({ characterId }) {
                             {isActive ? 'Cancel' : 'Cast'}
                           </button>
                         </div>
-                        {spell.description && (
+                        {displaySpell.description && (
                           <div style={{
                             marginTop: 7, paddingTop: 7,
                             borderTop: '1px solid var(--border)',
                             fontSize: 12, color: 'var(--text-muted)',
                             fontStyle: 'italic', lineHeight: 1.55,
                           }}>
-                            {spell.description}
+                            {displaySpell.description}
                           </div>
                         )}
                       </div>
