@@ -54,6 +54,7 @@ jobs:
           mkdir -p _site/dm _site/players
           cp -R dm/dist/* _site/dm/
           cp -R players/dist/* _site/players/
+          cp docs/landing-bg.png _site/landing-bg.png
           cat > _site/index.html <<'EOF'
           <!doctype html>
           <html lang="en">
@@ -80,6 +81,7 @@ jobs:
                   background:
                     linear-gradient(180deg, rgba(0,0,0,0.52), rgba(0,0,0,0.74)),
                     radial-gradient(1200px 700px at 50% 20%, rgba(70, 92, 80, 0.35), transparent 70%),
+                    url('./landing-bg.png') center / cover no-repeat fixed,
                     var(--bg-deep);
                 }
                 .wrap {
