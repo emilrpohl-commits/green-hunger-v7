@@ -226,6 +226,11 @@ create table if not exists spells (
   rules_json jsonb default '{}',              -- enriched parser output + confidence flags
   tags text[],
   source text,
+  ruleset text default '2024',
+  source_index text,
+  source_url text,
+  source_version text,
+  imported_at timestamptz,
   classes text[],
   notes text,
   created_at timestamptz default now(),
@@ -263,6 +268,11 @@ alter table character_spells
   add column if not exists updated_at timestamptz default now();
 
 alter table spells
+  add column if not exists ruleset text default '2024',
+  add column if not exists source_index text,
+  add column if not exists source_url text,
+  add column if not exists source_version text,
+  add column if not exists imported_at timestamptz,
   alter column spell_id set not null;
 create unique index if not exists spells_spell_id_unique on spells(spell_id);
 create unique index if not exists spells_raw_spell_id_unique on spells_raw(spell_id);
@@ -393,6 +403,52 @@ create table if not exists revealed_content (
 );
 
 -- ---------------------------------------------------------------------------
+-- CANONICAL 5E ENGINE CONTENT (2024-FIRST WITH 2014 FALLBACK)
+-- ---------------------------------------------------------------------------
+
+create table if not exists rules_sources (
+  id uuid primary key default gen_random_uuid(),
+  source_key text unique not null,                 -- '5e-srd-api'
+  base_url text not null,
+  primary_ruleset text not null default '2024',
+  fallback_ruleset text not null default '2014',
+  source_version text,
+  last_synced_at timestamptz,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create table if not exists rules_entities (
+  id uuid primary key default gen_random_uuid(),
+  entity_type text not null,                       -- spell|monster|condition|class|species|trait|equipment|...
+  ruleset text not null,                           -- 2024|2014
+  source_index text not null,                      -- canonical stable index from source API
+  name text not null,
+  source_url text,
+  source_version text,
+  is_fallback boolean default false,               -- true when 2014 fallback is used for 2024 gaps
+  payload jsonb not null default '{}',
+  imported_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create unique index if not exists rules_entities_unique_key
+  on rules_entities(entity_type, ruleset, source_index);
+create index if not exists rules_entities_entity_type_idx on rules_entities(entity_type);
+create index if not exists rules_entities_ruleset_idx on rules_entities(ruleset);
+
+create table if not exists rules_sync_runs (
+  id uuid primary key default gen_random_uuid(),
+  source_key text not null,
+  ruleset text not null,
+  status text not null default 'running',          -- running|success|failed
+  totals jsonb default '{}',
+  error_text text,
+  started_at timestamptz default now(),
+  finished_at timestamptz
+);
+
+-- ---------------------------------------------------------------------------
 -- INDEXES
 -- ---------------------------------------------------------------------------
 
@@ -406,6 +462,7 @@ create index if not exists stat_blocks_slug on stat_blocks(slug);
 create index if not exists stat_blocks_campaign on stat_blocks(campaign_id);
 create index if not exists npcs_campaign_id on npcs(campaign_id);
 create index if not exists assets_campaign_id on assets(campaign_id);
+create index if not exists rules_sync_runs_source_started_idx on rules_sync_runs(source_key, started_at desc);
 
 -- ---------------------------------------------------------------------------
 -- ROW-LEVEL SECURITY (enable but allow all for now — add auth later)
@@ -430,6 +487,9 @@ alter table factions enable row level security;
 alter table assets enable row level security;
 alter table character_spells enable row level security;
 alter table revealed_content enable row level security;
+alter table rules_sources enable row level security;
+alter table rules_entities enable row level security;
+alter table rules_sync_runs enable row level security;
 
 -- Allow all while running without auth (remove when adding auth)
 -- Uses DO block because CREATE POLICY does not support IF NOT EXISTS
@@ -457,7 +517,10 @@ begin
     ('factions',        'allow_all_factions'),
     ('assets',          'allow_all_assets'),
     ('character_spells','allow_all_character_spells'),
-    ('revealed_content','allow_all_revealed_content')
+    ('revealed_content','allow_all_revealed_content'),
+    ('rules_sources',   'allow_all_rules_sources'),
+    ('rules_entities',  'allow_all_rules_entities'),
+    ('rules_sync_runs', 'allow_all_rules_sync_runs')
   loop
     if not exists (
       select 1 from pg_policies

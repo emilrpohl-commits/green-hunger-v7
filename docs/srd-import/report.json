@@ -1,0 +1,21 @@
+{
+  "source": "5e-srd-2014",
+  "counts": {
+    "source_spells": 319,
+    "source_monsters": 334,
+    "normalized_spells": 319,
+    "normalized_monsters": 334
+  },
+  "options": {
+    "dryRun": true,
+    "writeFiles": true,
+    "writeDb": false,
+    "only": "all",
+    "limit": null
+  },
+  "paths": {
+    "SPELLS_JSON": "/Users/emilpohl/Downloads/green-hunger-v7/docs/5e-database-main/src/2014/5e-SRD-Spells.json",
+    "MONSTERS_JSON": "/Users/emilpohl/Downloads/green-hunger-v7/docs/5e-database-main/src/2014/5e-SRD-Monsters.json",
+    "OUT_DIR": "/Users/emilpohl/Downloads/green-hunger-v7/docs/srd-import"
+  }
+}

@@ -181,6 +181,7 @@ export default function DocxImportModal({ onClose, onDone }) {
           dm_notes: beat.dmNotes,
           mechanical_effect: beat.mechanicalEffect || null,
           stat_block_ref: beat.statBlockRef || null,
+          stat_block_source_index: beat.statBlockSourceIndex || null,
         })),
         branches: (scene.branches || []).map(branch => ({
           order: branch.order,
@@ -229,6 +230,7 @@ export default function DocxImportModal({ onClose, onDone }) {
         const { data, error } = await saveStatBlock(sbPayload)
         if (error) throw new Error(`Stat block "${sb.name}": ${error}`)
         statBlockIdMap[sb.name.toLowerCase()] = data.id
+        if (data.slug) statBlockIdMap[String(data.slug).toLowerCase()] = data.id
         addLog('ok', `Stat block: ${sb.name}`)
       }
 
@@ -282,8 +284,12 @@ export default function DocxImportModal({ onClose, onDone }) {
         for (const beat of scene.beats) {
           currentStep = `beat: ${beat.title}`
           const sbNameLower = beat.statBlockRef?.toLowerCase()
+          const sbIndexLower = beat.statBlockSourceIndex?.toLowerCase()
           const sbKey = sbNameLower
             ? Object.keys(statBlockIdMap).find(k => sbNameLower.includes(k) || k.includes(sbNameLower))
+            : null
+          const sbKeyByIndex = sbIndexLower
+            ? Object.keys(statBlockIdMap).find(k => k === sbIndexLower)
             : null
 
           const { error: beatErr } = await saveBeat({
@@ -297,7 +303,7 @@ export default function DocxImportModal({ onClose, onDone }) {
             player_text: beat.playerText || beat.content,
             dm_notes: beat.dmNotes,
             mechanical_effect: beat.mechanicalEffect || null,
-            stat_block_id: sbKey ? statBlockIdMap[sbKey] : null,
+            stat_block_id: sbKeyByIndex ? statBlockIdMap[sbKeyByIndex] : (sbKey ? statBlockIdMap[sbKey] : null),
           })
           if (beatErr) throw new Error(`Beat "${beat.title}": ${beatErr}`)
         }

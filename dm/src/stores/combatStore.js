@@ -4,6 +4,8 @@ import { CHARACTERS } from '@shared/content/session1.js'
 import { SESSION_2_ENEMIES } from '@shared/content/session2.js'
 import { useSessionStore } from './sessionStore.js'
 import { makeActionEconomy, ensureActionEconomy, consumeActionEconomy, sortCombatantsByInitiative, decodeSavePrompt, applyDeterministicRollModifiers, encodeSavePrompt } from '@shared/lib/combatRules.js'
+import { featureFlags } from '@shared/lib/featureFlags.js'
+import { getMonsterCombatant } from '@shared/lib/engine/rulesService.js'
 
 const CORRUPTED_WOLF = {
   id: 'corrupted-wolf',
@@ -39,6 +41,7 @@ export const useCombatStore = create((set, get) => ({
   feedChannel: null,
   combatStateChannel: null,
   savePrompts: [],
+  knownConditions: [],
 
   // Hydrate DM store from a combat_state row (DB is updated by player clients too)
   applyCombatStateRow: (row) => {
@@ -327,10 +330,28 @@ export const useCombatStore = create((set, get) => ({
       }
     })
 
-    const enemyCombatants = enemies.map((e, i) => {
+    const enemyCombatants = await Promise.all(enemies.map(async (e, i) => {
       const sb = sbMap[e.id]
       const ac = sb?.ac ?? e.ac
       const maxHp = sb?.max_hp ?? e.maxHp
+      let engineMonster = null
+      if (featureFlags.use5eEngine && featureFlags.engineMonsters && !sb) {
+        try {
+          engineMonster = await getMonsterCombatant(e.id, i + 1)
+        } catch {
+          engineMonster = null
+        }
+      }
+      if (engineMonster) {
+        return {
+          ...engineMonster,
+          id: `${e.id}-${i + 1}`,
+          name: enemies.length > 1 ? `${engineMonster.name} ${i + 1}` : engineMonster.name,
+          initiative: e.initiative || engineMonster.initiative || 0,
+          initiativeSet: true,
+          actionEconomy: makeActionEconomy(),
+        }
+      }
       return {
         id: `${e.id}-${i + 1}`,
         name: enemies.length > 1 ? `${e.name} ${i + 1}` : e.name,
@@ -354,7 +375,7 @@ export const useCombatStore = create((set, get) => ({
           ...((sb?.reactions || []).map(a => ({ ...a, actionType: 'reaction' }))),
         ],
       }
-    })
+    }))
 
     const allCombatants = [...playerCombatants, ...enemyCombatants]
 
@@ -514,14 +535,39 @@ export const useCombatStore = create((set, get) => ({
   // Add/remove condition
   toggleCondition: async (combatantId, condition) => {
     const { combatants } = get()
+    let conditionName = condition
+    if (featureFlags.use5eEngine && featureFlags.engineConditions) {
+      try {
+        const { data } = await supabase
+          .from('rules_entities')
+          .select('name,source_index')
+          .eq('entity_type', 'conditions')
+          .eq('ruleset', '2024')
+        if (Array.isArray(data) && data.length > 0) {
+          const lookup = data.find((c) =>
+            String(c.name || '').toLowerCase() === String(condition || '').toLowerCase()
+            || String(c.source_index || '').toLowerCase() === String(condition || '').toLowerCase()
+          )
+          if (lookup?.name) conditionName = lookup.name
+          set({
+            knownConditions: data.map((c) => ({
+              index: c.source_index,
+              name: c.name,
+            })),
+          })
+        }
+      } catch {
+        // Keep manual condition flow if catalog query fails.
+      }
+    }
     const updated = combatants.map(c => {
       if (c.id !== combatantId) return c
-      const has = c.conditions.includes(condition)
+      const has = c.conditions.includes(conditionName)
       return {
         ...c,
         conditions: has
-          ? c.conditions.filter(x => x !== condition)
-          : [...c.conditions, condition]
+          ? c.conditions.filter(x => x !== conditionName)
+          : [...c.conditions, conditionName]
       }
     })
     set({ combatants: updated })
