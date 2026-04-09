@@ -1,8 +1,9 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useCombatStore } from '../../stores/combatStore'
 import { decodeSavePrompt, applyDeterministicRollModifiers, getAcWithEffects } from '@shared/lib/combatRules.js'
 import { supabase } from '@shared/lib/supabase.js'
 import { getSessionRunId } from '@shared/lib/runtimeContext.js'
+import { qaHoldSavePromptChannelName } from '@shared/lib/qaDevChannels.js'
 import { encodePlayerSavePrompt } from '@shared/lib/combatRules.js'
 
 const CONDITIONS = ['Blinded', 'Charmed', 'Frightened', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious', 'Grappled', 'Paralysed']
@@ -477,6 +478,31 @@ export default function CombatPanel() {
   const [logOpen, setLogOpen] = useState(false)
   const [flashActiveIndex, setFlashActiveIndex] = useState(activeCombatantIndex)
   const [manualSaveTotals, setManualSaveTotals] = useState({})
+  const [qaHoldSavePrompt, setQaHoldSavePrompt] = useState(false)
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return undefined
+    const sessionRunId = getSessionRunId()
+    const channel = supabase.channel(qaHoldSavePromptChannelName(sessionRunId), {
+      config: {
+        presence: {
+          key: 'dm-qa-hold-save-prompt',
+        },
+      },
+    })
+    let cancelled = false
+    channel.subscribe(async (status) => {
+      if (cancelled || status !== 'SUBSCRIBED') return
+      await channel.track({
+        role: 'dm-qa-hold-save-prompt',
+        holdSavePrompt: qaHoldSavePrompt,
+      })
+    })
+    return () => {
+      cancelled = true
+      supabase.removeChannel(channel)
+    }
+  }, [qaHoldSavePrompt])
 
   React.useEffect(() => {
     setFlashActiveIndex(activeCombatantIndex)
@@ -512,7 +538,26 @@ export default function CombatPanel() {
           )}
         </div>
 
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+          {import.meta.env.DEV && (
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              fontFamily: 'var(--font-mono)',
+              fontSize: 10,
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}>
+              <input
+                type="checkbox"
+                checked={qaHoldSavePrompt}
+                onChange={(e) => setQaHoldSavePrompt(e.target.checked)}
+              />
+              Hold save prompts (QA)
+            </label>
+          )}
           <button onClick={() => setLogOpen(o => !o)} style={{
             padding: '6px 12px', fontSize: 11, fontFamily: 'var(--font-mono)',
             background: logOpen ? 'rgba(122,184,106,0.1)' : 'var(--bg-card)',
