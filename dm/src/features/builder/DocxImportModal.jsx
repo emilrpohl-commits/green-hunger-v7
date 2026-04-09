@@ -393,6 +393,14 @@ export default function DocxImportModal({ onClose, onDone }) {
   }
   const btnGreen = { padding: '8px 22px', background: 'var(--green-bright)', color: '#0a0f0a', border: 'none', borderRadius: 4, cursor: 'pointer', ...mono, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }
   const btnGhost = { padding: '8px 18px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 4, cursor: 'pointer', color: 'var(--text-secondary)', ...mono, fontSize: 11, textTransform: 'uppercase' }
+  const btnSm = {
+    ...btnGhost,
+    padding: '6px 12px',
+    fontSize: 10,
+    textTransform: 'none',
+    letterSpacing: 'normal',
+    color: 'var(--text-muted)',
+  }
 
   return (
     <div style={overlay} onClick={e => e.target === e.currentTarget && onClose()}>
