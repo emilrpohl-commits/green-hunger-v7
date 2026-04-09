@@ -9,6 +9,9 @@ import CombatPanel from './features/combat/CombatPanel'
 import RightRail from './features/runtime/RightRail'
 import BuilderLayout from './features/builder/BuilderLayout'
 
+const DM_PASSWORD = 'Sherlock*123'
+const DM_UNLOCK_KEY = 'gh_dm_unlocked'
+
 export default function App() {
   const loadFromSupabase = useSessionStore(s => s.loadFromSupabase)
   const syncContentFromDb = useSessionStore(s => s.syncContentFromDb)
@@ -20,15 +23,30 @@ export default function App() {
   const loadCampaign = useCampaignStore(s => s.loadCampaign)
   const dbSessions = useCampaignStore(s => s.sessions)
   const [mode, setMode] = useState('run')  // 'run' | 'build'
+  const [dmUnlocked, setDmUnlocked] = useState(false)
+  const [dmPasswordInput, setDmPasswordInput] = useState('')
+  const [dmGateError, setDmGateError] = useState('')
 
   useEffect(() => {
+    const host = window.location.hostname
+    const isLocal = host === 'localhost' || host === '127.0.0.1'
+    if (isLocal) {
+      setDmUnlocked(true)
+      return
+    }
+    const unlocked = window.localStorage.getItem(DM_UNLOCK_KEY) === 'ok'
+    setDmUnlocked(unlocked)
+  }, [])
+
+  useEffect(() => {
+    if (!dmUnlocked) return
     loadFromSupabase()
     loadPlayerRolls()
     subscribeToRolls()
     loadCombatStateFromDb()
     subscribeToCombatStateRemote()
     loadCampaign()
-  }, [])
+  }, [dmUnlocked])
 
   // When DB sessions load, push them into run-mode session store
   useEffect(() => {
@@ -36,6 +54,92 @@ export default function App() {
       syncContentFromDb(dbSessions)
     }
   }, [dbSessions])
+
+  if (!dmUnlocked) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--bg-deep)',
+        padding: 20
+      }}>
+        <div style={{
+          width: 'min(420px, 100%)',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          padding: 24,
+          boxShadow: '0 8px 40px rgba(0,0,0,0.45)'
+        }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+            The Green Hunger
+          </div>
+          <h1 style={{ margin: '0 0 10px', fontFamily: 'var(--font-display)', color: 'var(--text-primary)', fontSize: 24 }}>
+            DM Access Required
+          </h1>
+          <p style={{ margin: '0 0 14px', color: 'var(--text-muted)', fontSize: 13 }}>
+            Enter DM password to continue.
+          </p>
+          <input
+            type="password"
+            value={dmPasswordInput}
+            onChange={(e) => setDmPasswordInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter') return
+              if (dmPasswordInput === DM_PASSWORD) {
+                window.localStorage.setItem(DM_UNLOCK_KEY, 'ok')
+                setDmGateError('')
+                setDmUnlocked(true)
+              } else {
+                setDmGateError('Incorrect password.')
+              }
+            }}
+            autoFocus
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              background: 'var(--bg-raised)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              color: 'var(--text-primary)',
+              marginBottom: 10
+            }}
+          />
+          <button
+            onClick={() => {
+              if (dmPasswordInput === DM_PASSWORD) {
+                window.localStorage.setItem(DM_UNLOCK_KEY, 'ok')
+                setDmGateError('')
+                setDmUnlocked(true)
+              } else {
+                setDmGateError('Incorrect password.')
+              }
+            }}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              background: 'var(--green-dim)',
+              border: '1px solid var(--green-mid)',
+              borderRadius: 8,
+              color: 'var(--green-bright)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              cursor: 'pointer'
+            }}
+          >
+            Unlock DM App
+          </button>
+          {dmGateError && (
+            <div style={{ marginTop: 10, color: '#c87474', fontSize: 12 }}>{dmGateError}</div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   if (mode === 'build') {
     return (

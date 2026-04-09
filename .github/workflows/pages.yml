@@ -153,6 +153,12 @@ jobs:
                   font-size: 12px;
                   color: var(--text-muted);
                 }
+                .error {
+                  margin-top: 10px;
+                  font-size: 12px;
+                  color: #d67a7a;
+                  min-height: 16px;
+                }
               </style>
             </head>
             <body>
@@ -162,18 +168,41 @@ jobs:
                   <h1>Choose Experience</h1>
                   <p class="sub">Launch the DM console or player app.</p>
                   <div class="grid">
-                    <a class="card" href="./dm/">
+                    <a class="card" id="dm-link" href="./dm/">
                       <div class="title">DM App</div>
-                      <div class="desc">Run scenes, encounters, and combat control.</div>
+                      <div class="desc">Run scenes, encounters, and combat control (password protected).</div>
                     </a>
                     <a class="card" href="./players/">
                       <div class="title">Player App</div>
                       <div class="desc">Character sheet, combat feed, and rolls.</div>
                     </a>
                   </div>
+                  <div class="error" id="dm-error"></div>
                   <div class="foot">Tip: bookmark each app URL after first launch.</div>
                 </section>
               </main>
+              <script>
+                (function () {
+                  var DM_PASSWORD = 'Sherlock*123';
+                  var TOKEN_KEY = 'gh_dm_unlocked';
+                  var TOKEN_VALUE = 'ok';
+                  var dmLink = document.getElementById('dm-link');
+                  var errorEl = document.getElementById('dm-error');
+                  if (!dmLink) return;
+                  dmLink.addEventListener('click', function (e) {
+                    var stored = localStorage.getItem(TOKEN_KEY);
+                    if (stored === TOKEN_VALUE) return;
+                    e.preventDefault();
+                    var entered = window.prompt('DM password required');
+                    if (entered === DM_PASSWORD) {
+                      localStorage.setItem(TOKEN_KEY, TOKEN_VALUE);
+                      window.location.href = './dm/';
+                    } else if (entered != null) {
+                      if (errorEl) errorEl.textContent = 'Incorrect DM password.';
+                    }
+                  });
+                })();
+              </script>
             </body>
           </html>
           EOF
