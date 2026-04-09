@@ -6,6 +6,7 @@ import { parseCastingTimeMeta, consumeActionEconomy, ensureActionEconomy, encode
 import { featureFlags } from '@shared/lib/featureFlags.js'
 import { mapApiSpellToCharacterSpell } from '@shared/lib/engine/mappers.js'
 import { getRulesetContext, getSessionRunId } from '@shared/lib/runtimeContext.js'
+import { qaHoldSavePromptChannelName } from '@shared/lib/qaDevChannels.js'
 
 /** Player client: PCs only (exclude DM companion NPCs from party list). */
 const PLAYER_RUNTIME_CHARACTERS = CHARACTERS.filter(c => !c.isNPC)
@@ -136,6 +137,9 @@ export const usePlayerStore = create((set, get) => ({
   // DM rolls directed at players
   dmRoll: null,
   seenDmPromptIds: [],
+
+  /** Dev only: mirrored from DM Realtime presence; skips auto-dismiss for save prompts. */
+  qaHoldSavePromptUntilDismissed: false,
 
   getCurrentScene: () => {
     const { session, currentSceneIndex } = get()
@@ -372,12 +376,45 @@ export const usePlayerStore = create((set, get) => ({
       }
     }, 2000)
 
+    let qaHoldChannel = null
+    if (import.meta.env.DEV) {
+      const qaPresenceKey =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? `player-qa-${crypto.randomUUID()}`
+          : `player-qa-${Date.now()}`
+      const qaCh = supabase
+        .channel(qaHoldSavePromptChannelName(sessionRunId), {
+          config: { presence: { key: qaPresenceKey } },
+        })
+        .on('presence', { event: 'sync' }, () => {
+          const st = qaCh.presenceState()
+          let hold = false
+          for (const entries of Object.values(st)) {
+            for (const e of entries || []) {
+              if (e?.role === 'dm-qa-hold-save-prompt' && e?.holdSavePrompt === true) {
+                hold = true
+                break
+              }
+            }
+            if (hold) break
+          }
+          set({ qaHoldSavePromptUntilDismissed: hold })
+        })
+      qaCh.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await qaCh.track({ role: 'player-qa-observer' })
+        }
+      })
+      qaHoldChannel = qaCh
+    }
+
     return () => {
       supabase.removeChannel(sessionChannel)
       supabase.removeChannel(charChannel)
       supabase.removeChannel(combatChannel)
       supabase.removeChannel(dmRollChannel)
       clearInterval(savePromptPoll)
+      if (qaHoldChannel) supabase.removeChannel(qaHoldChannel)
     }
   },
 

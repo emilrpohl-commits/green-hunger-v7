@@ -317,6 +317,7 @@ export default function CharacterProfile({ characterId }) {
   const pushSavePrompt = usePlayerStore(s => s.pushSavePrompt)
   const useSpellSlot = usePlayerStore(s => s.useSpellSlot)
   const dmRoll = usePlayerStore(s => s.dmRoll)
+  const qaHoldSavePromptUntilDismissed = usePlayerStore(s => s.qaHoldSavePromptUntilDismissed)
   const clearDmRoll = usePlayerStore(s => s.clearDmRoll)
   const playerCharacters = usePlayerStore(s => s.playerCharacters)
   const companionSpellSlots = usePlayerStore(s => s.companionSpellSlots)
@@ -733,15 +734,22 @@ export default function CharacterProfile({ characterId }) {
 
   const tabs = ['stats', 'spells', 'actions', 'features', 'equipment']
 
-  // Auto-dismiss DM roll after 10s
+  // Auto-dismiss DM roll after 10s (dev: optional hold for save prompts via DM QA toggle + Realtime)
   useEffect(() => {
     if (!dmRoll) return
     // Only show if targeted at this character or all
     const relevant = !dmRoll.targetId || dmRoll.targetId === 'all' || dmRoll.targetId === characterId
     if (!relevant) return
+    if (
+      import.meta.env.DEV
+      && qaHoldSavePromptUntilDismissed
+      && dmRoll.kind === 'save-prompt'
+    ) {
+      return undefined
+    }
     const t = setTimeout(clearDmRoll, 10000)
     return () => clearTimeout(t)
-  }, [dmRoll, characterId])
+  }, [dmRoll, characterId, qaHoldSavePromptUntilDismissed])
 
   useEffect(() => {
     if (!myTurnActive || !combatActive) return
