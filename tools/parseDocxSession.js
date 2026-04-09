@@ -477,17 +477,62 @@ export function parseSessionMarkdown(markdown) {
       let content = ''
       let dmNotes = ''
       let mechanicalEffect = null
+      let bodyForText = bb.body
+
+      // Parse markdown pipe tables before paragraph cleaning so they don't get flattened into prose.
+      if (beatType === 'check') {
+        const parsedSkillChecks = parseMarkdownPipeTable(bodyForText, [
+          'Trigger',
+          'Skill / Save',
+          'DC',
+          'What They Learn',
+        ])
+        if (parsedSkillChecks) {
+          const checks = parsedSkillChecks.rows.map(cols => {
+            const rawDc = clean(cols[2] || '')
+            const dcNum = parseInt(rawDc, 10)
+            const dc = /^auto$/i.test(rawDc) ? 'Auto' : (Number.isNaN(dcNum) ? rawDc : dcNum)
+            return {
+              trigger: clean(cols[0] || ''),
+              skill: clean(cols[1] || ''),
+              dc,
+              whatTheyLearn: clean(cols[3] || ''),
+            }
+          }).filter(r => r.trigger || r.skill || r.dc || r.whatTheyLearn)
+
+          if (checks.length > 0) {
+            mechanicalEffect = JSON.stringify(checks)
+            bodyForText = parsedSkillChecks.bodyWithoutTable
+          }
+        }
+      } else if (beatType === 'decision') {
+        const parsedOutcomes = parseMarkdownPipeTable(bodyForText, [
+          'Outcome',
+          'Consequence',
+        ])
+        if (parsedOutcomes) {
+          const outcomes = parsedOutcomes.rows.map(cols => ({
+            outcome: clean(cols[0] || ''),
+            consequence: clean(cols[1] || ''),
+          })).filter(r => r.outcome || r.consequence)
+
+          if (outcomes.length > 0) {
+            mechanicalEffect = JSON.stringify(outcomes)
+            bodyForText = parsedOutcomes.bodyWithoutTable
+          }
+        }
+      }
 
       // Check for sub-beat headings (### level)
       const subBeatRe = /^###\s+(?:__)?(.+?)(?:__)?$/gm
-      const subBeatMatches = [...bb.body.matchAll(subBeatRe)]
+      const subBeatMatches = [...bodyForText.matchAll(subBeatRe)]
 
       if (subBeatMatches.length > 0) {
         // Combine all sub-beat content as the beat body
-        content = cleanBodyText(bb.body)
+        content = cleanBodyText(bodyForText)
       } else {
         // Process paragraphs
-        const paragraphs = bb.body.split(/\n{2,}/).map(p => p.trim()).filter(Boolean)
+        const paragraphs = bodyForText.split(/\n{2,}/).map(p => p.trim()).filter(Boolean)
         for (const para of paragraphs) {
           const stripped = clean(para)
           if (!stripped) continue
@@ -631,4 +676,50 @@ function cleanBodyText(body) {
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
+}
+
+function parsePipeRow(line) {
+  const trimmed = (line || '').trim()
+  if (!trimmed.startsWith('|') || !trimmed.endsWith('|')) return null
+  return trimmed
+    .slice(1, -1)
+    .split('|')
+    .map(c => clean(c))
+}
+
+function isPipeSeparator(line) {
+  return /^\|\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test((line || '').trim())
+}
+
+function parseMarkdownPipeTable(body, expectedHeaders) {
+  const lines = (body || '').split('\n')
+  const expected = expectedHeaders.map(h => h.toLowerCase())
+
+  for (let i = 0; i < lines.length - 1; i++) {
+    const headerCells = parsePipeRow(lines[i])
+    if (!headerCells || headerCells.length !== expected.length) continue
+    const headerNorm = headerCells.map(h => h.toLowerCase())
+    const sameHeaders = expected.every((h, idx) => headerNorm[idx] === h)
+    if (!sameHeaders) continue
+    if (!isPipeSeparator(lines[i + 1])) continue
+
+    const rows = []
+    let j = i + 2
+    while (j < lines.length) {
+      const rowCells = parsePipeRow(lines[j])
+      if (!rowCells || rowCells.length < expected.length) break
+      rows.push(rowCells.slice(0, expected.length))
+      j += 1
+    }
+
+    if (rows.length === 0) continue
+
+    const remainingLines = [...lines.slice(0, i), ...lines.slice(j)]
+    return {
+      rows,
+      bodyWithoutTable: remainingLines.join('\n'),
+    }
+  }
+
+  return null
 }
