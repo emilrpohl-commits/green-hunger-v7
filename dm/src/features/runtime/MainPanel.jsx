@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useCombatStore } from '../../stores/combatStore'
 import { supabase } from '@shared/lib/supabase.js'
+import { getSessionRunId } from '@shared/lib/runtimeContext.js'
 import StatBlockView from '../statblocks/StatBlockView'
 
 const BEAT_TYPE_LABEL = {
@@ -139,6 +140,7 @@ function DmDiceRoller({ supabaseClient }) {
   const [lastRoll, setLastRoll] = useState(null)
 
   const roll = async () => {
+    const sessionRunId = getSessionRunId()
     const result = Math.floor(Math.random() * die) + 1
     const total = result + modifier
     const targetLabel = CHARACTERS.find(c => c.id === target)?.name || 'All Players'
@@ -147,11 +149,12 @@ function DmDiceRoller({ supabaseClient }) {
     setLastRoll({ result, total, die, crit: result === 20 && die === 20, fumble: result === 1 && die === 20 })
     try {
       await supabase.from('combat_feed').insert({
-        session_id: 'session-1',
+        session_id: sessionRunId,
         round: 0,
         text,
         type: 'dm-roll',
-        shared: true,
+        shared: target === 'all',
+        visibility: target === 'all' ? 'player_visible' : 'targeted',
         target_id: target,
         timestamp: new Date().toISOString()
       })

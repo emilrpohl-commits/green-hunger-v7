@@ -1,18 +1,20 @@
 import React, { useEffect, useState } from 'react'
 import { supabase } from '@shared/lib/supabase.js'
+import { getSessionRunId } from '@shared/lib/runtimeContext.js'
 
 export default function CombatFeed() {
   const [feed, setFeed] = useState([])
   const [combatActive, setCombatActive] = useState(false)
 
   useEffect(() => {
+    const sessionRunId = getSessionRunId()
     // Load initial combat state
     const loadInitial = async () => {
       try {
         const { data: stateData } = await supabase
           .from('combat_state')
           .select('*')
-          .eq('id', 'session-1')
+          .eq('id', sessionRunId)
           .single()
 
         if (stateData) setCombatActive(stateData.active)
@@ -20,7 +22,7 @@ export default function CombatFeed() {
         const { data: feedData } = await supabase
           .from('combat_feed')
           .select('*')
-          .eq('session_id', 'session-1')
+          .eq('session_id', sessionRunId)
           .eq('shared', true)
           .order('timestamp', { ascending: false })
           .limit(20)
@@ -38,7 +40,7 @@ export default function CombatFeed() {
         event: '*',
         schema: 'public',
         table: 'combat_state',
-        filter: 'id=eq.session-1'
+        filter: `id=eq.${sessionRunId}`
       }, (payload) => {
         if (payload.new) setCombatActive(payload.new.active)
       })
@@ -51,9 +53,9 @@ export default function CombatFeed() {
         event: 'INSERT',
         schema: 'public',
         table: 'combat_feed',
-        filter: 'session_id=eq.session-1'
+        filter: `session_id=eq.${sessionRunId}`
       }, (payload) => {
-        if (payload.new && payload.new.shared) {
+        if (payload.new && payload.new.shared && (!payload.new.target_id || payload.new.target_id === 'all')) {
           setFeed(prev => [payload.new, ...prev].slice(0, 20))
         }
       })
@@ -61,7 +63,7 @@ export default function CombatFeed() {
         event: 'DELETE',
         schema: 'public',
         table: 'combat_feed',
-        filter: 'session_id=eq.session-1'
+        filter: `session_id=eq.${sessionRunId}`
       }, (payload) => {
         const oldId = payload.old?.id
         if (oldId != null) {

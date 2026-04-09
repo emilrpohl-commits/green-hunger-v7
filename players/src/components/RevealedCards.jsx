@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { supabase } from '@shared/lib/supabase.js'
+import { getSessionRunId } from '@shared/lib/runtimeContext.js'
 
 const TONE_STYLE = {
   narrative: { accent: '#4a7a42', text: '#8ab880' },
@@ -15,13 +16,15 @@ export default function RevealedCards() {
   const [reveals, setReveals] = useState([])
 
   useEffect(() => {
+    const sessionRunId = getSessionRunId()
     // Load existing reveals
     const load = async () => {
       try {
         const { data } = await supabase
           .from('reveals')
           .select('*')
-          .eq('session_id', 'session-1')
+          .eq('session_id', sessionRunId)
+          .eq('visibility', 'player_visible')
           .order('revealed_at', { ascending: false })
 
         if (data) setReveals(data)
@@ -36,9 +39,9 @@ export default function RevealedCards() {
         event: 'INSERT',
         schema: 'public',
         table: 'reveals',
-        filter: 'session_id=eq.session-1'
+        filter: `session_id=eq.${sessionRunId}`
       }, (payload) => {
-        if (payload.new) {
+        if (payload.new && payload.new.visibility !== 'dm_only') {
           setReveals(prev => [payload.new, ...prev])
         }
       })

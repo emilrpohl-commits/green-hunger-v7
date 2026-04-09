@@ -382,15 +382,108 @@ create table if not exists assets (
 -- RUNTIME / LIVE SESSION STATE (extends existing tables)
 -- ---------------------------------------------------------------------------
 
+-- Legacy runtime tables kept for compatibility with current DM/player stores.
+create table if not exists session_state (
+  id text primary key,
+  session_run_id text,
+  campaign_id uuid references campaigns(id) on delete set null,
+  current_scene_index int default 0,
+  current_beat_index int default 0,
+  active_session_uuid uuid,
+  active_scene_uuid uuid,
+  active_beat_uuid uuid,
+  mode text default 'run',
+  revealed_asset_ids uuid[] default '{}',
+  active_ruleset text default '2024',
+  fallback_allowed boolean default true,
+  source_of_truth text default 'canonical',
+  updated_at timestamptz default now()
+);
+
+create table if not exists character_states (
+  id text primary key,
+  cur_hp int default 0,
+  temp_hp int default 0,
+  concentration boolean default false,
+  spell_slots jsonb default '{}',
+  death_saves jsonb default '{"successes":0,"failures":0}',
+  conditions text[] default '{}',
+  updated_at timestamptz default now()
+);
+
+create table if not exists combat_state (
+  id text primary key,
+  session_run_id text,
+  active boolean default false,
+  round int default 1,
+  active_combatant_index int default 0,
+  combatants jsonb default '[]',
+  ilya_assigned_to text,
+  initiative_phase boolean default false,
+  ruleset_context jsonb default '{"active_ruleset":"2024","fallback_allowed":true,"source_of_truth":"canonical"}',
+  updated_at timestamptz default now()
+);
+
+create table if not exists combat_feed (
+  id bigserial primary key,
+  session_id text not null,
+  session_run_id text,
+  round int default 0,
+  text text not null,
+  type text default 'action',
+  shared boolean default false,
+  visibility text default 'player_visible',
+  prompt_status text,
+  target_id text,
+  ruleset text,
+  source_of_truth text,
+  timestamp timestamptz default now()
+);
+
+create table if not exists reveals (
+  id bigserial primary key,
+  session_id text not null,
+  session_run_id text,
+  card_id text not null,
+  category text,
+  title text not null,
+  content text not null,
+  tone text default 'narrative',
+  visibility text default 'player_visible',
+  target_id text,
+  revealed_at timestamptz default now()
+);
+
 -- Extend existing session_state to reference the new schema
 -- (We keep the old integer-index columns for backward compat during migration)
 alter table session_state
   add column if not exists campaign_id uuid,
+  add column if not exists session_run_id text,
   add column if not exists active_session_uuid uuid,
   add column if not exists active_scene_uuid uuid,
   add column if not exists active_beat_uuid uuid,
   add column if not exists mode text default 'run',
-  add column if not exists revealed_asset_ids uuid[] default '{}';
+  add column if not exists revealed_asset_ids uuid[] default '{}',
+  add column if not exists active_ruleset text default '2024',
+  add column if not exists fallback_allowed boolean default true,
+  add column if not exists source_of_truth text default 'canonical';
+
+alter table combat_state
+  add column if not exists session_run_id text,
+  add column if not exists ruleset_context jsonb default '{"active_ruleset":"2024","fallback_allowed":true,"source_of_truth":"canonical"}';
+
+alter table combat_feed
+  add column if not exists session_run_id text,
+  add column if not exists visibility text default 'player_visible',
+  add column if not exists prompt_status text,
+  add column if not exists target_id text,
+  add column if not exists ruleset text,
+  add column if not exists source_of_truth text;
+
+alter table reveals
+  add column if not exists session_run_id text,
+  add column if not exists visibility text default 'player_visible',
+  add column if not exists target_id text;
 
 create table if not exists revealed_content (
   id uuid primary key default gen_random_uuid(),
@@ -401,6 +494,16 @@ create table if not exists revealed_content (
   revealed_by text,
   is_player_visible boolean default true
 );
+
+alter table revealed_content
+  add column if not exists visibility text default 'player_visible',
+  add column if not exists target_id text;
+
+create index if not exists session_state_session_run_idx on session_state(session_run_id);
+create index if not exists combat_state_session_run_idx on combat_state(session_run_id);
+create index if not exists combat_feed_session_run_idx on combat_feed(session_run_id, timestamp desc);
+create index if not exists combat_feed_visibility_idx on combat_feed(visibility, target_id);
+create index if not exists reveals_session_run_idx on reveals(session_run_id, revealed_at desc);
 
 -- ---------------------------------------------------------------------------
 -- CANONICAL 5E ENGINE CONTENT (2024-FIRST WITH 2014 FALLBACK)
@@ -449,6 +552,25 @@ create table if not exists rules_sync_runs (
 );
 
 -- ---------------------------------------------------------------------------
+-- HOMEBREW OVERLAY SYSTEM
+-- ---------------------------------------------------------------------------
+
+create table if not exists homebrew_overlays (
+  id uuid primary key default gen_random_uuid(),
+  campaign_id uuid references campaigns(id) on delete cascade not null,
+  entity_type text not null,                        -- spell|item|monster|condition|mechanic
+  canonical_ref text,                               -- rules_entities.source_index (nullable for net-new custom entities)
+  overlay_payload jsonb not null default '{}',
+  is_active boolean default true,
+  created_by text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists homebrew_overlays_campaign_idx on homebrew_overlays(campaign_id, entity_type, is_active);
+create index if not exists homebrew_overlays_canonical_idx on homebrew_overlays(entity_type, canonical_ref);
+
+-- ---------------------------------------------------------------------------
 -- INDEXES
 -- ---------------------------------------------------------------------------
 
@@ -485,11 +607,17 @@ alter table items enable row level security;
 alter table locations enable row level security;
 alter table factions enable row level security;
 alter table assets enable row level security;
+alter table session_state enable row level security;
+alter table character_states enable row level security;
+alter table combat_state enable row level security;
+alter table combat_feed enable row level security;
+alter table reveals enable row level security;
 alter table character_spells enable row level security;
 alter table revealed_content enable row level security;
 alter table rules_sources enable row level security;
 alter table rules_entities enable row level security;
 alter table rules_sync_runs enable row level security;
+alter table homebrew_overlays enable row level security;
 
 -- Allow all while running without auth (remove when adding auth)
 -- Uses DO block because CREATE POLICY does not support IF NOT EXISTS
@@ -516,11 +644,17 @@ begin
     ('locations',       'allow_all_locations'),
     ('factions',        'allow_all_factions'),
     ('assets',          'allow_all_assets'),
+    ('session_state',   'allow_all_session_state'),
+    ('character_states','allow_all_character_states'),
+    ('combat_state',    'allow_all_combat_state'),
+    ('combat_feed',     'allow_all_combat_feed'),
+    ('reveals',         'allow_all_reveals'),
     ('character_spells','allow_all_character_spells'),
     ('revealed_content','allow_all_revealed_content'),
     ('rules_sources',   'allow_all_rules_sources'),
     ('rules_entities',  'allow_all_rules_entities'),
-    ('rules_sync_runs', 'allow_all_rules_sync_runs')
+    ('rules_sync_runs', 'allow_all_rules_sync_runs'),
+    ('homebrew_overlays','allow_all_homebrew_overlays')
   loop
     if not exists (
       select 1 from pg_policies

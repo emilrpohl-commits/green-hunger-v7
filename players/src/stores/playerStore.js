@@ -2,9 +2,10 @@ import { create } from 'zustand'
 import { supabase } from '@shared/lib/supabase.js'
 import { SESSION_1_PLAYER, CHARACTERS } from '@shared/content/session1.js'
 import { PLAYER_CHARACTERS } from '@shared/content/playerCharacters.js'
-import { parseCastingTimeMeta, consumeActionEconomy, ensureActionEconomy, encodeSavePrompt, decodePlayerSavePrompt } from '@shared/lib/combatRules.js'
+import { parseCastingTimeMeta, consumeActionEconomy, ensureActionEconomy, encodeSavePrompt, decodePlayerSavePrompt, makeSavePromptEnvelope } from '@shared/lib/combatRules.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
 import { mapApiSpellToCharacterSpell } from '@shared/lib/engine/mappers.js'
+import { getRulesetContext, getSessionRunId } from '@shared/lib/runtimeContext.js'
 
 /** Player client: PCs only (exclude DM companion NPCs from party list). */
 const PLAYER_RUNTIME_CHARACTERS = CHARACTERS.filter(c => !c.isNPC)
@@ -86,7 +87,17 @@ function sanitizeIlyaSheet(character) {
   return sanitized
 }
 
+function sanitizeCombatantForPlayer(combatant) {
+  if (!combatant || combatant.type !== 'enemy') return combatant
+  const sanitized = { ...combatant }
+  delete sanitized.abilityScores
+  delete sanitized.savingThrows
+  delete sanitized.actionOptions
+  return sanitized
+}
+
 export const usePlayerStore = create((set, get) => ({
+  sessionRunId: getSessionRunId(),
   // Session
   session: SESSION_1_PLAYER,
   currentSceneIndex: 0,
@@ -161,7 +172,9 @@ export const usePlayerStore = create((set, get) => ({
       }
     }
     if (!Array.isArray(combatants)) combatants = []
-    combatants = combatants.map(c => ({ ...c, actionEconomy: ensureActionEconomy(c) }))
+    combatants = combatants
+      .map(c => ({ ...c, actionEconomy: ensureActionEconomy(c) }))
+      .map(sanitizeCombatantForPlayer)
 
     let nextLast = lastApplied ?? null
     if (incomingTs != null) {
@@ -180,11 +193,12 @@ export const usePlayerStore = create((set, get) => ({
   },
 
   fetchCombatantsForWrite: async () => {
+    const { sessionRunId } = get()
     try {
       const { data } = await supabase
         .from('combat_state')
         .select('combatants')
-        .eq('id', 'session-1')
+        .eq('id', sessionRunId)
         .maybeSingle()
       let list = get().combatCombatants
       if (data?.combatants != null) {
@@ -206,6 +220,7 @@ export const usePlayerStore = create((set, get) => ({
 
   // Subscribe to real-time changes from Supabase
   subscribe: () => {
+    const { sessionRunId } = get()
     get().loadInitialState()
 
     const sessionChannel = supabase
@@ -214,7 +229,7 @@ export const usePlayerStore = create((set, get) => ({
         event: '*',
         schema: 'public',
         table: 'session_state',
-        filter: 'id=eq.session-1'
+        filter: `id=eq.${sessionRunId}`
       }, (payload) => {
         if (payload.new) {
           set({
@@ -261,7 +276,7 @@ export const usePlayerStore = create((set, get) => ({
         event: '*',
         schema: 'public',
         table: 'combat_state',
-        filter: 'id=eq.session-1'
+        filter: `id=eq.${sessionRunId}`
       }, (payload) => {
         if (payload.new) get().applyCombatStateRow(payload.new)
       })
@@ -274,7 +289,7 @@ export const usePlayerStore = create((set, get) => ({
         event: 'INSERT',
         schema: 'public',
         table: 'combat_feed',
-        filter: 'session_id=eq.session-1'
+        filter: `session_id=eq.${sessionRunId}`
       }, (payload) => {
         if (!payload.new) return
         if (payload.new.type === 'dm-roll') {
@@ -311,6 +326,8 @@ export const usePlayerStore = create((set, get) => ({
 
   // Load characters and spells from Supabase, overwriting the hardcoded fallback
   loadCharacters: async () => {
+    const rulesetContext = getRulesetContext()
+    const selectedRuleset = rulesetContext.active_ruleset === 'custom' ? '2024' : rulesetContext.active_ruleset
     try {
       const [
         { data: charRows },
@@ -327,14 +344,14 @@ export const usePlayerStore = create((set, get) => ({
             .from('rules_entities')
             .select('*')
             .eq('entity_type', 'spells')
-            .eq('ruleset', '2024')
+            .eq('ruleset', selectedRuleset)
           : Promise.resolve({ data: [] }),
         featureFlags.use5eEngine && featureFlags.engineConditions
           ? supabase
             .from('rules_entities')
             .select('source_index,name,payload,ruleset,source_url')
             .eq('entity_type', 'conditions')
-            .eq('ruleset', '2024')
+            .eq('ruleset', selectedRuleset)
           : Promise.resolve({ data: [] }),
       ])
       if (!charRows || charRows.length === 0) return
@@ -467,12 +484,13 @@ export const usePlayerStore = create((set, get) => ({
   },
 
   loadInitialState: async () => {
+    const { sessionRunId } = get()
     await get().loadCharacters()
     try {
       const { data: sessionData } = await supabase
         .from('session_state')
         .select('*')
-        .eq('id', 'session-1')
+        .eq('id', sessionRunId)
         .single()
 
       if (sessionData) {
@@ -508,7 +526,7 @@ export const usePlayerStore = create((set, get) => ({
       const { data: combatData } = await supabase
         .from('combat_state')
         .select('*')
-        .eq('id', 'session-1')
+        .eq('id', sessionRunId)
         .single()
 
       if (combatData) {
@@ -521,7 +539,8 @@ export const usePlayerStore = create((set, get) => ({
 
   // Apply damage to an enemy in combat (writes back to Supabase)
   applyDamageToEnemy: async (combatantId, damage, attackerName, weaponName) => {
-    const { combatActive, combatRound, initiativePhase, ilyaAssignedTo } = get()
+    const { combatActive, combatRound, initiativePhase, ilyaAssignedTo, sessionRunId } = get()
+    const rulesetContext = getRulesetContext()
     const combatCombatants = await get().fetchCombatantsForWrite()
     const target = combatCombatants.find(c => c.id === combatantId)
     if (!target) return
@@ -546,12 +565,14 @@ export const usePlayerStore = create((set, get) => ({
     const ts = new Date().toISOString()
     try {
       await supabase.from('combat_state').upsert({
-        id: 'session-1',
+        id: sessionRunId,
+        session_run_id: sessionRunId,
         active: combatActive,
         round: combatRound,
         combatants: updatedCombatants,
         initiative_phase: initiativePhase,
         ilya_assigned_to: ilyaAssignedTo,
+        ruleset_context: rulesetContext,
         updated_at: ts
       })
       get().bumpCombatStateSyncedFromWrite(ts)
@@ -561,7 +582,7 @@ export const usePlayerStore = create((set, get) => ({
         : `${attackerName} hits ${target.name} with ${weaponName} for ${damage} (${curHp}/${target.maxHp} HP)`
 
       await supabase.from('combat_feed').insert({
-        session_id: 'session-1',
+        session_id: sessionRunId,
         round: combatRound,
         text: msg,
         type: 'damage',
@@ -575,7 +596,8 @@ export const usePlayerStore = create((set, get) => ({
 
   // Apply a condition to an enemy combatant (e.g. Bane)
   applyConditionToEnemy: async (combatantId, condition, casterName) => {
-    const { combatActive, combatRound, initiativePhase, ilyaAssignedTo } = get()
+    const { combatActive, combatRound, initiativePhase, ilyaAssignedTo, sessionRunId } = get()
+    const rulesetContext = getRulesetContext()
     const combatCombatants = await get().fetchCombatantsForWrite()
     const updatedCombatants = combatCombatants.map(c =>
       c.id === combatantId && !c.conditions?.includes(condition)
@@ -586,18 +608,20 @@ export const usePlayerStore = create((set, get) => ({
     const ts = new Date().toISOString()
     try {
       await supabase.from('combat_state').upsert({
-        id: 'session-1',
+        id: sessionRunId,
+        session_run_id: sessionRunId,
         active: combatActive,
         round: combatRound,
         combatants: updatedCombatants,
         initiative_phase: initiativePhase,
         ilya_assigned_to: ilyaAssignedTo,
+        ruleset_context: rulesetContext,
         updated_at: ts
       })
       get().bumpCombatStateSyncedFromWrite(ts)
       const target = combatCombatants.find(c => c.id === combatantId)
       await supabase.from('combat_feed').insert({
-        session_id: 'session-1',
+        session_id: sessionRunId,
         round: combatRound,
         text: `${casterName} → ${target?.name ?? combatantId} is now ${condition} (−1d4 to attacks & saves)`,
         type: 'damage',
@@ -611,7 +635,7 @@ export const usePlayerStore = create((set, get) => ({
 
   // Apply healing to a player character (writes to Supabase character_states)
   applyHealingToCharacter: async (targetId, amount, healerName, spellName) => {
-    const { characters, combatActive, combatRound } = get()
+    const { characters, combatActive, combatRound, sessionRunId } = get()
     const target = characters.find(c => c.id === targetId)
     const staticChar = get().playerCharacters[targetId]
     if (!target && !staticChar) return
@@ -635,7 +659,7 @@ export const usePlayerStore = create((set, get) => ({
       const msg = `${healerName} uses ${spellName} on ${staticChar?.name || targetId} for ${amount} HP (${newHp}/${maxHp})`
       if (combatActive) {
         await supabase.from('combat_feed').insert({
-          session_id: 'session-1',
+          session_id: sessionRunId,
           round: combatRound,
           text: msg,
           type: 'heal',
@@ -652,7 +676,8 @@ export const usePlayerStore = create((set, get) => ({
           const ts = new Date().toISOString()
           const { initiativePhase, ilyaAssignedTo } = get()
           await supabase.from('combat_state').upsert({
-            id: 'session-1',
+            id: sessionRunId,
+            session_run_id: sessionRunId,
             active: combatActive,
             round: combatRound,
             combatants: updatedCombatants,
@@ -733,7 +758,7 @@ export const usePlayerStore = create((set, get) => ({
 
   // Submit a player's initiative roll to combat_state
   submitInitiative: async (characterId, value) => {
-    const { combatActive, combatRound, ilyaAssignedTo, initiativePhase } = get()
+    const { combatActive, combatRound, ilyaAssignedTo, initiativePhase, sessionRunId } = get()
     const combatCombatants = await get().fetchCombatantsForWrite()
     const updated = combatCombatants.map(c =>
       c.id === characterId ? { ...c, initiative: value, initiativeSet: true } : c
@@ -742,7 +767,8 @@ export const usePlayerStore = create((set, get) => ({
     const ts = new Date().toISOString()
     try {
       await supabase.from('combat_state').upsert({
-        id: 'session-1',
+        id: sessionRunId,
+        session_run_id: sessionRunId,
         active: combatActive,
         round: combatRound,
         combatants: updated,
@@ -758,10 +784,10 @@ export const usePlayerStore = create((set, get) => ({
 
   // Push a player roll to the shared combat_feed so the DM can see it
   pushRoll: async (text, charName) => {
-    const { combatRound } = get()
+    const { combatRound, sessionRunId } = get()
     try {
       await supabase.from('combat_feed').insert({
-        session_id: 'session-1',
+        session_id: sessionRunId,
         round: combatRound,
         text: `[${charName}] ${text}`,
         type: 'roll',
@@ -774,21 +800,24 @@ export const usePlayerStore = create((set, get) => ({
   },
 
   pushSavePrompt: async (payload) => {
-    const { combatRound } = get()
+    const { combatRound, sessionRunId } = get()
     try {
+      const envelope = makeSavePromptEnvelope(payload)
       await supabase.from('combat_feed').insert({
-        session_id: 'session-1',
+        session_id: sessionRunId,
         round: combatRound,
-        text: encodeSavePrompt(payload),
+        text: encodeSavePrompt(envelope),
         type: 'save-prompt',
-        shared: true,
+        shared: false,
+        visibility: 'targeted',
+        prompt_status: 'pending',
         timestamp: new Date().toISOString()
       })
     } catch (e) {}
   },
 
   tryUseCombatActionType: async (characterId, actionType, context = 'action') => {
-    const { combatActive, combatRound, initiativePhase, ilyaAssignedTo, combatActiveCombatantIndex } = get()
+    const { combatActive, combatRound, initiativePhase, ilyaAssignedTo, combatActiveCombatantIndex, sessionRunId } = get()
     if (!combatActive || !actionType || actionType === 'special') return { ok: true, reason: null }
     const combatCombatants = await get().fetchCombatantsForWrite()
     const idx = combatCombatants.findIndex(c => c.id === characterId)
@@ -808,7 +837,8 @@ export const usePlayerStore = create((set, get) => ({
     const ts = new Date().toISOString()
     try {
       await supabase.from('combat_state').upsert({
-        id: 'session-1',
+        id: sessionRunId,
+        session_run_id: sessionRunId,
         active: combatActive,
         round: combatRound,
         combatants: updatedCombatants,

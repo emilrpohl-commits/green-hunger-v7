@@ -13,6 +13,22 @@ export const featureFlags = {
   engineSpells: asBool(env.VITE_ENGINE_SPELLS, true),
   engineMonsters: asBool(env.VITE_ENGINE_MONSTERS, true),
   engineConditions: asBool(env.VITE_ENGINE_CONDITIONS, true),
+  // Stabilization rollout flags (default off for safe incremental adoption).
+  ownershipConstraintsEnforced: asBool(env.VITE_OWNERSHIP_CONSTRAINTS_ENFORCED, false),
+  rulesetContextEnforced: asBool(env.VITE_RULESET_CONTEXT_ENFORCED, false),
+  rulesetProvenanceVisible: asBool(env.VITE_RULESET_PROVENANCE_VISIBLE, false),
+  sessionRunRuntime: asBool(env.VITE_SESSION_RUN_RUNTIME, false),
+  engineCatalogRead: asBool(env.VITE_ENGINE_CATALOG_READ, false),
+  engineSpellResolution: asBool(env.VITE_ENGINE_SPELL_RESOLUTION, false),
+  unifiedSavePrompts: asBool(env.VITE_UNIFIED_SAVE_PROMPTS, false),
+  unifiedEffectResolution: asBool(env.VITE_UNIFIED_EFFECT_RESOLUTION, false),
+  monsterActionCatalog: asBool(env.VITE_MONSTER_ACTION_CATALOG, false),
+  visibilityContractEnforced: asBool(env.VITE_VISIBILITY_CONTRACT_ENFORCED, false),
+  homebrewOverlayRead: asBool(env.VITE_HOMEBREW_OVERLAY_READ, false),
+  homebrewOverlayWrite: asBool(env.VITE_HOMEBREW_OVERLAY_WRITE, false),
+  uiCombatClarity: asBool(env.VITE_UI_COMBAT_CLARITY, false),
+  uiPromptStateBadges: asBool(env.VITE_UI_PROMPT_STATE_BADGES, false),
+  shadowCompareMode: asBool(env.VITE_SHADOW_COMPARE_MODE, false),
 }
 
 export function isFeatureEnabled(flagName) {

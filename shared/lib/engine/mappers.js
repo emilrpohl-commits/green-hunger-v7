@@ -56,7 +56,7 @@ export function mapApiSpellToCharacterSpell(apiSpell, charStats = {}) {
   }
 }
 
-export function mapApiMonsterToCombatant(apiMonster, ordinal = 1) {
+export function mapApiMonsterToCombatant(apiMonster, ordinal = 1, options = {}) {
   const ac = Number(apiMonster.ac || apiMonster.armor_class?.[0]?.value || apiMonster.armor_class || 10)
   const maxHp = Number(apiMonster.max_hp || apiMonster.hit_points || 1)
   const actions = Array.isArray(apiMonster.actions) ? apiMonster.actions : []
@@ -70,6 +70,7 @@ export function mapApiMonsterToCombatant(apiMonster, ordinal = 1) {
     attackBonus: parseMod(a.toHit ?? a.attack_bonus),
     save: a.saveType && a.saveDC ? `${a.saveType} DC ${a.saveDC}` : null,
     damage: a.damage || null,
+    source: 'stat_block',
   })
 
   return {
@@ -93,6 +94,8 @@ export function mapApiMonsterToCombatant(apiMonster, ordinal = 1) {
       ...bonusActions.map((a) => toActionOption(a, 'bonus_action')),
       ...reactions.map((a) => toActionOption(a, 'reaction')),
     ],
+    actionSource: actions.length || bonusActions.length || reactions.length ? 'stat_block' : 'fallback',
+    ruleset: options.ruleset || apiMonster.ruleset || null,
   }
 }
 

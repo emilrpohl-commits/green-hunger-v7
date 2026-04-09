@@ -17,5 +17,6 @@ export const engineConfig = {
 
 export function getRulesetNamespace(ruleset) {
   const value = String(ruleset || engineConfig.primaryRuleset).trim()
-  return value === '2014' || value === '2024' ? value : engineConfig.primaryRuleset
+  if (value === '2014' || value === '2024') return value
+  throw new Error(`Unsupported ruleset namespace: ${value}`)
 }
