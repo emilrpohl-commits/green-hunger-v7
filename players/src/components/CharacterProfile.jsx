@@ -311,6 +311,7 @@ export default function CharacterProfile({ characterId }) {
   const applyDamageToEnemy = usePlayerStore(s => s.applyDamageToEnemy)
   const applyConditionToEnemy = usePlayerStore(s => s.applyConditionToEnemy)
   const applyHealingToCharacter = usePlayerStore(s => s.applyHealingToCharacter)
+  const applyDamageToCharacter = usePlayerStore(s => s.applyDamageToCharacter)
   const grantBardicInspiration = usePlayerStore(s => s.grantBardicInspiration)
   const consumeBuff = usePlayerStore(s => s.consumeBuff)
   const pushRoll = usePlayerStore(s => s.pushRoll)
@@ -760,7 +761,7 @@ export default function CharacterProfile({ characterId }) {
 
   const showDmRoll = dmRoll && (!dmRoll.targetId || dmRoll.targetId === 'all' || dmRoll.targetId === characterId)
 
-  const resolveIncomingSavePrompt = (isManual = false, manualTotal = null) => {
+  const resolveIncomingSavePrompt = async (isManual = false, manualTotal = null) => {
     if (!dmRoll?.savePrompt) return
     const saveAbility = String(dmRoll.savePrompt.saveAbility || '').toUpperCase()
     const saveEntry = (char.savingThrows || []).find(s => String(s.name || '').toUpperCase() === saveAbility)
@@ -769,8 +770,34 @@ export default function CharacterProfile({ characterId }) {
     const modded = applyDeterministicRollModifiers({ combatant: myCombatant, baseRoll: d20 + mod, rollType: 'save' })
     const total = isManual ? (parseInt(manualTotal, 10) || 0) : modded.total
     const success = total >= (dmRoll.savePrompt.saveDc || 10)
+    const meta = dmRoll.savePrompt.damageMeta
+    const maxHp = myCombatant?.maxHp ?? char.stats.maxHp ?? 1
+    const curForDice = liveChar?.curHp ?? maxHp
+    let hpDmg = 0
+    if (meta) {
+      let diceSpec = meta.diceOnFail
+      if (meta.variant === 'toll-the-dead' && meta.diceWhenHurt && meta.diceWhenFullHp) {
+        diceSpec = curForDice < maxHp ? meta.diceWhenHurt : meta.diceWhenFullHp
+      }
+      if (diceSpec) {
+        const rolls = rollDice(diceSpec.count, diceSpec.sides)
+        const rawTotal = rolls.reduce((a, b) => a + b, 0)
+        hpDmg = success
+          ? (meta.halfOnSuccess ? Math.floor(rawTotal / 2) : 0)
+          : rawTotal
+      }
+    }
     setRollResult({ type: 'save', name: `${saveAbility} vs ${dmRoll.savePrompt.actionName}`, d20, mod, total, crit: d20 === 20, fumble: d20 === 1 })
     pushRoll(`${dmRoll.savePrompt.actionName}: ${saveAbility} save total ${total} vs DC ${dmRoll.savePrompt.saveDc} → ${success ? 'SUCCESS' : 'FAIL'}`, char.name)
+    if (hpDmg > 0) {
+      await applyDamageToCharacter(
+        characterId,
+        hpDmg,
+        dmRoll.savePrompt.sourceName,
+        dmRoll.savePrompt.actionName,
+        meta.damageType
+      )
+    }
     clearDmRoll()
   }
 
@@ -802,13 +829,13 @@ export default function CharacterProfile({ characterId }) {
           {dmRoll.kind === 'save-prompt' && dmRoll.savePrompt && (
             <div style={{ marginTop: 10, display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
               <button
-                onClick={() => resolveIncomingSavePrompt(false)}
+                onClick={() => { void resolveIncomingSavePrompt(false) }}
                 style={{ padding: '6px 10px', fontFamily: 'var(--font-mono)', fontSize: 10, background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-secondary)', cursor: 'pointer' }}
               >
                 Roll Save
               </button>
               <button
-                onClick={() => resolveIncomingSavePrompt(true, manualSaveTotal)}
+                onClick={() => { void resolveIncomingSavePrompt(true, manualSaveTotal) }}
                 style={{ padding: '6px 10px', fontFamily: 'var(--font-mono)', fontSize: 10, background: `${char.colour}20`, border: `1px solid ${char.colour}70`, borderRadius: 'var(--radius)', color: char.colour, cursor: 'pointer' }}
               >
                 Enter Total

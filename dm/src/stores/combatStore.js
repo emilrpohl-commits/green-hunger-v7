@@ -157,6 +157,7 @@ export const useCombatStore = create((set, get) => ({
       }, (payload) => {
         const row = payload.new
         if (!row) return
+        if (row.type === 'player-save-prompt') return
         const event = { id: row.id || Date.now(), round: row.round, text: row.text, type: row.type, shared: row.shared, timestamp: row.timestamp }
         set(state => ({ feed: [event, ...state.feed].slice(0, 80) }))
         if (row.type === 'save-prompt') {
@@ -698,7 +699,9 @@ export const useCombatStore = create((set, get) => ({
         .limit(50)
 
       if (data) {
-        const feed = data.map(d => ({ id: d.id, round: d.round, text: d.text, type: d.type, shared: d.shared }))
+        const feed = data
+          .filter(d => d.type !== 'player-save-prompt')
+          .map(d => ({ id: d.id, round: d.round, text: d.text, type: d.type, shared: d.shared }))
         const savePrompts = data
           .filter(d => d.type === 'save-prompt')
           .map(d => ({ ...(decodeSavePrompt(d.text) || {}), eventId: d.id, resolved: false }))
