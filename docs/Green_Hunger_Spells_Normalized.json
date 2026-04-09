@@ -1,0 +1,2900 @@
+[
+  {
+    "spell_id": "chill_touch",
+    "campaign_id": null,
+    "name": "Chill Touch",
+    "level": 0,
+    "school": "Necromancy",
+    "casting_time": "1 Action",
+    "range": "120 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "1 Round",
+    "ritual": false,
+    "concentration": false,
+    "description": "You create a ghostly, skeletal hand in the space of a creature within range. Make a ranged spell attack against the creature to assail it with the chill of the grave. On a hit, the target takes 1d8 necrotic damage, and it can't regain hit points until the start of your next turn. Until then, the hand clings to the target.\n\nIf you hit an undead target, it also has disadvantage on attack rolls against you until the end of your next turn.\n\nThis spell's damage increases by 1d8 when you reach 5th level (2d8), 11th level (3d8), and 17th level (4d8).",
+    "higher_level_effect": "",
+    "damage_dice": "1d8",
+    "damage_type": "Necrotic",
+    "healing_dice": "1d8",
+    "save_type": null,
+    "attack_type": "ranged",
+    "resolution_type": "heal",
+    "target_mode": "single",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": true,
+      "dice_mentions": [
+        {
+          "count": 1,
+          "sides": 8
+        },
+        {
+          "count": 1,
+          "sides": 8
+        },
+        {
+          "count": 2,
+          "sides": 8
+        },
+        {
+          "count": 3,
+          "sides": 8
+        },
+        {
+          "count": 4,
+          "sides": 8
+        }
+      ],
+      "confidence": "medium"
+    },
+    "rules_json": {
+      "source_spell_id": "chill_touch",
+      "attack_label": "Ranged",
+      "save_label": null,
+      "damage_effect": "Necrotic",
+      "targeting": {
+        "spellId": "chill_touch",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Chill Touch Necromancy • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "heal",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "medium"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.806Z"
+  },
+  {
+    "spell_id": "guidance",
+    "campaign_id": null,
+    "name": "Guidance",
+    "level": 0,
+    "school": "Divination",
+    "casting_time": "1 Action",
+    "range": "Touch",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "1 Minute",
+    "ritual": false,
+    "concentration": true,
+    "description": "You touch one willing creature. Once before the spell ends, the target can roll a d4 and add the number rolled to one ability check of its choice. It can roll the die before or after making the ability check. The spell then ends.",
+    "higher_level_effect": "",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "utility",
+    "target_mode": "single",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "guidance",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Buff",
+      "targeting": {
+        "spellId": "guidance",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Guidance Concentration Divination • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.806Z"
+  },
+  {
+    "spell_id": "lightning_lure",
+    "campaign_id": null,
+    "name": "Lightning Lure",
+    "level": 0,
+    "school": "Evocation",
+    "casting_time": "1 Action",
+    "range": "Self (15 ft)",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "Instantaneous",
+    "ritual": false,
+    "concentration": false,
+    "description": "You create a lash of lightning energy that strikes at one creature of your choice that you can see within 15 feet of you. The target must succeed on a Strength saving throw or be pulled up to 10 feet in a straight line toward you and then take 1d8 lightning damage if it is within 5 feet of you.This spell’s damage increases by 1d8 when you reach 5th level (2d8), 11th level (3d8), and 17th level (4d8).",
+    "higher_level_effect": "",
+    "damage_dice": "1d8",
+    "damage_type": "Lightning",
+    "healing_dice": null,
+    "save_type": "STR",
+    "attack_type": null,
+    "resolution_type": "save",
+    "target_mode": "single",
+    "save_ability": "STR",
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "self"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": true,
+      "dice_mentions": [
+        {
+          "count": 1,
+          "sides": 8
+        },
+        {
+          "count": 1,
+          "sides": 8
+        },
+        {
+          "count": 2,
+          "sides": 8
+        },
+        {
+          "count": 3,
+          "sides": 8
+        },
+        {
+          "count": 4,
+          "sides": 8
+        }
+      ],
+      "confidence": "medium"
+    },
+    "rules_json": {
+      "source_spell_id": "lightning_lure",
+      "attack_label": null,
+      "save_label": "STR Save",
+      "damage_effect": "Lightning",
+      "targeting": {
+        "spellId": "lightning_lure",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature",
+          "self"
+        ],
+        "origin": "self",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": true,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Lightning Lure  Evocation• V",
+      "source_name": "Tasha's Cauldron of Everything",
+      "inferred_mechanic": "save",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "medium"
+    },
+    "tags": [],
+    "source": "Tasha's Cauldron of Everything",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.806Z"
+  },
+  {
+    "spell_id": "mage_hand",
+    "campaign_id": null,
+    "name": "Mage Hand",
+    "level": 0,
+    "school": "Conjuration",
+    "casting_time": "1 Action",
+    "range": "30 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "1 Minute",
+    "ritual": false,
+    "concentration": false,
+    "description": "A spectral, floating hand appears at a point you choose within range. The hand lasts for the duration or until you dismiss it as an action. The hand vanishes if it is ever more than 30 feet away from you or if you cast this spell again.\n\nYou can use your action to control the hand. You can use the hand to manipulate an object, open an unlocked door or container, stow or retrieve an item from an open container, or pour the contents out of a vial. You can move the hand up to 30 feet each time you use it.\n\nThe hand can't attack, activate magic items, or carry more than 10 pounds.",
+    "higher_level_effect": "",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "utility",
+    "target_mode": "special",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "mage_hand",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Utility",
+      "targeting": {
+        "spellId": "mage_hand",
+        "targetMode": "special",
+        "selectionCountBase": null,
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "object"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Mage Hand Conjuration • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": null,
+      "needs_manual_resolution": true,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.806Z"
+  },
+  {
+    "spell_id": "mending",
+    "campaign_id": null,
+    "name": "Mending",
+    "level": 0,
+    "school": "Transmutation",
+    "casting_time": "1 Minute",
+    "range": "Touch",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "Instantaneous",
+    "ritual": false,
+    "concentration": false,
+    "description": "This spell repairs a single break or tear in an object you touch, such as a broken chain link, two halves of a broken key, a torn cloak, or a leaking wineskin. As long as the break or tear is no larger than 1 foot in any dimension, you mend it, leaving no trace of the former damage.\n\nThis spell can physically repair a magic item or construct, but the spell can't restore magic to such an object.",
+    "higher_level_effect": "",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "utility",
+    "target_mode": "special",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "mending",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Utility",
+      "targeting": {
+        "spellId": "mending",
+        "targetMode": "special",
+        "selectionCountBase": null,
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "object"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Mending Transmutation • V, S, M",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": null,
+      "needs_manual_resolution": true,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.806Z"
+  },
+  {
+    "spell_id": "minor_illusion",
+    "campaign_id": null,
+    "name": "Minor Illusion",
+    "level": 0,
+    "school": "Illusion",
+    "casting_time": "1 Action",
+    "range": "30 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "1 Minute",
+    "ritual": false,
+    "concentration": false,
+    "description": "You create a sound or an image of an object within range that lasts for the duration. The illusion also ends if you dismiss it as an action or cast this spell again.\n\nIf you create a sound, its volume can range from a whisper to a scream. It can be your voice, someone else's voice, a lion's roar, a beating of drums, or any other sound you choose. The sound continues unabated throughout the duration, or you can make discrete sounds at different times before the spell ends.\n\nIf you create an image of an object--such as a chair, muddy footprints, or a small chest--it must be no larger than a 5-foot cube. The image can't create sound, light, smell, or any other sensory effect. Physical interaction with the image reveals it to be an illusion, because things can pass through it.\n\nIf a creature uses its action to examine the sound or image, the creature can determine that it is an illusion with a successful Intelligence (Investigation) check against your spell save DC. If a creature discerns the illusion for what it is, the illusion becomes faint to the creature.",
+    "higher_level_effect": "",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "utility",
+    "target_mode": "area",
+    "save_ability": null,
+    "area": {
+      "shape": "cube",
+      "size": "5 ft",
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "minor_illusion",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Control",
+      "targeting": {
+        "spellId": "minor_illusion",
+        "targetMode": "area",
+        "selectionCountBase": "area_defined",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature",
+          "object"
+        ],
+        "origin": "range",
+        "areaShape": "cube",
+        "areaSize": "5 ft",
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": true,
+        "notes": null
+      },
+      "source_link": "Minor Illusion Illusion • S, M",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.806Z"
+  },
+  {
+    "spell_id": "prestidigitation",
+    "campaign_id": null,
+    "name": "Prestidigitation",
+    "level": 0,
+    "school": "Transmutation",
+    "casting_time": "1 Action",
+    "range": "10 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "1 Hour",
+    "ritual": false,
+    "concentration": false,
+    "description": "This spell is a minor magical trick that novice spellcasters use for practice. You create one of the following magical effects within range:\n\n    You create an instantaneous, harmless sensory effect, such as a shower of sparks, a puff of wind, faint musical notes, or an odd odor.\n    You instantaneously light or snuff out a candle, a torch, or a small campfire.\n    You instantaneously clean or soil an object no larger than 1 cubic foot.\n    You chill, warm, or flavor up to 1 cubic foot of nonliving material for 1 hour.\n    You make a color, a small mark, or a symbol appear on an object or a surface for 1 hour.\n    You create a nonmagical trinket or an illusory image that can fit in your hand and that lasts until the end of your next turn.\n\n\nIf you cast this spell multiple times, you can have up to three of its non-instantaneous effects active at a time, and you can dismiss such an effect as an action.",
+    "higher_level_effect": "",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "utility",
+    "target_mode": "special",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "prestidigitation",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Utility",
+      "targeting": {
+        "spellId": "prestidigitation",
+        "targetMode": "special",
+        "selectionCountBase": null,
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "object"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Prestidigitation Transmutation • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": null,
+      "needs_manual_resolution": true,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.806Z"
+  },
+  {
+    "spell_id": "ray_of_frost",
+    "campaign_id": null,
+    "name": "Ray of Frost",
+    "level": 0,
+    "school": "Evocation",
+    "casting_time": "1 Action",
+    "range": "60 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "Instantaneous",
+    "ritual": false,
+    "concentration": false,
+    "description": "A frigid beam of blue-white light streaks toward a creature within range. Make a ranged spell attack against the target. On a hit, it takes 1d8 cold damage, and its speed is reduced by 10 feet until the start of your next turn.\n\nThe spell's damage increases by 1d8 when you reach 5th level (2d8), 11th level (3d8), and 17th level (4d8).",
+    "higher_level_effect": "",
+    "damage_dice": "1d8",
+    "damage_type": "Cold",
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": "ranged",
+    "resolution_type": "attack",
+    "target_mode": "single",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": true,
+      "dice_mentions": [
+        {
+          "count": 1,
+          "sides": 8
+        },
+        {
+          "count": 1,
+          "sides": 8
+        },
+        {
+          "count": 2,
+          "sides": 8
+        },
+        {
+          "count": 3,
+          "sides": 8
+        },
+        {
+          "count": 4,
+          "sides": 8
+        }
+      ],
+      "confidence": "medium"
+    },
+    "rules_json": {
+      "source_spell_id": "ray_of_frost",
+      "attack_label": "Ranged",
+      "save_label": null,
+      "damage_effect": "Cold",
+      "targeting": {
+        "spellId": "ray_of_frost",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Ray of Frost Evocation • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "attack",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "medium"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.806Z"
+  },
+  {
+    "spell_id": "sacred_flame",
+    "campaign_id": null,
+    "name": "Sacred Flame",
+    "level": 0,
+    "school": "Evocation",
+    "casting_time": "1 Action",
+    "range": "60 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "Instantaneous",
+    "ritual": false,
+    "concentration": false,
+    "description": "Flame-like radiance descends on a creature that you can see within range. The target must succeed on a Dexterity saving throw or take 1d8 radiant damage. The target gains no benefit from cover for this saving throw.\n\nThe spell's damage increases by 1d8 when you reach 5th level (2d8), 11th level (3d8), and 17th level (4d8).",
+    "higher_level_effect": "",
+    "damage_dice": "1d8",
+    "damage_type": "Radiant",
+    "healing_dice": null,
+    "save_type": "DEX",
+    "attack_type": null,
+    "resolution_type": "save",
+    "target_mode": "single",
+    "save_ability": "DEX",
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": true,
+      "dice_mentions": [
+        {
+          "count": 1,
+          "sides": 8
+        },
+        {
+          "count": 1,
+          "sides": 8
+        },
+        {
+          "count": 2,
+          "sides": 8
+        },
+        {
+          "count": 3,
+          "sides": 8
+        },
+        {
+          "count": 4,
+          "sides": 8
+        }
+      ],
+      "confidence": "medium"
+    },
+    "rules_json": {
+      "source_spell_id": "sacred_flame",
+      "attack_label": null,
+      "save_label": "DEX Save",
+      "damage_effect": "Radiant",
+      "targeting": {
+        "spellId": "sacred_flame",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": true,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Sacred Flame Evocation • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "save",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "medium"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.806Z"
+  },
+  {
+    "spell_id": "shocking_grasp",
+    "campaign_id": null,
+    "name": "Shocking Grasp",
+    "level": 0,
+    "school": "Evocation",
+    "casting_time": "1 Action",
+    "range": "Touch",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "Instantaneous",
+    "ritual": false,
+    "concentration": false,
+    "description": "Lightning springs from your hand to deliver a shock to a creature you try to touch. Make a melee spell attack against the target. You have advantage on the attack roll if the target is wearing armor made of metal. On a hit, the target takes 1d8 lightning damage, and it can't take reactions until the start of its next turn.\n\nThe spell's damage increases by 1d8 when you reach 5th level (2d8), 11th level (3d8), and 17th level (4d8).",
+    "higher_level_effect": "",
+    "damage_dice": "1d8",
+    "damage_type": "Lightning",
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": "melee",
+    "resolution_type": "attack",
+    "target_mode": "single",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": true,
+      "dice_mentions": [
+        {
+          "count": 1,
+          "sides": 8
+        },
+        {
+          "count": 1,
+          "sides": 8
+        },
+        {
+          "count": 2,
+          "sides": 8
+        },
+        {
+          "count": 3,
+          "sides": 8
+        },
+        {
+          "count": 4,
+          "sides": 8
+        }
+      ],
+      "confidence": "medium"
+    },
+    "rules_json": {
+      "source_spell_id": "shocking_grasp",
+      "attack_label": "Melee",
+      "save_label": null,
+      "damage_effect": "Lightning",
+      "targeting": {
+        "spellId": "shocking_grasp",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Shocking Grasp Evocation • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "attack",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "medium"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.806Z"
+  },
+  {
+    "spell_id": "toll_the_dead",
+    "campaign_id": null,
+    "name": "Toll the Dead",
+    "level": 0,
+    "school": "Necromancy",
+    "casting_time": "1 Action",
+    "range": "60 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "Instantaneous",
+    "ritual": false,
+    "concentration": false,
+    "description": "You point at one creature you can see within range, and the sound of a dolorous bell fills the air around it for a moment. The target must succeed on a Wisdom saving throw or take 1d8 necrotic damage. If the target is missing any of its hit points, it instead takes 1d12 necrotic damage.\n\nThe spell's damage increases by one die when you reach 5th level (2d8 or 2d12), 11th level (3d8 or 3d12), and 17th level (4d8 or 4d12).",
+    "higher_level_effect": "",
+    "damage_dice": "1d8",
+    "damage_type": "Necrotic",
+    "healing_dice": null,
+    "save_type": "WIS",
+    "attack_type": null,
+    "resolution_type": "save",
+    "target_mode": "single",
+    "save_ability": "WIS",
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [
+        {
+          "count": 1,
+          "sides": 8
+        },
+        {
+          "count": 1,
+          "sides": 12
+        },
+        {
+          "count": 2,
+          "sides": 8
+        },
+        {
+          "count": 2,
+          "sides": 12
+        },
+        {
+          "count": 3,
+          "sides": 8
+        },
+        {
+          "count": 3,
+          "sides": 12
+        },
+        {
+          "count": 4,
+          "sides": 8
+        },
+        {
+          "count": 4,
+          "sides": 12
+        }
+      ],
+      "confidence": "medium"
+    },
+    "rules_json": {
+      "source_spell_id": "toll_the_dead",
+      "attack_label": null,
+      "save_label": "WIS Save",
+      "damage_effect": "Necrotic",
+      "targeting": {
+        "spellId": "toll_the_dead",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": true,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Toll the Dead Necromancy • V, S",
+      "source_name": "Xanathars Guide To Everything",
+      "inferred_mechanic": "save",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "medium"
+    },
+    "tags": [],
+    "source": "Xanathars Guide To Everything",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.806Z"
+  },
+  {
+    "spell_id": "bane",
+    "campaign_id": null,
+    "name": "Bane",
+    "level": 1,
+    "school": "Enchantment",
+    "casting_time": "1 Action",
+    "range": "30 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "1 Minute",
+    "ritual": false,
+    "concentration": true,
+    "description": "Up to three creatures of your choice that you can see within range must make Charisma saving throws. Whenever a target that fails this saving throw makes an attack roll or a saving throw before the spell ends, the target must roll a d4 and subtract the number rolled from the attack roll or saving throw.\n\nAt Higher Levels. When you cast this spell using a spell slot of 2nd level or higher, you can target one additional creature for each slot level above 1st.",
+    "higher_level_effect": "When you cast this spell using a spell slot of 2nd level or higher, you can target one additional creature for each slot level above 1st.",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": "CHA",
+    "attack_type": null,
+    "resolution_type": "utility",
+    "target_mode": "multi_select",
+    "save_ability": "CHA",
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "bane",
+      "attack_label": null,
+      "save_label": "CHA Save",
+      "damage_effect": "Debuff",
+      "targeting": {
+        "spellId": "bane",
+        "targetMode": "multi_select",
+        "selectionCountBase": "3",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": true,
+        "selectionRequired": true,
+        "canAffectMultiple": true,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Bane Concentration Enchantment • V, S, M",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.806Z"
+  },
+  {
+    "spell_id": "charm_person",
+    "campaign_id": null,
+    "name": "Charm Person",
+    "level": 1,
+    "school": "Enchantment",
+    "casting_time": "1 Action",
+    "range": "30 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "1 Hour",
+    "ritual": false,
+    "concentration": false,
+    "description": "You attempt to charm a humanoid you can see within range. It must make a Wisdom saving throw, and does so with advantage if you or your companions are fighting it. If it fails the saving throw, it is charmed by you until the spell ends or until you or your companions do anything harmful to it. The charmed creature regards you as a friendly acquaintance. When the spell ends, the creature knows it was charmed by you.\n\nAt Higher Levels. When you cast this spell using a spell slot of 2nd level or higher, you can target one additional creature for each slot level above 1st. The creatures must be within 30 feet of each other when you target them.",
+    "higher_level_effect": "When you cast this spell using a spell slot of 2nd level or higher, you can target one additional creature for each slot level above 1st. The creatures must be within 30 feet of each other when you target them.",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": "WIS",
+    "attack_type": null,
+    "resolution_type": "utility",
+    "target_mode": "special",
+    "save_ability": "WIS",
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "charm_person",
+      "attack_label": null,
+      "save_label": "WIS Save",
+      "damage_effect": "Charmed",
+      "targeting": {
+        "spellId": "charm_person",
+        "targetMode": "special",
+        "selectionCountBase": null,
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": true,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Charm Person Enchantment • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": null,
+      "needs_manual_resolution": true,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.806Z"
+  },
+  {
+    "spell_id": "command",
+    "campaign_id": null,
+    "name": "Command",
+    "level": 1,
+    "school": "Enchantment",
+    "casting_time": "1 Action",
+    "range": "60 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "1 Round",
+    "ritual": false,
+    "concentration": false,
+    "description": "You speak a one-word command to a creature you can see within range. The target must succeed on a Wisdom saving throw or follow the command on its next turn. The spell has no effect if the target is undead, if it doesn't understand your language, or if your command is directly harmful to it.\n\nSome typical commands and their effects follow. You might issue a command other than one described here. If you do so, the GM determines how the target behaves. If the target can't follow your command, the spell ends.\n\nApproach. The target moves toward you by the shortest and most direct route, ending its turn if it moves within 5 feet of you.\n\nDrop. The target drops whatever it is holding and then ends its turn.\n\nFlee. The target spends its turn moving away from you by the fastest available means.\n\nGrovel. The target falls prone and then ends its turn.\n\nHalt. The target doesn't move and takes no actions. A flying creature stays aloft, provided that it is able to do so. If it must move to stay aloft, it flies the minimum distance needed to remain in the air.\n\nAt Higher Levels. When you cast this spell using a spell slot of 2nd level or higher, you can affect one additional creature for each slot level above 1st. The creatures must be within 30 feet of each other when you target them.",
+    "higher_level_effect": "When you cast this spell using a spell slot of 2nd level or higher, you can affect one additional creature for each slot level above 1st. The creatures must be within 30 feet of each other when you target them.",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": "WIS",
+    "attack_type": null,
+    "resolution_type": "special",
+    "target_mode": "single",
+    "save_ability": "WIS",
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "command",
+      "attack_label": null,
+      "save_label": "WIS Save",
+      "damage_effect": "Prone",
+      "targeting": {
+        "spellId": "command",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": true,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Command Enchantment • V",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": true,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.806Z"
+  },
+  {
+    "spell_id": "cure_wounds",
+    "campaign_id": null,
+    "name": "Cure Wounds",
+    "level": 1,
+    "school": "Evocation",
+    "casting_time": "1 Action",
+    "range": "Touch",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "Instantaneous",
+    "ritual": false,
+    "concentration": false,
+    "description": "A creature you touch regains a number of hit points equal to 1d8 + your spellcasting ability modifier. This spell has no effect on undead or constructs.\n\nAt Higher Levels. When you cast this spell using a spell slot of 2nd level or higher, the healing increases by 1d8 for each slot level above 1st.",
+    "higher_level_effect": "When you cast this spell using a spell slot of 2nd level or higher, the healing increases by 1d8 for each slot level above 1st.",
+    "damage_dice": "1d8",
+    "damage_type": null,
+    "healing_dice": "1d8",
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "heal",
+    "target_mode": "single",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [
+        {
+          "count": 1,
+          "sides": 8
+        },
+        {
+          "count": 1,
+          "sides": 8
+        }
+      ],
+      "confidence": "medium"
+    },
+    "rules_json": {
+      "source_spell_id": "cure_wounds",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Healing",
+      "targeting": {
+        "spellId": "cure_wounds",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Cure Wounds Evocation • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "heal",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "medium"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.806Z"
+  },
+  {
+    "spell_id": "detect_magic",
+    "campaign_id": null,
+    "name": "Detect Magic",
+    "level": 1,
+    "school": "Divination",
+    "casting_time": "1 Action",
+    "range": "Self",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "10 Minutes",
+    "ritual": true,
+    "concentration": true,
+    "description": "For the duration, you sense the presence of magic within 30 feet of you. If you sense magic in this way, you can use your action to see a faint aura around any visible creature or object in the area that bears magic, and you learn its school of magic, if any.\n\nThe spell can penetrate most barriers, but it is blocked by 1 foot of stone, 1 inch of common metal, a thin sheet of lead, or 3 feet of wood or dirt.",
+    "higher_level_effect": "",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "utility",
+    "target_mode": "area",
+    "save_ability": null,
+    "area": {
+      "shape": "sphere",
+      "size": "30 ft",
+      "origin": "self"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "detect_magic",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Detection",
+      "targeting": {
+        "spellId": "detect_magic",
+        "targetMode": "area",
+        "selectionCountBase": "area_defined",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature",
+          "object",
+          "self"
+        ],
+        "origin": "self",
+        "areaShape": "sphere",
+        "areaSize": "30 ft",
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": true,
+        "notes": null
+      },
+      "source_link": "Detect Magic Concentration Ritual Divination • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.806Z"
+  },
+  {
+    "spell_id": "false_life",
+    "campaign_id": null,
+    "name": "False Life",
+    "level": 1,
+    "school": "Necromancy",
+    "casting_time": "1 Action",
+    "range": "Self",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "1 Hour",
+    "ritual": false,
+    "concentration": false,
+    "description": "Bolstering yourself with a necromantic facsimile of life, you gain 1d4 + 4 temporary hit points for the duration.\n\nAt Higher Levels. When you cast this spell using a spell slot of 2nd level or higher, you gain 5 additional temporary hit points for each slot level above 1st.",
+    "higher_level_effect": "When you cast this spell using a spell slot of 2nd level or higher, you gain 5 additional temporary hit points for each slot level above 1st.",
+    "damage_dice": "1d4",
+    "damage_type": null,
+    "healing_dice": "1d4",
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "heal",
+    "target_mode": "self",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "self"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [
+        {
+          "count": 1,
+          "sides": 4
+        }
+      ],
+      "confidence": "medium"
+    },
+    "rules_json": {
+      "source_spell_id": "false_life",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Healing",
+      "targeting": {
+        "spellId": "false_life",
+        "targetMode": "self",
+        "selectionCountBase": "self",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "self"
+        ],
+        "origin": "self",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "False Life Necromancy • V, S, M",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "heal",
+      "inferred_target": "self",
+      "needs_manual_resolution": false,
+      "parse_confidence": "medium"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.807Z"
+  },
+  {
+    "spell_id": "healing_word",
+    "campaign_id": null,
+    "name": "Healing Word",
+    "level": 1,
+    "school": "Evocation",
+    "casting_time": "1 Bonus Action",
+    "range": "60 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "Instantaneous",
+    "ritual": false,
+    "concentration": false,
+    "description": "A creature of your choice that you can see within range regains hit points equal to 1d4 + your spellcasting ability modifier. This spell has no effect on undead or constructs.\n\nAt Higher Levels. When you cast this spell using a spell slot of 2nd level or higher, the healing increases by 1d4 for each slot level above 1st.",
+    "higher_level_effect": "When you cast this spell using a spell slot of 2nd level or higher, the healing increases by 1d4 for each slot level above 1st.",
+    "damage_dice": "1d4",
+    "damage_type": null,
+    "healing_dice": "1d4",
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "heal",
+    "target_mode": "single",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [
+        {
+          "count": 1,
+          "sides": 4
+        },
+        {
+          "count": 1,
+          "sides": 4
+        }
+      ],
+      "confidence": "medium"
+    },
+    "rules_json": {
+      "source_spell_id": "healing_word",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Healing",
+      "targeting": {
+        "spellId": "healing_word",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": true,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Healing Word Evocation • V",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "heal",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "medium"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.807Z"
+  },
+  {
+    "spell_id": "identify",
+    "campaign_id": null,
+    "name": "Identify",
+    "level": 1,
+    "school": "Divination",
+    "casting_time": "1 Minute",
+    "range": "Touch",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "Instantaneous",
+    "ritual": true,
+    "concentration": false,
+    "description": "You choose one object that you must touch throughout the casting of the spell. If it is a magic item or some other magic-imbued object, you learn its properties and how to use them, whether it requires attunement to use, and how many charges it has, if any. You learn whether any spells are affecting the item and what they are. If the item was created by a spell, you learn which spell created it.\n\nIf you instead touch a creature throughout the casting, you learn what spells, if any, are currently affecting it.",
+    "higher_level_effect": "",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "utility",
+    "target_mode": "single",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "identify",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Detection",
+      "targeting": {
+        "spellId": "identify",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature",
+          "object"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Identify Ritual Divination • V, S, M",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.807Z"
+  },
+  {
+    "spell_id": "inflict_wounds",
+    "campaign_id": null,
+    "name": "Inflict Wounds",
+    "level": 1,
+    "school": "Necromancy",
+    "casting_time": "1 Action",
+    "range": "Touch",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "Instantaneous",
+    "ritual": false,
+    "concentration": false,
+    "description": "Make a melee spell attack against a creature you can reach. On a hit, the target takes 3d10 necrotic damage.\n\nAt Higher Levels. When you cast this spell using a spell slot of 2nd level or higher, the damage increases by 1d10 for each slot level above 1st.",
+    "higher_level_effect": "When you cast this spell using a spell slot of 2nd level or higher, the damage increases by 1d10 for each slot level above 1st.",
+    "damage_dice": "3d10",
+    "damage_type": "Necrotic",
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": "melee",
+    "resolution_type": "attack",
+    "target_mode": "single",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [
+        {
+          "count": 3,
+          "sides": 10
+        },
+        {
+          "count": 1,
+          "sides": 10
+        }
+      ],
+      "confidence": "medium"
+    },
+    "rules_json": {
+      "source_spell_id": "inflict_wounds",
+      "attack_label": "Melee",
+      "save_label": null,
+      "damage_effect": "Necrotic",
+      "targeting": {
+        "spellId": "inflict_wounds",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Inflict Wounds Necromancy • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "attack",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "medium"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.807Z"
+  },
+  {
+    "spell_id": "mage_armor",
+    "campaign_id": null,
+    "name": "Mage Armor",
+    "level": 1,
+    "school": "Abjuration",
+    "casting_time": "1 Action",
+    "range": "Touch",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "8 Hours",
+    "ritual": false,
+    "concentration": false,
+    "description": "You touch a willing creature who isn't wearing armor, and a protective magical force surrounds it until the spell ends. The target's base AC becomes 13 + its Dexterity modifier. The spell ends if the target dons armor or if you dismiss the spell as an action.",
+    "higher_level_effect": "",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "utility",
+    "target_mode": "single",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "mage_armor",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Buff (...)",
+      "targeting": {
+        "spellId": "mage_armor",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Mage Armor Abjuration • V, S, M",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.807Z"
+  },
+  {
+    "spell_id": "magic_missile",
+    "campaign_id": null,
+    "name": "Magic Missile",
+    "level": 1,
+    "school": "Evocation",
+    "casting_time": "1 Action",
+    "range": "120 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "Instantaneous",
+    "ritual": false,
+    "concentration": false,
+    "description": "You create three glowing darts of magical force. Each dart hits a creature of your choice that you can see within range. A dart deals 1d4 + 1 force damage to its target. The darts all strike simultaneously, and you can direct them to hit one creature or several.\n\nAt Higher Levels. When you cast this spell using a spell slot of 2nd level or higher, the spell creates one more dart for each slot level above 1st.",
+    "higher_level_effect": "When you cast this spell using a spell slot of 2nd level or higher, the spell creates one more dart for each slot level above 1st.",
+    "damage_dice": "1d4",
+    "damage_type": "Force",
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "special",
+    "target_mode": "single",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [
+        {
+          "count": 1,
+          "sides": 4
+        }
+      ],
+      "confidence": "medium"
+    },
+    "rules_json": {
+      "source_spell_id": "magic_missile",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Force",
+      "targeting": {
+        "spellId": "magic_missile",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": true,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Magic Missile Evocation • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": true,
+      "parse_confidence": "medium"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.807Z"
+  },
+  {
+    "spell_id": "ray_of_sickness",
+    "campaign_id": null,
+    "name": "Ray of Sickness",
+    "level": 1,
+    "school": "Necromancy",
+    "casting_time": "1 Action",
+    "range": "60 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "Instantaneous",
+    "ritual": false,
+    "concentration": false,
+    "description": "A ray of sickening greenish energy lashes out toward a creature within range. Make a ranged spell attack against the target. On a hit, the target takes 2d8 poison damage and must make a Constitution saving throw. On a failed save, it is also poisoned until the end of your next turn. At Higher Levels. When you cast this spell using a spell slot of 2nd level or higher, the damage increases by 1d8 for each slot level above 1st.",
+    "higher_level_effect": "When you cast this spell using a spell slot of 2nd level or higher, the damage increases by 1d8 for each slot level above 1st.",
+    "damage_dice": "2d8",
+    "damage_type": "Poison",
+    "healing_dice": null,
+    "save_type": "CON",
+    "attack_type": null,
+    "resolution_type": "save",
+    "target_mode": "single",
+    "save_ability": "CON",
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [
+        {
+          "count": 2,
+          "sides": 8
+        },
+        {
+          "count": 1,
+          "sides": 8
+        }
+      ],
+      "confidence": "medium"
+    },
+    "rules_json": {
+      "source_spell_id": "ray_of_sickness",
+      "attack_label": null,
+      "save_label": "CON Save",
+      "damage_effect": "Poison",
+      "targeting": {
+        "spellId": "ray_of_sickness",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Ray of Sickness Necromancy • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "save",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "medium"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.807Z"
+  },
+  {
+    "spell_id": "shield",
+    "campaign_id": null,
+    "name": "Shield",
+    "level": 1,
+    "school": "Abjuration",
+    "casting_time": "1 Reaction *",
+    "range": "Self",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "1 Round",
+    "ritual": false,
+    "concentration": false,
+    "description": "An invisible barrier of magical force appears and protects you. Until the start of your next turn, you have a +5 bonus to AC, including against the triggering attack, and you take no damage from magic missile.\n* - which you take when you are hit by an attack or targeted by the magic missile spell",
+    "higher_level_effect": "",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "auto",
+    "target_mode": "self",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "self"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "shield",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Warding",
+      "targeting": {
+        "spellId": "shield",
+        "targetMode": "self",
+        "selectionCountBase": "self",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "self"
+        ],
+        "origin": "self",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Shield Abjuration • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "auto",
+      "inferred_target": "self",
+      "needs_manual_resolution": false,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.807Z"
+  },
+  {
+    "spell_id": "thunderwave",
+    "campaign_id": null,
+    "name": "Thunderwave",
+    "level": 1,
+    "school": "Evocation",
+    "casting_time": "1 Action",
+    "range": "Self",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "Instantaneous",
+    "ritual": false,
+    "concentration": false,
+    "description": "A wave of thunderous force sweeps out from you. Each creature in a 15-foot cube originating from you must make a Constitution saving throw. On a failed save, a creature takes 2d8 thunder damage and is pushed 10 feet away from you. On a successful save, the creature takes half as much damage and isn't pushed.\n\nIn addition, unsecured objects that are completely within the area of effect are automatically pushed 10 feet away from you by the spell's effect, and the spell emits a thunderous boom audible out to 300 feet.\n\nAt Higher Levels. When you cast this spell using a spell slot of 2nd level or higher, the damage increases by 1d8 for each slot level above 1st.",
+    "higher_level_effect": "When you cast this spell using a spell slot of 2nd level or higher, the damage increases by 1d8 for each slot level above 1st.",
+    "damage_dice": "2d8",
+    "damage_type": "Thunder",
+    "healing_dice": null,
+    "save_type": "CON",
+    "attack_type": null,
+    "resolution_type": "save",
+    "target_mode": "area_all",
+    "save_ability": "CON",
+    "area": {
+      "shape": "cube",
+      "size": "15 ft",
+      "origin": "self"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [
+        {
+          "count": 2,
+          "sides": 8
+        },
+        {
+          "count": 1,
+          "sides": 8
+        }
+      ],
+      "confidence": "medium"
+    },
+    "rules_json": {
+      "source_spell_id": "thunderwave",
+      "attack_label": null,
+      "save_label": "CON Save",
+      "damage_effect": "Thunder",
+      "targeting": {
+        "spellId": "thunderwave",
+        "targetMode": "area_all",
+        "selectionCountBase": "all_in_area",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature",
+          "object",
+          "self"
+        ],
+        "origin": "self",
+        "areaShape": "cube",
+        "areaSize": "15 ft",
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": true,
+        "isAreaEffect": true,
+        "notes": null
+      },
+      "source_link": "Thunderwave Evocation • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "save",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "medium"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.807Z"
+  },
+  {
+    "spell_id": "aid",
+    "campaign_id": null,
+    "name": "Aid",
+    "level": 2,
+    "school": "Abjuration",
+    "casting_time": "1 Action",
+    "range": "30 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "8 Hours",
+    "ritual": false,
+    "concentration": false,
+    "description": "Your spell bolsters your allies with toughness and resolve. Choose up to three creatures within range. Each target's hit point maximum and current hit points increase by 5 for the duration.\n\nAt Higher Levels. When you cast this spell using a spell slot of 3rd level or higher, a target's hit points increase by an additional 5 for each slot level above 2nd.",
+    "higher_level_effect": "When you cast this spell using a spell slot of 3rd level or higher, a target's hit points increase by an additional 5 for each slot level above 2nd.",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "utility",
+    "target_mode": "multi_select",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "aid",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Buff (...)",
+      "targeting": {
+        "spellId": "aid",
+        "targetMode": "multi_select",
+        "selectionCountBase": "3",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": true,
+        "canAffectMultiple": true,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Aid Abjuration • V, S, M",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.807Z"
+  },
+  {
+    "spell_id": "detect_thoughts",
+    "campaign_id": null,
+    "name": "Detect Thoughts",
+    "level": 2,
+    "school": "Divination",
+    "casting_time": "1 Action",
+    "range": "Self",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "1 Minute",
+    "ritual": false,
+    "concentration": true,
+    "description": "For the duration, you can read the thoughts of certain creatures. When you cast the spell and as your action on each turn until the spell ends, you can focus your mind on any one creature that you can see within 30 feet of you. If the creature you choose has an Intelligence of 3 or lower or doesn't speak any language, the creature is unaffected.\n\nYou initially learn the surface thoughts of the creature--what is most on its mind in that moment. As an action, you can either shift your attention to another creature's thoughts or attempt to probe deeper into the same creature's mind. If you probe deeper, the target must make a Wisdom saving throw. If it fails, you gain insight into its reasoning (if any), its emotional state, and something that looms large in its mind (such as something it worries over, loves, or hates). If it succeeds, the spell ends. Either way, the target knows that you are probing into its mind, and unless you shift your attention to another creature's thoughts, the creature can use its action on its turn to make an Intelligence check contested by your Intelligence check; if it succeeds, the spell ends.\n\nQuestions verbally directed at the target creature naturally shape the course of its thoughts, so this spell is particularly effective as part of an interrogation.\n\nYou can also use this spell to detect the presence of thinking creatures you can't see. When you cast the spell or as your action during the duration, you can search for thoughts within 30 feet of you. The spell can penetrate barriers, but 2 feet of rock, 2 inches of any metal other than lead, or a thin sheet of lead blocks you. You can't detect a creature with an Intelligence of 3 or lower or one that doesn't speak any language.\n\nOnce you detect the presence of a creature in this way, you can read its thoughts for the rest of the duration as described above, even if you can't see it, but it must still be within range.",
+    "higher_level_effect": "",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": "WIS",
+    "attack_type": null,
+    "resolution_type": "utility",
+    "target_mode": "self",
+    "save_ability": "WIS",
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "self"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "detect_thoughts",
+      "attack_label": null,
+      "save_label": "WIS Save",
+      "damage_effect": "Detection (...)",
+      "targeting": {
+        "spellId": "detect_thoughts",
+        "targetMode": "self",
+        "selectionCountBase": "self",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature",
+          "self"
+        ],
+        "origin": "self",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": true,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Detect Thoughts Concentration Divination • V, S, M",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": "self",
+      "needs_manual_resolution": false,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.808Z"
+  },
+  {
+    "spell_id": "hold_person",
+    "campaign_id": null,
+    "name": "Hold Person",
+    "level": 2,
+    "school": "Enchantment",
+    "casting_time": "1 Action",
+    "range": "60 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "1 Minute",
+    "ritual": false,
+    "concentration": true,
+    "description": "Choose a humanoid that you can see within range. The target must succeed on a Wisdom saving throw or be paralyzed for the duration. At the end of each of its turns, the target can make another Wisdom saving throw. On a success, the spell ends on the target.\n\nAt Higher Levels. When you cast this spell using a spell slot of 3rd level or higher, you can target one additional humanoid for each slot level above 2nd. The humanoids must be within 30 feet of each other when you target them.",
+    "higher_level_effect": "When you cast this spell using a spell slot of 3rd level or higher, you can target one additional humanoid for each slot level above 2nd. The humanoids must be within 30 feet of each other when you target them.",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": "WIS",
+    "attack_type": null,
+    "resolution_type": "special",
+    "target_mode": "single",
+    "save_ability": "WIS",
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "hold_person",
+      "attack_label": null,
+      "save_label": "WIS Save",
+      "damage_effect": "Paralyzed",
+      "targeting": {
+        "spellId": "hold_person",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": "+1 humanoid per slot level above 2nd",
+        "targetEntities": [
+          "special"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": true,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Hold Person Concentration Enchantment • V, S, M",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": true,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.808Z"
+  },
+  {
+    "spell_id": "lesser_restoration",
+    "campaign_id": null,
+    "name": "Lesser Restoration",
+    "level": 2,
+    "school": "Abjuration",
+    "casting_time": "1 Action",
+    "range": "Touch",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "Instantaneous",
+    "ritual": false,
+    "concentration": false,
+    "description": "You touch a creature and can end either one disease or one condition afflicting it. The condition can be blinded, deafened, paralyzed, or poisoned.",
+    "higher_level_effect": "",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "heal",
+    "target_mode": "single",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "lesser_restoration",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Healing",
+      "targeting": {
+        "spellId": "lesser_restoration",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Lesser Restoration Abjuration • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "heal",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.808Z"
+  },
+  {
+    "spell_id": "mirror_image",
+    "campaign_id": null,
+    "name": "Mirror Image",
+    "level": 2,
+    "school": "Illusion",
+    "casting_time": "1 Action",
+    "range": "Self",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "1 Minute",
+    "ritual": false,
+    "concentration": false,
+    "description": "Three illusory duplicates of yourself appear in your space. Until the spell ends, the duplicates move with you and mimic your actions, shifting position so it's impossible to track which image is real. You can use your action to dismiss the illusory duplicates.\n\nEach time a creature targets you with an attack during the spell's duration, roll a d20 to determine whether the attack instead targets one of your duplicates.\n\nIf you have three duplicates, you must roll a 6 or higher to change the attack's target to a duplicate. With two duplicates, you must roll an 8 or higher. With one duplicate, you must roll an 11 or higher.\n\nA duplicate's AC equals 10 + your Dexterity modifier. If an attack hits a duplicate, the duplicate is destroyed. A duplicate can be destroyed only by an attack that hits it. It ignores all other damage and effects. The spell ends when all three duplicates are destroyed.\n\nA creature is unaffected by this spell if it can't see, if it relies on senses other than sight, such as blindsight, or if it can perceive illusions as false, as with truesight.",
+    "higher_level_effect": "",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "utility",
+    "target_mode": "self",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "self"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "mirror_image",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Deception (...)",
+      "targeting": {
+        "spellId": "mirror_image",
+        "targetMode": "self",
+        "selectionCountBase": "self",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature",
+          "self"
+        ],
+        "origin": "self",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Mirror Image Illusion • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": "self",
+      "needs_manual_resolution": false,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.808Z"
+  },
+  {
+    "spell_id": "misty_step",
+    "campaign_id": null,
+    "name": "Misty Step",
+    "level": 2,
+    "school": "Conjuration",
+    "casting_time": "1 Bonus Action",
+    "range": "Self",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "Instantaneous",
+    "ritual": false,
+    "concentration": false,
+    "description": "Briefly surrounded by silvery mist, you teleport up to 30 feet to an unoccupied space that you can see.",
+    "higher_level_effect": "",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "utility",
+    "target_mode": "self",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "self"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "misty_step",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Teleportation",
+      "targeting": {
+        "spellId": "misty_step",
+        "targetMode": "self",
+        "selectionCountBase": "self",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "self",
+          "space"
+        ],
+        "origin": "self",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": true,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Misty Step Conjuration • V",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": "self",
+      "needs_manual_resolution": false,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.808Z"
+  },
+  {
+    "spell_id": "ray_of_enfeeblement",
+    "campaign_id": null,
+    "name": "Ray of Enfeeblement",
+    "level": 2,
+    "school": "Necromancy",
+    "casting_time": "1 Action",
+    "range": "60 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "1 Minute",
+    "ritual": false,
+    "concentration": true,
+    "description": "A black beam of enervating energy springs from your finger toward a creature within range. Make a ranged spell attack against the target. On a hit, the target deals only half damage with weapon attacks that use Strength until the spell ends.\n\nAt the end of each of the target's turns, it can make a Constitution saving throw against the spell. On a success, the spell ends.",
+    "higher_level_effect": "",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": "CON",
+    "attack_type": null,
+    "resolution_type": "utility",
+    "target_mode": "single",
+    "save_ability": "CON",
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "ray_of_enfeeblement",
+      "attack_label": null,
+      "save_label": "CON Save",
+      "damage_effect": "Debuff",
+      "targeting": {
+        "spellId": "ray_of_enfeeblement",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Ray of Enfeeblement Concentration Necromancy • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.808Z"
+  },
+  {
+    "spell_id": "scorching_ray",
+    "campaign_id": null,
+    "name": "Scorching Ray",
+    "level": 2,
+    "school": "Evocation",
+    "casting_time": "1 Action",
+    "range": "120 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "Instantaneous",
+    "ritual": false,
+    "concentration": false,
+    "description": "You create three rays of fire and hurl them at targets within range. You can hurl them at one target or several.\n\nMake a ranged spell attack for each ray. On a hit, the target takes 2d6 fire damage.\n\nAt Higher Levels. When you cast this spell using a spell slot of 3rd level or higher, you create one additional ray for each slot level above 2nd.",
+    "higher_level_effect": "When you cast this spell using a spell slot of 3rd level or higher, you create one additional ray for each slot level above 2nd.",
+    "damage_dice": "2d6",
+    "damage_type": "Fire",
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": "ranged",
+    "resolution_type": "attack",
+    "target_mode": "single",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [
+        {
+          "count": 2,
+          "sides": 6
+        }
+      ],
+      "confidence": "medium"
+    },
+    "rules_json": {
+      "source_spell_id": "scorching_ray",
+      "attack_label": "Ranged",
+      "save_label": null,
+      "damage_effect": "Fire",
+      "targeting": {
+        "spellId": "scorching_ray",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": "+1 ray per slot level above 2nd",
+        "targetEntities": [
+          "special"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Scorching Ray Evocation • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "attack",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "medium"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.808Z"
+  },
+  {
+    "spell_id": "shatter",
+    "campaign_id": null,
+    "name": "Shatter",
+    "level": 2,
+    "school": "Evocation",
+    "casting_time": "1 Action",
+    "range": "60 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "Instantaneous",
+    "ritual": false,
+    "concentration": false,
+    "description": "A sudden loud ringing noise, painfully intense, erupts from a point of your choice within range. Each creature in a 10-foot-radius sphere centered on that point must make a Constitution saving throw. A creature takes 3d8 thunder damage on a failed save, or half as much damage on a successful one. A creature made of inorganic material such as stone, crystal, or metal has disadvantage on this saving throw.\n\nA nonmagical object that isn't being worn or carried also takes the damage if it's in the spell's area.\n\nAt Higher Levels. When you cast this spell using a spell slot of 3rd level or higher, the damage increases by 1d8 for each slot level above 2nd.",
+    "higher_level_effect": "When you cast this spell using a spell slot of 3rd level or higher, the damage increases by 1d8 for each slot level above 2nd.",
+    "damage_dice": "3d8",
+    "damage_type": "Thunder",
+    "healing_dice": null,
+    "save_type": "CON",
+    "attack_type": null,
+    "resolution_type": "save",
+    "target_mode": "area_all",
+    "save_ability": "CON",
+    "area": {
+      "shape": "sphere",
+      "size": "10 ft",
+      "origin": "point"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [
+        {
+          "count": 3,
+          "sides": 8
+        },
+        {
+          "count": 1,
+          "sides": 8
+        }
+      ],
+      "confidence": "medium"
+    },
+    "rules_json": {
+      "source_spell_id": "shatter",
+      "attack_label": null,
+      "save_label": "CON Save",
+      "damage_effect": "Thunder",
+      "targeting": {
+        "spellId": "shatter",
+        "targetMode": "area_all",
+        "selectionCountBase": "all_in_area",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature",
+          "object",
+          "point"
+        ],
+        "origin": "point",
+        "areaShape": "sphere",
+        "areaSize": "10 ft",
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": true,
+        "isAreaEffect": true,
+        "notes": null
+      },
+      "source_link": "Shatter Evocation • V, S, M",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "save",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "medium"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.808Z"
+  },
+  {
+    "spell_id": "dispel_magic",
+    "campaign_id": null,
+    "name": "Dispel Magic",
+    "level": 3,
+    "school": "Abjuration",
+    "casting_time": "1 Action",
+    "range": "120 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "Instantaneous",
+    "ritual": false,
+    "concentration": false,
+    "description": "Choose one creature, object, or magical effect within range. Any spell of 3rd level or lower on the target ends. For each spell of 4th level or higher on the target, make an ability check using your spellcasting ability. The DC equals 10 + the spell's level. On a successful check, the spell ends.\n\nAt Higher Levels. When you cast this spell using a spell slot of 4th level or higher, you automatically end the effects of a spell on the target if the spell's level is equal to or less than the level of the spell slot you used.",
+    "higher_level_effect": "When you cast this spell using a spell slot of 4th level or higher, you automatically end the effects of a spell on the target if the spell's level is equal to or less than the level of the spell slot you used.",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "utility",
+    "target_mode": "single",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "dispel_magic",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Control",
+      "targeting": {
+        "spellId": "dispel_magic",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature",
+          "object"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Dispel Magic Abjuration • V, S",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.808Z"
+  },
+  {
+    "spell_id": "speak_with_dead",
+    "campaign_id": null,
+    "name": "Speak with Dead",
+    "level": 3,
+    "school": "Necromancy",
+    "casting_time": "1 Action",
+    "range": "10 ft",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "10 Minutes",
+    "ritual": false,
+    "concentration": false,
+    "description": "You grant the semblance of life and intelligence to a corpse of your choice within range, allowing it to answer the questions you pose. The corpse must still have a mouth and can't be undead. The spell fails if the corpse was the target of this spell within the last 10 days.\n\nUntil the spell ends, you can ask the corpse up to five questions. The corpse knows only what it knew in life, including the languages it knew. Answers are usually brief, cryptic, or repetitive, and the corpse is under no compulsion to offer a truthful answer if you are hostile to it or it recognizes you as an enemy. This spell doesn't return the creature's soul to its body, only its animating spirit. Thus, the corpse can't learn new information, doesn't comprehend anything that has happened since it died, and can't speculate about future events.",
+    "higher_level_effect": "",
+    "damage_dice": null,
+    "damage_type": null,
+    "healing_dice": null,
+    "save_type": null,
+    "attack_type": null,
+    "resolution_type": "utility",
+    "target_mode": "single",
+    "save_ability": null,
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "range"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [],
+      "confidence": "low"
+    },
+    "rules_json": {
+      "source_spell_id": "speak_with_dead",
+      "attack_label": null,
+      "save_label": null,
+      "damage_effect": "Communication (...)",
+      "targeting": {
+        "spellId": "speak_with_dead",
+        "targetMode": "single",
+        "selectionCountBase": "1",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature"
+        ],
+        "origin": "range",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": false,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Speak with Dead Necromancy • V, S, M",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "utility",
+      "inferred_target": "enemy",
+      "needs_manual_resolution": false,
+      "parse_confidence": "low"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.809Z"
+  },
+  {
+    "spell_id": "spirit_guardians",
+    "campaign_id": null,
+    "name": "Spirit Guardians",
+    "level": 3,
+    "school": "Conjuration",
+    "casting_time": "1 Action",
+    "range": "Self",
+    "components": {
+      "V": false,
+      "S": false,
+      "M": null
+    },
+    "duration": "10 Minutes",
+    "ritual": false,
+    "concentration": true,
+    "description": "You call forth spirits to protect you. They flit around you to a distance of 15 feet for the duration. If you are good or neutral, their spectral form appears angelic or fey (your choice). If you are evil, they appear fiendish.\n\nWhen you cast this spell, you can designate any number of creatures you can see to be unaffected by it. An affected creature's speed is halved in the area, and when the creature enters the area for the first time on a turn or starts its turn there, it must make a Wisdom saving throw. On a failed save, the creature takes 3d8 radiant damage (if you are good or neutral) or 3d8 necrotic damage (if you are evil). On a successful save, the creature takes half as much damage.\n\nAt Higher Levels. When you cast this spell using a spell slot of 4th level or higher, the damage increases by 1d8 for each slot level above 3rd.",
+    "higher_level_effect": "When you cast this spell using a spell slot of 4th level or higher, the damage increases by 1d8 for each slot level above 3rd.",
+    "damage_dice": "3d8",
+    "damage_type": "Radiant",
+    "healing_dice": null,
+    "save_type": "WIS",
+    "attack_type": null,
+    "resolution_type": "save",
+    "target_mode": "self",
+    "save_ability": "WIS",
+    "area": {
+      "shape": null,
+      "size": null,
+      "origin": "self"
+    },
+    "scaling": {
+      "has_spell_level_scaling": false,
+      "has_cantrip_scaling": false,
+      "dice_mentions": [
+        {
+          "count": 3,
+          "sides": 8
+        },
+        {
+          "count": 3,
+          "sides": 8
+        },
+        {
+          "count": 1,
+          "sides": 8
+        }
+      ],
+      "confidence": "medium"
+    },
+    "rules_json": {
+      "source_spell_id": "spirit_guardians",
+      "attack_label": null,
+      "save_label": "WIS Save",
+      "damage_effect": "Radiant (...)",
+      "targeting": {
+        "spellId": "spirit_guardians",
+        "targetMode": "self",
+        "selectionCountBase": "self",
+        "selectionCountScaling": null,
+        "targetEntities": [
+          "creature",
+          "self"
+        ],
+        "origin": "self",
+        "areaShape": null,
+        "areaSize": null,
+        "requiresLineOfSight": true,
+        "selectionRequired": false,
+        "canAffectMultiple": false,
+        "isAreaEffect": false,
+        "notes": null
+      },
+      "source_link": "Spirit Guardians Concentration Conjuration • V, S, M",
+      "source_name": "Players Handbook",
+      "inferred_mechanic": "save",
+      "inferred_target": "self",
+      "needs_manual_resolution": false,
+      "parse_confidence": "medium"
+    },
+    "tags": [],
+    "source": "Players Handbook",
+    "classes": [],
+    "notes": null,
+    "updated_at": "2026-04-09T12:04:45.809Z"
+  }
+]
