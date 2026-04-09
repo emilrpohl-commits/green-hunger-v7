@@ -308,6 +308,7 @@ export default function CharacterProfile({ characterId }) {
   const dmRoll = usePlayerStore(s => s.dmRoll)
   const clearDmRoll = usePlayerStore(s => s.clearDmRoll)
   const playerCharacters = usePlayerStore(s => s.playerCharacters)
+  const companionSpellSlots = usePlayerStore(s => s.companionSpellSlots)
   const initiativePhase = usePlayerStore(s => s.initiativePhase)
   const submitInitiative = usePlayerStore(s => s.submitInitiative)
 
@@ -330,7 +331,7 @@ export default function CharacterProfile({ characterId }) {
 
   const curHp = liveChar?.curHp ?? char.stats.maxHp
   const tempHp = liveChar?.tempHp ?? 0
-  const spellSlots = liveChar?.spellSlots ?? char.spellSlots
+  const spellSlots = liveChar?.spellSlots ?? companionSpellSlots[characterId] ?? char.spellSlots
   const concentration = liveChar?.concentration ?? false
   const hpPct = char.stats.maxHp > 0 ? (curHp / char.stats.maxHp) * 100 : 0
   const hpColour = curHp === 0 ? 'var(--danger)' : hpPct > 60 ? 'var(--green-bright)' : hpPct > 30 ? 'var(--warning)' : '#c46040'

@@ -6,6 +6,33 @@ import { PLAYER_CHARACTERS } from '@shared/content/playerCharacters.js'
 /** Player client: PCs only (exclude DM companion NPCs from party list). */
 const PLAYER_RUNTIME_CHARACTERS = CHARACTERS.filter(c => !c.isNPC)
 
+function sanitizeIlyaSheet(character) {
+  if (!character || character.id !== 'ilya') return character
+  const sanitized = { ...character }
+  sanitized.subclass = 'Life Domain'
+  sanitized.backstory = 'Scholar-cleric with a calm bedside manner and a habit of careful note-taking. Polite, precise, and immediately useful.'
+  sanitized.features = (sanitized.features || []).map((feature) => {
+    if (feature.name === "Talona's Touch") {
+      return {
+        ...feature,
+        name: 'Field Suppression',
+        description: 'Touch — DC 13 CON save or the target is weakened by a creeping malaise until the end of its next turn.',
+      }
+    }
+    if (feature.name === 'Divine Intervention') {
+      return {
+        ...feature,
+        description: 'Roll d100 — on ≤ level (7), divine aid answers. DM decides the form.',
+      }
+    }
+    return feature
+  })
+  sanitized.equipment = (sanitized.equipment || []).map((item) => (
+    item === 'Holy Symbol (Talona — concealed)' ? 'Holy Symbol (concealed)' : item
+  ))
+  return sanitized
+}
+
 export const usePlayerStore = create((set, get) => ({
   // Session
   session: SESSION_1_PLAYER,
@@ -24,6 +51,7 @@ export const usePlayerStore = create((set, get) => ({
   combatCombatants: [],
   ilyaAssignedTo: null,
   initiativePhase: false,
+  companionSpellSlots: {},
 
   /** Monotonic guard for combat_state realtime/HTTP (mirrors DM combatStore) */
   _combatStateSyncedAt: null,
@@ -262,6 +290,9 @@ export const usePlayerStore = create((set, get) => ({
           backstory: row.backstory,
         }
       }
+      if (playerCharacters.ilya) {
+        playerCharacters.ilya = sanitizeIlyaSheet(playerCharacters.ilya)
+      }
       set({ playerCharacters })
     } catch (e) {
       console.log('Could not load characters from server, using defaults.')
@@ -415,16 +446,16 @@ export const usePlayerStore = create((set, get) => ({
   applyHealingToCharacter: async (targetId, amount, healerName, spellName) => {
     const { characters, combatActive, combatRound } = get()
     const target = characters.find(c => c.id === targetId)
-    if (!target) return
-
     const staticChar = get().playerCharacters[targetId]
-    const maxHp = staticChar?.stats.maxHp || target.maxHp
-    const newHp = Math.min(maxHp, (target.curHp || 0) + amount)
+    if (!target && !staticChar) return
+    const maxHp = staticChar?.stats?.maxHp || target?.maxHp || 0
+    const currentHp = target?.curHp ?? maxHp
+    const newHp = Math.min(maxHp, currentHp + amount)
 
     // Optimistic local update
-    const updated = characters.map(c =>
-      c.id === targetId ? { ...c, curHp: newHp } : c
-    )
+    const updated = target
+      ? characters.map(c => (c.id === targetId ? { ...c, curHp: newHp } : c))
+      : characters
     set({ characters: updated })
 
     try {
@@ -503,17 +534,23 @@ export const usePlayerStore = create((set, get) => ({
 
   // Consume one spell slot for a character
   useSpellSlot: async (characterId, slotLevel) => {
-    const { characters } = get()
+    const { characters, playerCharacters, companionSpellSlots } = get()
     const char = characters.find(c => c.id === characterId)
-    if (!char) return false
+    const staticChar = playerCharacters[characterId]
+    const slotsSource = char?.spellSlots || companionSpellSlots[characterId] || staticChar?.spellSlots
+    if (!slotsSource) return false
 
-    const slots = char.spellSlots ?? {}
+    const slots = slotsSource ?? {}
     const slot = slots[slotLevel]
     if (!slot || slot.used >= slot.max) return false
 
     const newSlots = { ...slots, [slotLevel]: { ...slot, used: slot.used + 1 } }
-    const updated = characters.map(c => c.id === characterId ? { ...c, spellSlots: newSlots } : c)
-    set({ characters: updated })
+    if (char) {
+      const updated = characters.map(c => c.id === characterId ? { ...c, spellSlots: newSlots } : c)
+      set({ characters: updated })
+    } else {
+      set({ companionSpellSlots: { ...companionSpellSlots, [characterId]: newSlots } })
+    }
 
     try {
       await supabase.from('character_states').upsert({
