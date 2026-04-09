@@ -58,23 +58,20 @@ jobs:
           cp docs/icon.png _site/icon.png
           cp docs/icon.png _site/dm/icon.png
           cp docs/icon.png _site/players/icon.png
-          python - <<'PY'
-from pathlib import Path
+          node - <<'NODE'
+const fs = require('fs');
 
-def inject_icon(path: Path, href: str):
-    if not path.exists():
-        return
-    html = path.read_text(encoding='utf-8')
-    if 'rel="icon"' in html:
-        return
-    marker = '<head>'
-    if marker in html:
-        html = html.replace(marker, marker + f'\n    <link rel="icon" type="image/png" href="{href}" />', 1)
-        path.write_text(html, encoding='utf-8')
+function injectIcon(path, href) {
+  if (!fs.existsSync(path)) return;
+  let html = fs.readFileSync(path, 'utf8');
+  if (html.includes('rel="icon"')) return;
+  html = html.replace('<head>', `<head>\n    <link rel="icon" type="image/png" href="${href}" />`);
+  fs.writeFileSync(path, html, 'utf8');
+}
 
-inject_icon(Path('_site/dm/index.html'), './icon.png')
-inject_icon(Path('_site/players/index.html'), './icon.png')
-PY
+injectIcon('_site/dm/index.html', './icon.png');
+injectIcon('_site/players/index.html', './icon.png');
+NODE
           cat > _site/index.html <<'EOF'
           <!doctype html>
           <html lang="en">
