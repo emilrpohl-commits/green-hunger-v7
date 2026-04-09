@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import { useCombatStore } from '../../stores/combatStore'
 import { decodeSavePrompt, applyDeterministicRollModifiers, getAcWithEffects } from '@shared/lib/combatRules.js'
+import { supabase } from '@shared/lib/supabase.js'
+import { encodePlayerSavePrompt } from '@shared/lib/combatRules.js'
 
 const CONDITIONS = ['Blinded', 'Charmed', 'Frightened', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious', 'Grappled', 'Paralysed']
 
@@ -99,6 +101,27 @@ function CombatantCard({ combatant, isActive, flashActive = false, players = [] 
       const dc = selected.saveDC || 12
       const saveType = selected.saveType || 'DEX'
       pushFeedEvent(`${combatant.name} uses ${selected.name}: ${atkTarget?.name || 'target'} makes ${saveType} save (DC ${dc}).`, 'save-prompt', true)
+      if (atkTarget?.id) {
+        try {
+          await supabase.from('combat_feed').insert({
+            session_id: 'session-1',
+            round: useCombatStore.getState().round || 1,
+            text: encodePlayerSavePrompt({
+              sourceName: combatant.name,
+              sourceId: combatant.id,
+              actionName: selected.name,
+              saveAbility: saveType,
+              saveDc: dc,
+              targetId: atkTarget.id,
+              outcome: selected.effect || selected.desc || null
+            }),
+            type: 'player-save-prompt',
+            target_id: atkTarget.id,
+            shared: true,
+            timestamp: new Date().toISOString()
+          })
+        } catch (e) {}
+      }
       setAtkResult({ hit: null, targetName: atkTarget?.name, total: dc, d20: null })
       return
     }

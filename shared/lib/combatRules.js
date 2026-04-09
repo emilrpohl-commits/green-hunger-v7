@@ -152,6 +152,7 @@ export function applyDeterministicRollModifiers({
 }
 
 const SAVE_PROMPT_PREFIX = '__SAVE_PROMPT__'
+const PLAYER_SAVE_PROMPT_PREFIX = '__PLAYER_SAVE_PROMPT__'
 
 export function encodeSavePrompt(payload) {
   return `${SAVE_PROMPT_PREFIX}${JSON.stringify(payload)}`
@@ -162,6 +163,20 @@ export function decodeSavePrompt(text) {
   if (!raw.startsWith(SAVE_PROMPT_PREFIX)) return null
   try {
     return JSON.parse(raw.slice(SAVE_PROMPT_PREFIX.length))
+  } catch {
+    return null
+  }
+}
+
+export function encodePlayerSavePrompt(payload) {
+  return `${PLAYER_SAVE_PROMPT_PREFIX}${JSON.stringify(payload)}`
+}
+
+export function decodePlayerSavePrompt(text) {
+  const raw = String(text || '')
+  if (!raw.startsWith(PLAYER_SAVE_PROMPT_PREFIX)) return null
+  try {
+    return JSON.parse(raw.slice(PLAYER_SAVE_PROMPT_PREFIX.length))
   } catch {
     return null
   }
