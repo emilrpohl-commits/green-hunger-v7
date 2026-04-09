@@ -1,0 +1,109 @@
+:root {
+  --bg-deep: rgba(10, 12, 10, 0.55);
+  --bg-surface: rgba(17, 20, 16, 0.72);
+  --bg-raised: rgba(24, 28, 22, 0.78);
+  --bg-card: rgba(30, 35, 27, 0.82);
+  --bg-hover: rgba(37, 43, 34, 0.86);
+
+  --border: #2a3226;
+  --border-bright: #3d4a38;
+
+  --text-primary: #d4cfc4;
+  --text-secondary: #8a9080;
+  --text-muted: #505a48;
+  --text-accent: #7ab86a;
+
+  --green-dim: #2d4a28;
+  --green-mid: #4a7a42;
+  --green-bright: #7ab86a;
+  --green-glow: rgba(122, 184, 106, 0.15);
+
+  --rot-dim: #3a2010;
+  --rot-mid: #7a4020;
+  --rot-bright: #c47040;
+
+  --danger: #c44040;
+  --warning: #c4a040;
+  --info: #4080c4;
+
+  --font-display: 'Cinzel', serif;
+  --font-body: 'Crimson Pro', serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --radius: 4px;
+  --radius-lg: 8px;
+  --transition: 0.15s ease;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background-color: var(--bg-deep);
+  background-image: url('/greenhunger-dm/background.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: scroll;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* No overlay — transparency handled by panel backgrounds */
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+#root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-surface); }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--green-mid); }
+
+/* Buttons */
+button {
+  font-family: var(--font-body);
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: var(--transition);
+}
+
+button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Typography */
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.05em;
+}
+
+/* Utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+}

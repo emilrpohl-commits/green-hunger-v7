@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "DM Console",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["-c", "cd /Users/emilpohl/Downloads/green-hunger-v7/dm && PATH=/usr/local/bin:$PATH node node_modules/vite/bin/vite.js"],
+      "port": 5173
+    },
+    {
+      "name": "Player App",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["-c", "cd /Users/emilpohl/Downloads/green-hunger-v7/players && PATH=/usr/local/bin:$PATH node node_modules/.bin/vite --port 5174"],
+      "port": 5174
+    }
+  ]
+}
