@@ -10,6 +10,7 @@
 
 import { create } from 'zustand'
 import { supabase } from '@shared/lib/supabase.js'
+import { featureFlags } from '@shared/lib/featureFlags.js'
 
 const SPELL_DB_COLUMNS = [
   'id',
@@ -466,6 +467,12 @@ export const useCampaignStore = create((set, get) => ({
     const payload = sanitizeSpellPayload(spell, campaign?.id)
     let result
     if (spell.id) {
+      if (featureFlags.ownershipConstraintsEnforced) {
+        const { data: existing } = await supabase.from('spells').select('id,campaign_id').eq('id', spell.id).single()
+        if (existing && existing.campaign_id !== campaign?.id) {
+          return { error: 'Cannot modify canonical or foreign campaign spell.' }
+        }
+      }
       result = await supabase.from('spells').update(payload).eq('id', spell.id).select().single()
     } else {
       result = await supabase.from('spells').insert(payload).select().single()
@@ -478,10 +485,54 @@ export const useCampaignStore = create((set, get) => ({
   },
 
   deleteSpell: async (id) => {
+    const { campaign } = get()
+    if (featureFlags.ownershipConstraintsEnforced) {
+      const { data: existing } = await supabase.from('spells').select('id,campaign_id').eq('id', id).single()
+      if (existing && existing.campaign_id !== campaign?.id) {
+        return { error: 'Cannot delete canonical or foreign campaign spell.' }
+      }
+    }
     const { error } = await supabase.from('spells').delete().eq('id', id)
     if (error) return { error: error.message }
     set({ spells: get().spells.filter(s => s.id !== id) })
     return { success: true }
+  },
+
+  // ---------------------------------------------------------------------------
+  // HOMEBREW OVERLAYS — CRUD
+  // ---------------------------------------------------------------------------
+  loadOverlays: async (entityType = null) => {
+    const { campaign } = get()
+    if (!campaign?.id) return { data: [] }
+    let q = supabase
+      .from('homebrew_overlays')
+      .select('*')
+      .eq('campaign_id', campaign.id)
+      .eq('is_active', true)
+      .order('updated_at', { ascending: false })
+    if (entityType) q = q.eq('entity_type', entityType)
+    const { data, error } = await q
+    if (error) return { error: error.message }
+    return { data: data || [] }
+  },
+
+  saveOverlay: async (overlay) => {
+    if (!featureFlags.homebrewOverlayWrite) return { error: 'Homebrew overlay write is disabled.' }
+    const { campaign } = get()
+    if (!campaign?.id) return { error: 'No active campaign for overlay write.' }
+    const payload = {
+      campaign_id: campaign.id,
+      entity_type: overlay.entity_type,
+      canonical_ref: overlay.canonical_ref || null,
+      overlay_payload: overlay.overlay_payload || {},
+      is_active: overlay.is_active ?? true,
+      updated_at: new Date().toISOString(),
+    }
+    const result = overlay.id
+      ? await supabase.from('homebrew_overlays').update(payload).eq('id', overlay.id).select().single()
+      : await supabase.from('homebrew_overlays').insert(payload).select().single()
+    if (result.error) return { error: result.error.message }
+    return { data: result.data }
   },
 
   assignSpellsToCharacters: async ({ spellIds, characterIds }) => {

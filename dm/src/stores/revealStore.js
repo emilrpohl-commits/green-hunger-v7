@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { supabase } from '@shared/lib/supabase.js'
+import { getSessionRunId } from '@shared/lib/runtimeContext.js'
 
 // Predefined lore cards for Session 1
 export const LORE_CARDS = [
@@ -120,15 +121,18 @@ export const LORE_CARDS = [
 
 export const useRevealStore = create((set, get) => ({
   reveals: [], // list of revealed cards
+  sessionRunId: getSessionRunId(),
 
   // Push a beat's narrative text as a reveal
   revealBeat: async (beat, sceneName) => {
+    const playerSafeContent = beat.player_text || beat.content
     const card = {
       id: `beat-${beat.id}-${Date.now()}`,
       category: sceneName,
       title: beat.title,
-      content: beat.content,
+      content: playerSafeContent,
       tone: 'narrative',
+      visibility: 'player_visible',
       revealedAt: new Date().toISOString()
     }
     await get().pushReveal(card)
@@ -139,6 +143,7 @@ export const useRevealStore = create((set, get) => ({
     const card = {
       ...loreCard,
       id: `${loreCard.id}-${Date.now()}`,
+      visibility: 'player_visible',
       revealedAt: new Date().toISOString()
     }
     await get().pushReveal(card)
@@ -152,6 +157,7 @@ export const useRevealStore = create((set, get) => ({
       title,
       content,
       tone: 'narrative',
+      visibility: 'player_visible',
       revealedAt: new Date().toISOString()
     }
     await get().pushReveal(card)
@@ -159,17 +165,19 @@ export const useRevealStore = create((set, get) => ({
 
   // Core push function
   pushReveal: async (card) => {
-    const { reveals } = get()
+    const { reveals, sessionRunId } = get()
     set({ reveals: [card, ...reveals] })
 
     try {
       await supabase.from('reveals').insert({
-        session_id: 'session-1',
+        session_id: sessionRunId,
+        session_run_id: sessionRunId,
         card_id: card.id,
         category: card.category,
         title: card.title,
         content: card.content,
         tone: card.tone,
+        visibility: card.visibility || 'player_visible',
         revealed_at: card.revealedAt
       })
     } catch (e) {
@@ -179,13 +187,13 @@ export const useRevealStore = create((set, get) => ({
 
   // Hide/retract a reveal
   hideReveal: async (cardId) => {
-    const { reveals } = get()
+    const { reveals, sessionRunId } = get()
     set({ reveals: reveals.filter(r => r.id !== cardId) })
 
     try {
       await supabase.from('reveals')
         .delete()
-        .eq('session_id', 'session-1')
+        .eq('session_id', sessionRunId)
         .eq('card_id', cardId)
     } catch (e) {
       console.error('Hide reveal error:', e)
@@ -194,21 +202,23 @@ export const useRevealStore = create((set, get) => ({
 
   // Clear all reveals
   clearAllReveals: async () => {
+    const { sessionRunId } = get()
     set({ reveals: [] })
     try {
       await supabase.from('reveals')
         .delete()
-        .eq('session_id', 'session-1')
+        .eq('session_id', sessionRunId)
     } catch (e) {}
   },
 
   // Load reveals from Supabase
   loadReveals: async () => {
+    const { sessionRunId } = get()
     try {
       const { data } = await supabase
         .from('reveals')
         .select('*')
-        .eq('session_id', 'session-1')
+        .eq('session_id', sessionRunId)
         .order('revealed_at', { ascending: false })
 
       if (data) {

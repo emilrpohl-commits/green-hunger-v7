@@ -3,9 +3,10 @@ import { supabase } from '@shared/lib/supabase.js'
 import { CHARACTERS } from '@shared/content/session1.js'
 import { SESSION_2_ENEMIES } from '@shared/content/session2.js'
 import { useSessionStore } from './sessionStore.js'
-import { makeActionEconomy, ensureActionEconomy, consumeActionEconomy, sortCombatantsByInitiative, decodeSavePrompt, applyDeterministicRollModifiers, encodeSavePrompt } from '@shared/lib/combatRules.js'
+import { makeActionEconomy, ensureActionEconomy, consumeActionEconomy, sortCombatantsByInitiative, decodeSavePrompt, applyDeterministicRollModifiers, encodeSavePrompt, normalizeEffectRecord } from '@shared/lib/combatRules.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
 import { getMonsterCombatant } from '@shared/lib/engine/rulesService.js'
+import { getRulesetContext, getSessionRunId } from '@shared/lib/runtimeContext.js'
 
 const CORRUPTED_WOLF = {
   id: 'corrupted-wolf',
@@ -17,6 +18,7 @@ const CORRUPTED_WOLF = {
 }
 
 export const useCombatStore = create((set, get) => ({
+  sessionRunId: getSessionRunId(),
   // Combat state
   active: false,
   round: 1,
@@ -79,11 +81,12 @@ export const useCombatStore = create((set, get) => ({
   },
 
   loadCombatStateFromDb: async () => {
+    const { sessionRunId } = get()
     try {
       const { data } = await supabase
         .from('combat_state')
         .select('*')
-        .eq('id', 'session-1')
+        .eq('id', sessionRunId)
         .maybeSingle()
       if (data) get().applyCombatStateRow(data)
     } catch (e) {
@@ -95,13 +98,14 @@ export const useCombatStore = create((set, get) => ({
     const existing = get().combatStateChannel
     if (existing) return
 
+    const { sessionRunId } = get()
     const channel = supabase
       .channel('combat-state-dm-sync')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'combat_state',
-        filter: 'id=eq.session-1'
+        filter: `id=eq.${sessionRunId}`
       }, (payload) => {
         if (payload.new) get().applyCombatStateRow(payload.new)
       })
@@ -115,13 +119,14 @@ export const useCombatStore = create((set, get) => ({
     const existing = get().rollFeedChannel
     if (existing) return
 
+    const { sessionRunId } = get()
     const channel = supabase
       .channel('player-roll-feed')
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'combat_feed',
-        filter: 'session_id=eq.session-1'
+        filter: `session_id=eq.${sessionRunId}`
       }, (payload) => {
         if (payload.new && payload.new.type === 'roll') {
           const entry = {
@@ -141,13 +146,14 @@ export const useCombatStore = create((set, get) => ({
   subscribeToFeed: () => {
     const existing = get().feedChannel
     if (existing) return
+    const { sessionRunId } = get()
     const channel = supabase
       .channel('combat-feed-dm')
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'combat_feed',
-        filter: 'session_id=eq.session-1'
+        filter: `session_id=eq.${sessionRunId}`
       }, (payload) => {
         const row = payload.new
         if (!row) return
@@ -176,11 +182,12 @@ export const useCombatStore = create((set, get) => ({
 
   // Load recent player rolls from Supabase
   loadPlayerRolls: async () => {
+    const { sessionRunId } = get()
     try {
       const { data } = await supabase
         .from('combat_feed')
         .select('*')
-        .eq('session_id', 'session-1')
+        .eq('session_id', sessionRunId)
         .eq('type', 'roll')
         .order('timestamp', { ascending: false })
         .limit(80)
@@ -193,9 +200,10 @@ export const useCombatStore = create((set, get) => ({
 
   // Clear player roll feed
   clearPlayerRolls: async () => {
+    const { sessionRunId } = get()
     set({ playerRolls: [] })
     try {
-      await supabase.from('combat_feed').delete().eq('session_id', 'session-1').eq('type', 'roll')
+      await supabase.from('combat_feed').delete().eq('session_id', sessionRunId).eq('type', 'roll')
     } catch (e) {}
   },
 
@@ -231,13 +239,16 @@ export const useCombatStore = create((set, get) => ({
     const { feed, round } = get()
     const event = { id: Date.now(), round, text: resolutionText, type: 'save-prompt-resolved', shared: true, timestamp: new Date().toISOString() }
     set({ feed: [event, ...feed].slice(0, 80) })
+    const { sessionRunId } = get()
     try {
       await supabase.from('combat_feed').insert({
-        session_id: 'session-1',
+        session_id: sessionRunId,
         round,
         text: encodeSavePrompt({ promptId: prompt.promptId, resolutionText }),
         type: 'save-prompt-resolved',
         shared: true,
+        visibility: 'player_visible',
+        prompt_status: 'resolved',
         timestamp: event.timestamp
       })
     } catch (e) {}
@@ -247,15 +258,16 @@ export const useCombatStore = create((set, get) => ({
   // Add/remove a spell effect on a combatant
   addEffect: async (combatantId, effect) => {
     const { combatants } = get()
+    const normalizedEffect = normalizeEffectRecord(effect)
     const updated = combatants.map(c => {
       if (c.id !== combatantId) return c
       const effects = c.effects || []
-      if (effects.find(e => e.name === effect.name)) return c // already applied
-      return { ...c, effects: [...effects, effect] }
+      if (effects.find(e => e.name === normalizedEffect.name)) return c // already applied
+      return { ...c, effects: [...effects, normalizedEffect] }
     })
     set({ combatants: updated })
     const target = combatants.find(c => c.id === combatantId)
-    await get().pushFeedEvent(`${target?.name} is affected by ${effect.name}${effect.source ? ` (from ${effect.source})` : ''}.`, 'system', false)
+    await get().pushFeedEvent(`${target?.name} is affected by ${normalizedEffect.name}${normalizedEffect.source ? ` (from ${normalizedEffect.source})` : ''}.`, 'system', false)
     await get().syncCombatState()
   },
 
@@ -373,11 +385,31 @@ export const useCombatStore = create((set, get) => ({
           ...((sb?.actions || []).map(a => ({ ...a, actionType: 'action' }))),
           ...((sb?.bonus_actions || []).map(a => ({ ...a, actionType: 'bonus_action' }))),
           ...((sb?.reactions || []).map(a => ({ ...a, actionType: 'reaction' }))),
+          ...((e.actions || []).map(a => ({ ...a, actionType: a.actionType || 'action', source: 'normalized' }))),
+          ...((e.bonus_actions || []).map(a => ({ ...a, actionType: 'bonus_action', source: 'normalized' }))),
+          ...((e.reactions || []).map(a => ({ ...a, actionType: 'reaction', source: 'normalized' }))),
         ],
+        actionSource: sb ? 'stat_block' : ((e.actions || e.bonus_actions || e.reactions) ? 'normalized' : 'fallback'),
       }
     }))
 
-    const allCombatants = [...playerCombatants, ...enemyCombatants]
+    // Final fallback action if no statblock/normalized actions were available.
+    const withFallbackActions = enemyCombatants.map((c) => {
+      if (Array.isArray(c.actionOptions) && c.actionOptions.length > 0) return c
+      return {
+        ...c,
+        actionOptions: [{
+          name: 'Basic Attack (Manual Fallback)',
+          desc: 'No structured action data available. DM adjudicates outcome manually.',
+          actionType: 'action',
+          type: 'special',
+          source: 'fallback',
+        }],
+        actionSource: 'fallback',
+      }
+    })
+
+    const allCombatants = [...playerCombatants, ...withFallbackActions]
 
     set({
       active: true,
@@ -537,12 +569,14 @@ export const useCombatStore = create((set, get) => ({
     const { combatants } = get()
     let conditionName = condition
     if (featureFlags.use5eEngine && featureFlags.engineConditions) {
+      const rulesetContext = getRulesetContext()
+      const selectedRuleset = rulesetContext.active_ruleset === 'custom' ? '2024' : rulesetContext.active_ruleset
       try {
         const { data } = await supabase
           .from('rules_entities')
           .select('name,source_index')
           .eq('entity_type', 'conditions')
-          .eq('ruleset', '2024')
+          .eq('ruleset', selectedRuleset)
         if (Array.isArray(data) && data.length > 0) {
           const lookup = data.find((c) =>
             String(c.name || '').toLowerCase() === String(condition || '').toLowerCase()
@@ -596,7 +630,7 @@ export const useCombatStore = create((set, get) => ({
 
   // Push a feed event
   pushFeedEvent: async (text, type = 'action', shared = false) => {
-    const { feed, round } = get()
+    const { feed, round, sessionRunId } = get()
     const event = {
       id: Date.now(),
       round,
@@ -610,7 +644,7 @@ export const useCombatStore = create((set, get) => ({
     // Push to Supabase
     try {
       await supabase.from('combat_feed').insert({
-        session_id: 'session-1',
+        session_id: sessionRunId,
         round,
         text,
         type,
@@ -624,18 +658,21 @@ export const useCombatStore = create((set, get) => ({
 
   // Sync full combat state to Supabase
   syncCombatState: async () => {
-    const { active, round, activeCombatantIndex, combatants, ilyaAssignedTo, initiativePhase } = get()
+    const { active, round, activeCombatantIndex, combatants, ilyaAssignedTo, initiativePhase, sessionRunId } = get()
+    const rulesetContext = getRulesetContext()
     const ts = new Date().toISOString()
     const tsMs = Date.parse(ts)
     try {
       await supabase.from('combat_state').upsert({
-        id: 'session-1',
+        id: sessionRunId,
+        session_run_id: sessionRunId,
         active,
         round,
         active_combatant_index: activeCombatantIndex,
         combatants: combatants,
         ilya_assigned_to: ilyaAssignedTo,
         initiative_phase: initiativePhase,
+        ruleset_context: rulesetContext,
         updated_at: ts
       })
       if (!Number.isNaN(tsMs)) {
@@ -651,11 +688,12 @@ export const useCombatStore = create((set, get) => ({
 
   // Load feed from Supabase
   loadFeed: async () => {
+    const { sessionRunId } = get()
     try {
       const { data } = await supabase
         .from('combat_feed')
         .select('*')
-        .eq('session_id', 'session-1')
+        .eq('session_id', sessionRunId)
         .order('timestamp', { ascending: false })
         .limit(50)
 
@@ -674,9 +712,10 @@ export const useCombatStore = create((set, get) => ({
 
   // Clear feed (new encounter)
   clearFeed: async () => {
+    const { sessionRunId } = get()
     set({ feed: [] })
     try {
-      await supabase.from('combat_feed').delete().eq('session_id', 'session-1')
+      await supabase.from('combat_feed').delete().eq('session_id', sessionRunId)
     } catch (e) {}
   },
 

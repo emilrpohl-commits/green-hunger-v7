@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { usePlayerStore } from '../stores/playerStore'
-import { parseCastingTimeMeta, buildSpellEffectMetadata, ensureActionEconomy, applyDeterministicRollModifiers, getAcWithEffects } from '@shared/lib/combatRules.js'
+import { parseCastingTimeMeta, ensureActionEconomy, applyDeterministicRollModifiers, getAcWithEffects } from '@shared/lib/combatRules.js'
+import { makeSavePromptPayload, resolveSpellPath } from '@shared/lib/domain/spellResolution.js'
 
 // ─── Dice helpers ────────────────────────────────────────────────────────────
 const rollDie = (sides) => Math.floor(Math.random() * sides) + 1
@@ -341,6 +342,7 @@ export default function CharacterProfile({ characterId }) {
   const [spellTargets, setSpellTargets] = useState([])
   const [pendingSpellDmg, setPendingSpellDmg] = useState(null) // { spell, target, slotLevel, crit }
   const [turnPromptVisible, setTurnPromptVisible] = useState(false)
+  const [manualSaveTotal, setManualSaveTotal] = useState('')
 
   if (!char) return null
 
@@ -581,7 +583,8 @@ export default function CharacterProfile({ characterId }) {
     const targetName = target?.name ?? (spell.target === 'self' ? char.name : null)
     const selectedTargets = targets.length > 0 ? targets : (target ? [target] : [])
 
-    if (spell.mechanic === 'attack') {
+    const spellPath = resolveSpellPath(spell)
+    if (spellPath === 'attack') {
       const d20 = rollDie(20)
       const bonus = spell.toHit || 0
       const modded = applyDeterministicRollModifiers({ combatant: myCombatant, baseRoll: d20 + bonus, rollType: 'attack' })
@@ -599,7 +602,7 @@ export default function CharacterProfile({ characterId }) {
       const rangeStr = target ? ` vs ${target.name} AC ${getAcWithEffects(target)}` : ''
       pushRoll(`${spell.name} attack: d20(${d20}) + ${bonus} = ${total}${rangeStr}${hitStr}${critStr}`, char.name)
 
-    } else if (spell.mechanic === 'save') {
+    } else if (spellPath === 'save') {
       const dd = spell.damage
       if (dd) {
         const extraDice = spell.perLevel ? extraLevels * spell.perLevel.count : 0
@@ -614,18 +617,15 @@ export default function CharacterProfile({ characterId }) {
           : primaryTarget ? ` → ${primaryTarget.name}` : ''
         pushRoll(`${spell.name} (${spell.saveType} DC ${spell.saveDC}): [${rolls.join('+')}]${dd.mod ? `+${dd.mod}` : ''} = ${total} ${dd.type}${targetStr}`, char.name)
         const targetsPayload = (selectedTargets.length > 0 ? selectedTargets : primaryTarget ? [primaryTarget] : []).map(t => ({ id: t.id, name: t.name }))
-        pushSavePrompt({
+        pushSavePrompt(makeSavePromptPayload({
           promptId: `${Date.now()}-${characterId}-${spell.name}`,
-          spellName: spell.name,
+          spell,
           casterId: characterId,
           casterName: char.name,
-          saveAbility: spell.saveType,
-          saveDc: spell.saveDC,
           targets: targetsPayload,
           damage: dd ? { amount: total, type: dd.type, halfOnSuccess: true } : null,
-          effect: buildSpellEffectMetadata(spell),
-          raw: { targetStr }
-        })
+          raw: { targetStr },
+        }))
         closeSpellPanel()
       } else {
         // Save with no damage (Bane, Command, Charm, etc.)
@@ -636,22 +636,19 @@ export default function CharacterProfile({ characterId }) {
           : primaryTarget ? ` → ${primaryTarget.name}` : ''
         pushRoll(`${spell.name}: ${spell.saveType} DC ${spell.saveDC}${targetStr}`, char.name)
         const targetsPayload = (selectedTargets.length > 0 ? selectedTargets : primaryTarget ? [primaryTarget] : []).map(t => ({ id: t.id, name: t.name }))
-        pushSavePrompt({
+        pushSavePrompt(makeSavePromptPayload({
           promptId: `${Date.now()}-${characterId}-${spell.name}`,
-          spellName: spell.name,
+          spell,
           casterId: characterId,
           casterName: char.name,
-          saveAbility: spell.saveType,
-          saveDc: spell.saveDC,
           targets: targetsPayload,
           damage: null,
-          effect: buildSpellEffectMetadata(spell),
-          raw: { targetStr }
-        })
+          raw: { targetStr },
+        }))
         closeSpell()
       }
 
-    } else if (spell.mechanic === 'auto') {
+    } else if (spellPath === 'auto') {
       // Magic Missile — auto-hits
       const missilesCount = (spell.missiles || 1) + extraLevels * (spell.perLevelMissiles || 0)
       const dd = spell.damage
@@ -669,7 +666,7 @@ export default function CharacterProfile({ characterId }) {
       if (target) applyDamageToEnemy(target.id, totalDmg, char.name, spell.name)
       closeSpell()
 
-    } else if (spell.mechanic === 'heal') {
+    } else if (spellPath === 'heal') {
       // Route through existing rollHeal
       const healActionProxy = {
         name: spell.name,
@@ -803,15 +800,27 @@ export default function CharacterProfile({ characterId }) {
                 Roll Save
               </button>
               <button
-                onClick={() => {
-                  const raw = window.prompt('Enter your save total')
-                  if (raw == null) return
-                  resolveIncomingSavePrompt(true, raw)
-                }}
+                onClick={() => resolveIncomingSavePrompt(true, manualSaveTotal)}
                 style={{ padding: '6px 10px', fontFamily: 'var(--font-mono)', fontSize: 10, background: `${char.colour}20`, border: `1px solid ${char.colour}70`, borderRadius: 'var(--radius)', color: char.colour, cursor: 'pointer' }}
               >
                 Enter Total
               </button>
+              <input
+                type="number"
+                value={manualSaveTotal}
+                onChange={(e) => setManualSaveTotal(e.target.value)}
+                placeholder="Total"
+                style={{
+                  width: 72,
+                  padding: '6px 8px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 10,
+                  background: 'var(--bg-raised)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)',
+                  color: 'var(--text-primary)',
+                }}
+              />
             </div>
           )}
         </div>

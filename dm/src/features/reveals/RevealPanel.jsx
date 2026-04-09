@@ -112,9 +112,9 @@ export default function RevealPanel() {
                     lineHeight: 1.6,
                     marginBottom: 12
                   }}>
-                    {beat.content.length > 120
-                      ? beat.content.slice(0, 120) + '…'
-                      : beat.content}
+                    {((beat.player_text || beat.content || '').length > 120)
+                      ? (beat.player_text || beat.content || '').slice(0, 120) + '…'
+                      : (beat.player_text || beat.content || '')}
                   </div>
                   <button onClick={handleRevealBeat} style={{
                     width: '100%',

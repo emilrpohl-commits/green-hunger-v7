@@ -19,7 +19,7 @@
  * @property {string[]} [themes]
  * @property {string} [tone]
  * @property {string} [setting]
- * @property {string} [rules_edition]
+ * @property {'2024'|'2014'|'custom'} [rules_edition]
  * @property {string} [house_rules]
  * @property {Object} [party_profile]
  * @property {string} [notes]
@@ -226,6 +226,8 @@
  * @property {string} [source]
  * @property {string[]} [classes]
  * @property {string} [notes]
+ * @property {'2024'|'2014'|'custom'} [ruleset]
+ * @property {'canonical'|'overlay'|'campaign'} [source_of_truth]
  */
 
 /**
@@ -284,7 +286,8 @@
 
 /**
  * @typedef {Object} LiveSessionState
- * @property {string} id                     - 'session-1' (legacy) or uuid
+ * @property {string} id                     - legacy id fallback
+ * @property {string} [session_run_id]
  * @property {string} [campaign_id]
  * @property {string} [active_session_uuid]
  * @property {string} [active_scene_uuid]
@@ -293,6 +296,19 @@
  * @property {string[]} [revealed_asset_ids]
  * @property {number} [current_scene_index]  - legacy compat
  * @property {number} [current_beat_index]   - legacy compat
+ * @property {'2024'|'2014'|'custom'} [active_ruleset]
+ * @property {boolean} [fallback_allowed]
+ * @property {'canonical'|'overlay'|'campaign'|'manual'} [source_of_truth]
+ */
+
+/**
+ * @typedef {Object} HomebrewOverlay
+ * @property {string} id
+ * @property {string} campaign_id
+ * @property {'spell'|'item'|'monster'|'condition'|'mechanic'} entity_type
+ * @property {string|null} canonical_ref
+ * @property {Object} overlay_payload
+ * @property {boolean} is_active
  */
 
 export {}

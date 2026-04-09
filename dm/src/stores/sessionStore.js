@@ -1,9 +1,11 @@
 import { create } from 'zustand'
 import { supabase } from '@shared/lib/supabase.js'
 import { CHARACTERS } from '@shared/content/session1.js'
+import { getSessionRunId, getRulesetContext } from '@shared/lib/runtimeContext.js'
 
 export const useSessionStore = create((set, get) => ({
   // Session state
+  sessionRunId: getSessionRunId(),
   sessions: [],
   activeSessionId: null,
   session: null,
@@ -222,11 +224,17 @@ export const useSessionStore = create((set, get) => ({
 
   // Supabase sync
   syncSessionState: async () => {
-    const { currentSceneIndex, currentBeatIndex } = get()
+    const { currentSceneIndex, currentBeatIndex, sessionRunId, activeSessionId } = get()
+    const rulesetContext = getRulesetContext()
     set({ syncStatus: 'syncing' })
     try {
       await supabase.from('session_state').upsert({
-        id: 'session-1',
+        id: sessionRunId,
+        session_run_id: sessionRunId,
+        active_session_uuid: activeSessionId,
+        active_ruleset: rulesetContext.active_ruleset,
+        fallback_allowed: rulesetContext.fallback_allowed,
+        source_of_truth: rulesetContext.source_of_truth,
         current_scene_index: currentSceneIndex,
         current_beat_index: currentBeatIndex,
         updated_at: new Date().toISOString()
@@ -259,11 +267,12 @@ export const useSessionStore = create((set, get) => ({
 
   // Load state from Supabase on mount
   loadFromSupabase: async () => {
+    const { sessionRunId } = get()
     try {
       const { data: sessionData } = await supabase
         .from('session_state')
         .select('*')
-        .eq('id', 'session-1')
+        .eq('id', sessionRunId)
         .single()
 
       if (sessionData) {

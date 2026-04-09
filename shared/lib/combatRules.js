@@ -111,6 +111,27 @@ function normalizeEffectName(effect) {
   return String(effect?.name || effect || '').trim().toLowerCase()
 }
 
+export function normalizeEffectRecord(effect, defaults = {}) {
+  if (typeof effect === 'string') {
+    return {
+      name: effect,
+      source: defaults.source || null,
+      deterministic: ['bane', 'bless', 'shield of faith', 'guidance'].includes(normalizeEffectName(effect)),
+      duration_rounds: defaults.duration_rounds ?? null,
+      applied_at: defaults.applied_at || new Date().toISOString(),
+    }
+  }
+  const name = effect?.name || 'Effect'
+  return {
+    ...effect,
+    name,
+    source: effect?.source ?? defaults.source ?? null,
+    deterministic: effect?.deterministic ?? ['bane', 'bless', 'shield of faith', 'guidance'].includes(normalizeEffectName(name)),
+    duration_rounds: effect?.duration_rounds ?? defaults.duration_rounds ?? null,
+    applied_at: effect?.applied_at || new Date().toISOString(),
+  }
+}
+
 export function getAcWithEffects(combatant) {
   const effects = combatant?.effects || []
   let bonus = 0
@@ -156,6 +177,15 @@ const PLAYER_SAVE_PROMPT_PREFIX = '__PLAYER_SAVE_PROMPT__'
 
 export function encodeSavePrompt(payload) {
   return `${SAVE_PROMPT_PREFIX}${JSON.stringify(payload)}`
+}
+
+export function makeSavePromptEnvelope(payload = {}) {
+  return {
+    status: payload.status || 'pending',
+    visibility: payload.visibility || 'targeted',
+    promptId: payload.promptId,
+    ...payload,
+  }
 }
 
 export function decodeSavePrompt(text) {
