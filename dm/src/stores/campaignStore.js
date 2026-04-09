@@ -11,6 +11,43 @@
 import { create } from 'zustand'
 import { supabase } from '@shared/lib/supabase.js'
 
+const SPELL_DB_COLUMNS = [
+  'id',
+  'campaign_id',
+  'name',
+  'level',
+  'school',
+  'casting_time',
+  'range',
+  'components',
+  'duration',
+  'ritual',
+  'concentration',
+  'description',
+  'higher_level_effect',
+  'damage_dice',
+  'damage_type',
+  'healing_dice',
+  'save_type',
+  'attack_type',
+  'tags',
+  'source',
+  'classes',
+  'notes',
+  'updated_at',
+]
+
+function sanitizeSpellPayload(spell, campaignId) {
+  const withManagedFields = {
+    ...spell,
+    campaign_id: campaignId,
+    updated_at: new Date().toISOString(),
+  }
+  return Object.fromEntries(
+    Object.entries(withManagedFields).filter(([key]) => SPELL_DB_COLUMNS.includes(key))
+  )
+}
+
 export const useCampaignStore = create((set, get) => ({
   // Full campaign data
   campaign: null,
@@ -344,7 +381,7 @@ export const useCampaignStore = create((set, get) => ({
 
   saveSpell: async (spell) => {
     const { campaign } = get()
-    const payload = { ...spell, campaign_id: campaign?.id, updated_at: new Date().toISOString() }
+    const payload = sanitizeSpellPayload(spell, campaign?.id)
     let result
     if (spell.id) {
       result = await supabase.from('spells').update(payload).eq('id', spell.id).select().single()
