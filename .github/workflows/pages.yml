@@ -58,20 +58,6 @@ jobs:
           cp docs/icon.png _site/icon.png
           cp docs/icon.png _site/dm/icon.png
           cp docs/icon.png _site/players/icon.png
-          node - <<'NODE'
-const fs = require('fs');
-
-function injectIcon(path, href) {
-  if (!fs.existsSync(path)) return;
-  let html = fs.readFileSync(path, 'utf8');
-  if (html.includes('rel="icon"')) return;
-  html = html.replace('<head>', `<head>\n    <link rel="icon" type="image/png" href="${href}" />`);
-  fs.writeFileSync(path, html, 'utf8');
-}
-
-injectIcon('_site/dm/index.html', './icon.png');
-injectIcon('_site/players/index.html', './icon.png');
-NODE
           cat > _site/index.html <<'EOF'
           <!doctype html>
           <html lang="en">
