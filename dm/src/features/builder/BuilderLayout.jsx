@@ -4,7 +4,7 @@ import { runMigration } from '@supabase-root/migrate.js'
 import StatBlockLibrary from '../statblocks/StatBlockLibrary'
 import StatBlockEditor from '../statblocks/StatBlockEditor'
 import SessionOutliner from '../sessions/SessionOutliner'
-import DocxImportModal from './DocxImportModal'
+import MarkdownImportModal from './MarkdownImportModal'
 import SpellLibrary from '../spells/SpellLibrary'
 import NpcLibrary from '../npcs/NpcLibrary'
 
@@ -209,9 +209,9 @@ export default function BuilderLayout() {
         {renderMain()}
       </div>
 
-      {/* DOCX Import modal */}
+      {/* Markdown Import modal */}
       {showDocxImport && (
-        <DocxImportModal
+        <MarkdownImportModal
           onClose={() => setShowDocxImport(false)}
           onDone={(sessionId) => {
             setShowDocxImport(false)

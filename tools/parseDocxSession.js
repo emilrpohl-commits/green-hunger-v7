@@ -1,7 +1,7 @@
 /**
- * parseDocxSession(markdown)
+ * parseSessionMarkdown(markdown)
  *
- * Parses mammoth-generated markdown from a Green Hunger DM session DOCX.
+ * Parses session markdown for Green Hunger imports.
  *
  * Actual format discovered from the real documents:
  *   - Title: "__THE GREEN HUNGER__" (bold)
@@ -68,7 +68,9 @@ function strip(s) {
 
 function clean(s) { return strip(s) }
 
-// ─── Beat type detection ──────────────────────────────────────────────────────
+// ─── Beat type detection / validation ────────────────────────────────────────
+
+const ALLOWED_BEAT_TYPES = new Set(['narrative', 'prompt', 'check', 'decision', 'combat', 'reveal', 'transition'])
 
 const BEAT_TYPE_RULES = [
   { re: /stat block/i,                     type: '__statblock__' },
@@ -93,6 +95,15 @@ function detectBeatType(heading) {
     if (re.test(h)) return type
   }
   return 'narrative'
+}
+
+function parseExplicitBeatHeading(heading) {
+  const m = clean(heading).match(/^\[(narrative|prompt|check|decision|combat|reveal|transition)\]\s*(.+)$/i)
+  if (!m) return null
+  const type = m[1].toLowerCase()
+  const title = clean(m[2] || '')
+  if (!ALLOWED_BEAT_TYPES.has(type) || !title) return null
+  return { type, title }
 }
 
 // ─── Flat table parser ────────────────────────────────────────────────────────
@@ -207,7 +218,7 @@ function extractDmNoteText(line) {
 
 // ─── Main parser ──────────────────────────────────────────────────────────────
 
-export function parseDocxSession(markdown) {
+export function parseSessionMarkdown(markdown) {
   const result = {
     sessionNumber: null,
     sessionTitle: '',
@@ -265,7 +276,6 @@ export function parseDocxSession(markdown) {
 
   // ── Background section ────────────────────────────────────────────────────
 
-  const bgHeadingRe = /^#\s+.*background/im
   const bgMatch = md.match(/^#\s+.*background[^\n]*\n([\s\S]*?)(?=^#\s+)/im)
   if (bgMatch) {
     // Take first 4 paragraphs (not too long)
@@ -276,7 +286,7 @@ export function parseDocxSession(markdown) {
   // ── Session overview table ────────────────────────────────────────────────
 
   const structHeadingRe = /^#\s+.*session structure/im
-  const firstSceneRe = /^#\s+.*Scene\s+\d/im
+  const firstSceneRe = /^#{1,2}\s+.*Scene\s+\d/im
   const structPos = md.search(structHeadingRe)
   const firstScenePos = md.search(firstSceneRe)
 
@@ -289,7 +299,7 @@ export function parseDocxSession(markdown) {
   // ── Split into scene blocks ───────────────────────────────────────────────
 
   // Scene headings: "# __Scene 1 — Title__" — h1 with optional bold markers
-  const sceneHeadingRe = /^#\s+(?:__)?Scene\s+(\d+[a-z]?)\s*[—–\-]+\s*(.+?)(?:__)?$/gm
+  const sceneHeadingRe = /^#{1,2}\s+(?:__)?Scene\s+(\d+[a-z]?)\s*[—–\-]+\s*(.+?)(?:__)?$/gm
   const sceneMatches = []
   let m
   while ((m = sceneHeadingRe.exec(md)) !== null) {
@@ -301,7 +311,7 @@ export function parseDocxSession(markdown) {
   }
 
   if (sceneMatches.length === 0) {
-    throw new Error('No scenes detected. Make sure the document has "# Scene N — Title" headings.')
+    throw new Error('No scenes detected. Use markdown scene headings like "## Scene 1 — Title".')
   }
 
   const sceneBlocks = sceneMatches.map((sm, i) => {
@@ -326,13 +336,13 @@ export function parseDocxSession(markdown) {
   // ── Pre-pass: collect ALL stat blocks across all scenes ──────────────────
   // This ensures stat blocks are available for beat linking regardless of order.
 
-  const statBlockHeadingRe = /^##\s+(?:__)?Stat Block\s*[—–\-]\s*(.+?)(?:__)?$/gm
+  const statBlockHeadingRe = /^#{2,3}\s+(?:__)?Stat Block\s*[—–\-]\s*(.+?)(?:__)?$/gm
   let sbm
   while ((sbm = statBlockHeadingRe.exec(md)) !== null) {
     const sbName = clean(sbm[1])
     const bodyStart = md.indexOf('\n', sbm.index) + 1
-    // Body ends at next ## heading or end of doc
-    const nextHeading = /^##\s+/gm
+    // Body ends at next heading or end of doc
+    const nextHeading = /^#{2,3}\s+/gm
     nextHeading.lastIndex = bodyStart
     const nextMatch = nextHeading.exec(md)
     const bodyEnd = nextMatch ? nextMatch.index : md.length
@@ -385,7 +395,7 @@ export function parseDocxSession(markdown) {
     // ── Split into beat blocks via ## headings ────────────────────────────
 
     // Beat headings: "## __Heading__" — h2 with optional bold markers
-    const beatHeadingRe = /^##\s+(?:__)?(.+?)(?:__)?$/gm
+    const beatHeadingRe = /^#{2,3}\s+(?:__)?(.+?)(?:__)?$/gm
     const beatMatches = []
     let bm
     while ((bm = beatHeadingRe.exec(sb.body)) !== null) {
@@ -419,10 +429,10 @@ export function parseDocxSession(markdown) {
     let prevBeat = null
 
     for (const bb of beatBlocks) {
-      const beatType = detectBeatType(bb.heading)
+      const sectionType = detectBeatType(bb.heading)
 
       // ── Stat block ────────────────────────────────────────────────────
-      if (beatType === '__statblock__') {
+      if (sectionType === '__statblock__') {
         const sbName = clean(bb.heading.replace(/^stat block\s*[—–\-]\s*/i, ''))
         // Collect all text from this beat body
         const rawText = `${sbName}\n${clean(bb.body).replace(/\n+/g, '\n')}`
@@ -441,7 +451,7 @@ export function parseDocxSession(markdown) {
       }
 
       // ── DM note — append to previous beat ────────────────────────────
-      if (beatType === '__dmnote__') {
+      if (sectionType === '__dmnote__') {
         if (prevBeat) {
           const noteText = cleanBodyText(bb.body)
           prevBeat.dmNotes = prevBeat.dmNotes
@@ -452,6 +462,15 @@ export function parseDocxSession(markdown) {
       }
 
       // ── Regular beat ──────────────────────────────────────────────────
+      const explicit = parseExplicitBeatHeading(bb.heading)
+      if (!explicit) {
+        throw new Error(
+          `Invalid beat heading "${bb.heading}" in Scene ${sceneNum}. ` +
+          `Use explicit beat type format: "[narrative|prompt|check|decision|combat|reveal|transition] Beat title"`
+        )
+      }
+      const beatType = explicit.type
+      const beatTitle = explicit.title
       beatOrder++
 
       // Parse body: separate content, dm notes, sub-beats (### headings)
@@ -511,11 +530,11 @@ export function parseDocxSession(markdown) {
       }
 
       const beat = {
-        title: bb.heading,
+        title: beatTitle,
         type: beatType,
         order: beatOrder,
         slug: `b-s${sessionN}-${sceneNum}-${beatOrder}`,
-        triggerText: bb.heading,
+        triggerText: beatTitle,
         content: clean(content),
         playerText: clean(content),
         dmNotes: clean(dmNotes),
@@ -526,7 +545,7 @@ export function parseDocxSession(markdown) {
       // Link beats to stat blocks: check heading and content against any known stat block name
       const sbRef = result.statBlocks.find(sb => {
         const sbLower = sb.name.toLowerCase()
-        const headingLower = bb.heading.toLowerCase()
+        const headingLower = beatTitle.toLowerCase()
         return headingLower === sbLower ||
           headingLower.includes(sbLower) ||
           sbLower.includes(headingLower) ||
@@ -534,17 +553,13 @@ export function parseDocxSession(markdown) {
       })
       if (sbRef) {
         beat.statBlockRef = sbRef.name
-        // Upgrade type to combat if not already a more specific type
-        if (beatType === 'narrative' || beatType === 'prompt') {
-          beat.type = 'combat'
-        }
       }
 
       scene.beats.push(beat)
       prevBeat = beat
 
       // "If Fails — COMBAT" split
-      if (/if.*fails.*combat|if.*fail.*—.*combat/i.test(bb.heading)) {
+      if (/if.*fails.*combat|if.*fail.*—.*combat/i.test(beatTitle)) {
         beatOrder++
         const combatBeat = {
           title: 'Combat — Failed Persuasion',
@@ -579,8 +594,26 @@ export function parseDocxSession(markdown) {
     }
   })
 
+  // Strict validation pass for markdown imports
+  for (const scene of result.scenes) {
+    if (!scene.title) {
+      throw new Error(`Scene ${scene.sceneNumber} is missing a title.`)
+    }
+    for (const beat of scene.beats || []) {
+      if (!ALLOWED_BEAT_TYPES.has(beat.type)) {
+        throw new Error(`Scene ${scene.sceneNumber} beat "${beat.title}" has invalid type "${beat.type}".`)
+      }
+      if (!beat.title) {
+        throw new Error(`Scene ${scene.sceneNumber} has a beat with no title.`)
+      }
+    }
+  }
+
   return result
 }
+
+// Backward-compatible export name used by existing imports
+export const parseDocxSession = parseSessionMarkdown
 
 // ─── Helper: clean a beat body block into readable text ──────────────────────
 

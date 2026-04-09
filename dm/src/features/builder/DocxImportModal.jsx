@@ -1,20 +1,20 @@
 /**
- * DocxImportModal — Part 2 of MASTER-BRIEF
+ * MarkdownImportModal — Part 2 of MASTER-BRIEF
  *
- * Accepts a .docx file, parses it with mammoth.js, shows a structured
+ * Accepts a .md file, parses it as session markdown, shows a structured
  * preview, then imports to Supabase using existing campaignStore actions.
  *
  * States: idle → parsing → preview → importing → done | error
  */
 
 import React, { useState, useRef } from 'react'
-import mammoth from 'mammoth'
-import { parseDocxSession } from '@tools/parseDocxSession.js'
+import { parseSessionMarkdown } from '@tools/parseDocxSession.js'
 import { useCampaignStore } from '../../stores/campaignStore'
 import { useSessionStore } from '../../stores/sessionStore'
 import { supabase } from '@shared/lib/supabase.js'
 
 const mono = { fontFamily: 'var(--font-mono)' }
+const TEMPLATE_URL = 'https://raw.githubusercontent.com/emilrpohl-commits/green-hunger-v7/main/docs/session-template.md'
 
 // ─── Small helpers ────────────────────────────────────────────────────────────
 
@@ -72,8 +72,8 @@ export default function DocxImportModal({ onClose, onDone }) {
   // ── File handling ────────────────────────────────────────────────────────
 
   const handleFile = async (file) => {
-    if (!file || !String(file.name || '').toLowerCase().endsWith('.docx')) {
-      setErrorMsg('Please select a .docx file.')
+    if (!file || !String(file.name || '').toLowerCase().endsWith('.md')) {
+      setErrorMsg('Please select a .md file.')
       setPhase('error')
       return
     }
@@ -83,9 +83,8 @@ export default function DocxImportModal({ onClose, onDone }) {
     setParsed(null)
 
     try {
-      const arrayBuffer = await file.arrayBuffer()
-      const { value: markdown } = await mammoth.convertToMarkdown({ arrayBuffer })
-      const result = parseDocxSession(markdown)
+      const markdown = await file.text()
+      const result = parseSessionMarkdown(markdown)
 
       if (!result.sessionNumber && !result.sessionTitle) {
         throw new Error('Could not detect a session structure in this document. Check that it follows the expected format.')
@@ -115,24 +114,6 @@ export default function DocxImportModal({ onClose, onDone }) {
       setErrorMsg(e.message || 'Failed to parse document.')
       setPhase('error')
     }
-  }
-
-  const handleOverwrite = async () => {
-    if (!conflictSession) return
-    setPhase('importing')
-    setImportLog([])
-    addLog('pending', `Deleting existing session ${conflictSession.id}…`)
-    const { error } = await supabase.from('sessions').delete().eq('id', conflictSession.id)
-    if (error) {
-      setErrorMsg(`Failed to delete existing session: ${error.message}`)
-      setPhase('error')
-      return
-    }
-    addLog('ok', 'Existing session deleted')
-    setConflictSession(null)
-    // Re-check conflict (should be gone now) and proceed
-    await useCampaignStore.getState().loadCampaign()
-    setPhase('preview')
   }
 
   const handleDrop = (e) => {
@@ -360,7 +341,7 @@ export default function DocxImportModal({ onClose, onDone }) {
       addLog('pending', 'Attempting transactional import (RPC)…')
       const tx = await runRpcTransactionalImport()
       if (tx?.error || tx?.skipped) {
-        addLog('pending', 'Using legacy importer with rollback…')
+        addLog('pending', 'Using markdown importer with rollback…')
         const fallback = await runLegacyImportWithRollback()
         finalSessionId = fallback.sessionId || null
         setImportedSessionId(fallback.sessionId)
@@ -420,7 +401,7 @@ export default function DocxImportModal({ onClose, onDone }) {
         {/* Header */}
         <div style={header}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, color: 'var(--text-primary)', flex: 1 }}>
-            Import Session from DOCX
+            Import Session from Markdown
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 20, padding: '0 4px' }}>×</button>
         </div>
@@ -446,15 +427,25 @@ export default function DocxImportModal({ onClose, onDone }) {
               >
                 <div style={{ fontSize: 36, marginBottom: 12 }}>📄</div>
                 <div style={{ fontSize: 14, color: 'var(--text-primary)', marginBottom: 6 }}>
-                  Drop your session .docx here
+                  Drop your session .md file here
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                   or click to browse
                 </div>
-                <input ref={fileRef} type="file" accept=".docx" style={{ display: 'none' }} onChange={handleFileInput} />
+                <input ref={fileRef} type="file" accept=".md,text/markdown" style={{ display: 'none' }} onChange={handleFileInput} />
               </div>
               <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.7 }}>
-                The document should follow the Green Hunger session format with <code style={{ ...mono, background: 'var(--bg-raised)', padding: '1px 5px', borderRadius: 3 }}>## Scene N — Title</code> headings and <code style={{ ...mono, background: 'var(--bg-raised)', padding: '1px 5px', borderRadius: 3 }}>### Beat Name</code> sub-headings.
+                Use markdown headings like <code style={{ ...mono, background: 'var(--bg-raised)', padding: '1px 5px', borderRadius: 3 }}>## Scene N — Title</code> and beat headings as <code style={{ ...mono, background: 'var(--bg-raised)', padding: '1px 5px', borderRadius: 3 }}>### [type] Beat title</code> where type is one of: narrative, prompt, check, decision, combat, reveal, transition.
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <a
+                  href={TEMPLATE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ ...btnSm, display: 'inline-block', textDecoration: 'none', padding: '6px 12px', borderStyle: 'dashed' }}
+                >
+                  Download Markdown Template
+                </a>
               </div>
             </div>
           )}
@@ -463,7 +454,7 @@ export default function DocxImportModal({ onClose, onDone }) {
           {phase === 'parsing' && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '40px 0' }}>
               <div style={{ width: 32, height: 32, border: '2px solid var(--green-bright)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-              <div style={{ ...mono, fontSize: 12, color: 'var(--text-muted)' }}>Reading document…</div>
+              <div style={{ ...mono, fontSize: 12, color: 'var(--text-muted)' }}>Reading markdown…</div>
             </div>
           )}
 
@@ -537,19 +528,8 @@ export default function DocxImportModal({ onClose, onDone }) {
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 16 }}>
                 Session {parsed?.sessionNumber} ("{conflictSession.title}") is already in the database.
-                You can overwrite it — this will delete all existing scenes, beats, and branches for that session and re-import from the document.
+                Markdown import will not overwrite existing sessions. Edit it in the outliner, or change the session number/title in your markdown and import again.
               </div>
-              <button
-                onClick={handleOverwrite}
-                style={{
-                  padding: '8px 22px', background: 'rgba(196,64,64,0.15)',
-                  border: '1px solid var(--danger)', borderRadius: 4, cursor: 'pointer',
-                  color: 'var(--danger)', ...mono, fontSize: 11, fontWeight: 700,
-                  textTransform: 'uppercase', letterSpacing: '0.08em'
-                }}
-              >
-                Overwrite Session {parsed?.sessionNumber}
-              </button>
             </div>
           )}
 
