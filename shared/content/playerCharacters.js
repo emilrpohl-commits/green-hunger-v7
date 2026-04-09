@@ -426,7 +426,7 @@ export const PLAYER_CHARACTERS = {
     name: 'Ilya',
     password: 'Ilyan',
     class: 'Cleric',
-    subclass: 'Talona (secret)',
+    subclass: 'Life Domain',
     level: 7,
     species: 'Human',
     background: 'Scholar',
@@ -483,9 +483,9 @@ export const PLAYER_CHARACTERS = {
     features: [
       { name: 'Spellcasting', uses: 'Passive', description: 'Wisdom-based. Spell save DC 15, +7 to hit. Prepared spells include Healing Word, Cure Wounds, Lesser Restoration, Dispel Magic, Spirit Guardians, Speak with Dead, Inflict Wounds.' },
       { name: 'Channel Divinity', uses: '2 / Short Rest', description: 'Preserve Life: restore up to 35 HP split among creatures within 30 ft. at 0–half max HP. Also: Turn Undead.' },
-      { name: 'Talona\'s Touch', uses: '1 / Short Rest', description: 'Touch — DC 13 Con save or target gains 1 Green Mark. He uses this rarely and only when unobserved.' },
+      { name: 'Field Suppression', uses: '1 / Short Rest', description: 'Touch — DC 13 CON save or the target is weakened by a creeping malaise until the end of its next turn.' },
       { name: 'Suspension Ritual', uses: 'Action', description: 'Touch a willing or incapacitated corruption-touched creature — compress them into dormant state. Reversible.' },
-      { name: 'Divine Intervention', uses: '1 / Long Rest', description: 'Roll d100 — on ≤ level (7), Talona intervenes. DM decides the form.' },
+      { name: 'Divine Intervention', uses: '1 / Long Rest', description: 'Roll d100 — on ≤ level (7), divine aid answers. DM decides the form.' },
     ],
 
     spells: {
@@ -522,7 +522,7 @@ export const PLAYER_CHARACTERS = {
     ],
 
     equipment: [
-      'Mace', 'Chain Shirt', 'Holy Symbol (Talona — concealed)',
+      'Mace', 'Chain Shirt', 'Holy Symbol (concealed)',
       'Scholar\'s Pack', 'Field journal', 'Ink and Quill', 'Component Pouch'
     ],
 
@@ -536,6 +536,6 @@ export const PLAYER_CHARACTERS = {
 
     senses: 'Passive Perception 14',
     languages: 'Common, Elvish, Druidic (partial), Celestial',
-    backstory: 'Scholar and cleric of Talona — though he does not advertise the latter. Polite, precise, and immediately useful. He was in the forest looking for something, and he found rather more than he expected.'
+    backstory: 'Scholar-cleric with a calm bedside manner and a habit of careful note-taking. Polite, precise, and immediately useful. He came to the forest to study corruption patterns and ended up in over his head.'
   }
 }
