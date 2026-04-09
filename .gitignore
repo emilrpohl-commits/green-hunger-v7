@@ -1,0 +1,10 @@
+dm/node_modules/
+players/node_modules/
+dm/dist/
+players/dist/
+.DS_Store
+.env
+.env.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
