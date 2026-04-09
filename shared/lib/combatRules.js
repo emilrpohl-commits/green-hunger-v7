@@ -106,3 +106,63 @@ export function buildSpellEffectMetadata(spell) {
   }
   return mapping[spellId] || null
 }
+
+function normalizeEffectName(effect) {
+  return String(effect?.name || effect || '').trim().toLowerCase()
+}
+
+export function getAcWithEffects(combatant) {
+  const effects = combatant?.effects || []
+  let bonus = 0
+  for (const e of effects) {
+    const name = normalizeEffectName(e)
+    if (name === 'shield of faith') bonus += 2
+  }
+  return (combatant?.ac || 0) + bonus
+}
+
+export function applyDeterministicRollModifiers({
+  combatant,
+  baseRoll,
+  rollType, // attack | save | check
+  includeGuidance = false,
+}) {
+  const effects = combatant?.effects || []
+  let total = baseRoll
+  const applied = []
+  for (const e of effects) {
+    const name = normalizeEffectName(e)
+    if ((rollType === 'attack' || rollType === 'save') && name === 'bane') {
+      const r = Math.floor(Math.random() * 4) + 1
+      total -= r
+      applied.push({ source: 'Bane', op: '-', die: 'd4', roll: r })
+    }
+    if ((rollType === 'attack' || rollType === 'save') && name === 'bless') {
+      const r = Math.floor(Math.random() * 4) + 1
+      total += r
+      applied.push({ source: 'Bless', op: '+', die: 'd4', roll: r })
+    }
+    if (includeGuidance && rollType === 'check' && name === 'guidance') {
+      const r = Math.floor(Math.random() * 4) + 1
+      total += r
+      applied.push({ source: 'Guidance', op: '+', die: 'd4', roll: r })
+    }
+  }
+  return { total, applied }
+}
+
+const SAVE_PROMPT_PREFIX = '__SAVE_PROMPT__'
+
+export function encodeSavePrompt(payload) {
+  return `${SAVE_PROMPT_PREFIX}${JSON.stringify(payload)}`
+}
+
+export function decodeSavePrompt(text) {
+  const raw = String(text || '')
+  if (!raw.startsWith(SAVE_PROMPT_PREFIX)) return null
+  try {
+    return JSON.parse(raw.slice(SAVE_PROMPT_PREFIX.length))
+  } catch {
+    return null
+  }
+}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useCombatStore } from '../../stores/combatStore'
+import { decodeSavePrompt, applyDeterministicRollModifiers, getAcWithEffects } from '@shared/lib/combatRules.js'
 
 const CONDITIONS = ['Blinded', 'Charmed', 'Frightened', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious', 'Grappled', 'Paralysed']
 
@@ -43,7 +44,7 @@ function parseDamageFromStatblock(text) {
   return m[1].replace(/\s+/g, '')
 }
 
-function CombatantCard({ combatant, isActive, players = [] }) {
+function CombatantCard({ combatant, isActive, flashActive = false, players = [] }) {
   const damageCombatant = useCombatStore(s => s.damageCombatant)
   const healCombatant = useCombatStore(s => s.healCombatant)
   const toggleCondition = useCombatStore(s => s.toggleCondition)
@@ -84,18 +85,6 @@ function CombatantCard({ combatant, isActive, players = [] }) {
     setAmount('')
   }
 
-  // Roll a penalised attack/save for this enemy (applies Bane −1d4 automatically)
-  const rollWithPenalties = (label) => {
-    const d20 = rollDie(20)
-    const bane = effects.find(e => e.name === 'Bane')
-    const banePenalty = bane ? rollDie(4) : 0
-    const net = d20 - banePenalty
-    let msg = `${combatant.name} ${label}: d20(${d20})`
-    if (banePenalty) msg += ` − Bane(${banePenalty}) = ${net}`
-    else msg += ` = ${net}`
-    pushFeedEvent(msg, 'roll', false)
-  }
-
   const rollEnemyAttack = async () => {
     const selected = monsterAction || { toHit: atkBonus, damage: dmgInput, name: 'Attack', type: 'attack', actionType: 'action' }
     if (!atkTarget && selected.type !== 'special') return
@@ -119,23 +108,22 @@ function CombatantCard({ combatant, isActive, players = [] }) {
       return
     }
     const d20 = rollDie(20)
-    const bane = effects.find(e => e.name === 'Bane')
-    const banePenalty = bane ? rollDie(4) : 0
     const toHit = Number(selected.toHit ?? atkBonus) || 0
-    const total = d20 + toHit - banePenalty
+    const modded = applyDeterministicRollModifiers({ combatant, baseRoll: d20 + toHit, rollType: 'attack' })
+    const total = modded.total
     const crit = d20 === 20
-    const hit = crit || total >= atkTarget.ac
+    const hit = crit || total >= getAcWithEffects(atkTarget)
     if (hit) {
       const damageExpr = parseDamageFromStatblock(selected.damage) || dmgInput
       const dmg = parseDmgString(damageExpr, crit)
       damageCombatant(atkTarget.id, dmg.total)
       const critStr = crit ? ' CRIT!' : ''
-      const baneStr = banePenalty ? ` −Bane(${banePenalty})` : ''
-      pushFeedEvent(`${combatant.name} uses ${selected.name} on ${atkTarget.name}${critStr}: d20(${d20}) + ${toHit}${baneStr} = ${total} → HIT! ${dmg.total} damage`, 'damage', true)
+      const modsStr = modded.applied.length > 0 ? ` (${modded.applied.map(m => `${m.source}${m.op}${m.roll}`).join(', ')})` : ''
+      pushFeedEvent(`${combatant.name} uses ${selected.name} on ${atkTarget.name}${critStr}: d20(${d20}) + ${toHit}${modsStr} = ${total} → HIT! ${dmg.total} damage`, 'damage', true)
       setAtkResult({ hit: true, d20, total, crit, dmgTotal: dmg.total, targetName: atkTarget.name })
     } else {
-      const baneStr = banePenalty ? ` −Bane(${banePenalty})` : ''
-      pushFeedEvent(`${combatant.name} uses ${selected.name} on ${atkTarget.name}: d20(${d20}) + ${toHit}${baneStr} = ${total} vs AC ${atkTarget.ac} → MISS`, 'roll', true)
+      const modsStr = modded.applied.length > 0 ? ` (${modded.applied.map(m => `${m.source}${m.op}${m.roll}`).join(', ')})` : ''
+      pushFeedEvent(`${combatant.name} uses ${selected.name} on ${atkTarget.name}: d20(${d20}) + ${toHit}${modsStr} = ${total} vs AC ${getAcWithEffects(atkTarget)} → MISS`, 'roll', true)
       setAtkResult({ hit: false, d20, total, targetName: atkTarget.name })
     }
   }
@@ -148,7 +136,8 @@ function CombatantCard({ combatant, isActive, players = [] }) {
       borderRadius: 'var(--radius-lg)',
       padding: '14px 16px',
       opacity: isDead ? 0.5 : 1,
-      transition: 'all 0.2s ease'
+      transition: 'all 0.2s ease',
+      boxShadow: flashActive ? '0 0 0 2px rgba(122,184,106,0.4), 0 0 24px rgba(122,184,106,0.35)' : 'none'
     }}>
       {/* Header row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
@@ -289,18 +278,6 @@ function CombatantCard({ combatant, isActive, players = [] }) {
         </div>
       </div>
 
-      {/* Enemy-only: roll with penalties */}
-      {isEnemy && effects.some(e => e.name === 'Bane') && (
-        <div style={{ display: 'flex', gap: 5, marginBottom: 8 }}>
-          <button onClick={() => rollWithPenalties('attack roll')} style={{ padding: '4px 10px', fontSize: 11, fontFamily: 'var(--font-mono)', background: 'rgba(160,96,192,0.1)', border: '1px solid rgba(160,96,192,0.3)', borderRadius: 'var(--radius)', color: '#c090e0', cursor: 'pointer' }}>
-            Roll Attack (−Bane)
-          </button>
-          <button onClick={() => rollWithPenalties('saving throw')} style={{ padding: '4px 10px', fontSize: 11, fontFamily: 'var(--font-mono)', background: 'rgba(160,96,192,0.1)', border: '1px solid rgba(160,96,192,0.3)', borderRadius: 'var(--radius)', color: '#c090e0', cursor: 'pointer' }}>
-            Roll Save (−Bane)
-          </button>
-        </div>
-      )}
-
       {/* Enemy attack roller */}
       {isEnemy && !isDead && (
         <div style={{ marginBottom: 8 }}>
@@ -439,8 +416,18 @@ export default function CombatPanel() {
   const endCombat = useCombatStore(s => s.endCombat)
   const initiativePhase = useCombatStore(s => s.initiativePhase)
   const setInitiative = useCombatStore(s => s.setInitiative)
+  const savePrompts = useCombatStore(s => s.savePrompts)
+  const resolveSavePrompt = useCombatStore(s => s.resolveSavePrompt)
 
   const [logOpen, setLogOpen] = useState(false)
+  const [flashActiveIndex, setFlashActiveIndex] = useState(activeCombatantIndex)
+  const [manualSaveTotals, setManualSaveTotals] = useState({})
+
+  React.useEffect(() => {
+    setFlashActiveIndex(activeCombatantIndex)
+    const t = setTimeout(() => setFlashActiveIndex(-1), 1200)
+    return () => clearTimeout(t)
+  }, [activeCombatantIndex])
 
   const activeCombatant = combatants[activeCombatantIndex]
   const nextCombatant = combatants[(activeCombatantIndex + 1) % Math.max(combatants.length, 1)]
@@ -541,6 +528,59 @@ export default function CombatPanel() {
         </div>
       )}
 
+      {savePrompts.filter(p => !p.resolved).length > 0 && (
+        <div style={{ padding: '10px 20px', borderBottom: '1px solid rgba(196,160,64,0.25)', background: 'rgba(196,160,64,0.08)' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--warning)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+            Pending Save Prompts
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {savePrompts.filter(p => !p.resolved).slice(0, 4).map((prompt) => (
+              <div key={prompt.promptId} style={{ background: 'var(--bg-card)', border: '1px solid rgba(196,160,64,0.4)', borderRadius: 'var(--radius)', padding: '8px 10px' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-primary)' }}>
+                  <strong>{prompt.casterName}</strong> casts <strong>{prompt.spellName}</strong> — {prompt.saveAbility} save DC {prompt.saveDc}
+                </div>
+                {prompt.damage && (
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+                    Fail: {prompt.damage.amount} {prompt.damage.type || ''} damage · Success: {prompt.damage.halfOnSuccess ? 'half damage' : 'no damage'}
+                  </div>
+                )}
+                {prompt.effect?.name && (
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+                    On fail effect: {prompt.effect.name}
+                  </div>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                  {(prompt.targets || []).map(t => (
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-secondary)', minWidth: 120 }}>{t.name}</span>
+                      <button
+                        onClick={() => resolveSavePrompt({ prompt, targetId: t.id, mode: 'roll' })}
+                        style={{ padding: '4px 10px', fontSize: 10, fontFamily: 'var(--font-mono)', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                      >
+                        Roll Save
+                      </button>
+                      <input
+                        type="number"
+                        value={manualSaveTotals[`${prompt.promptId}:${t.id}`] || ''}
+                        onChange={(e) => setManualSaveTotals(s => ({ ...s, [`${prompt.promptId}:${t.id}`]: e.target.value }))}
+                        placeholder="Manual total"
+                        style={{ width: 96, padding: '3px 6px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: 10 }}
+                      />
+                      <button
+                        onClick={() => resolveSavePrompt({ prompt, targetId: t.id, mode: 'manual', manualTotal: manualSaveTotals[`${prompt.promptId}:${t.id}`] })}
+                        style={{ padding: '4px 10px', fontSize: 10, fontFamily: 'var(--font-mono)', background: 'rgba(122,184,106,0.1)', border: '1px solid var(--green-mid)', borderRadius: 'var(--radius)', color: 'var(--green-bright)', cursor: 'pointer' }}
+                      >
+                        Apply Manual
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Main content */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
@@ -552,7 +592,7 @@ export default function CombatPanel() {
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Players</div>
             {players.map(c => (
               <div key={c.id} style={{ position: 'relative' }}>
-                <CombatantCard combatant={c} isActive={combatants.indexOf(c) === activeCombatantIndex} />
+                <CombatantCard combatant={c} isActive={combatants.indexOf(c) === activeCombatantIndex} flashActive={combatants.indexOf(c) === flashActiveIndex} />
               </div>
             ))}
           </div>
@@ -562,7 +602,7 @@ export default function CombatPanel() {
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#c48060', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Enemies</div>
             {enemies.map(c => (
               <div key={c.id} style={{ position: 'relative' }}>
-                <CombatantCard combatant={c} isActive={combatants.indexOf(c) === activeCombatantIndex} players={players} />
+                <CombatantCard combatant={c} isActive={combatants.indexOf(c) === activeCombatantIndex} flashActive={combatants.indexOf(c) === flashActiveIndex} players={players} />
               </div>
             ))}
           </div>
@@ -594,7 +634,14 @@ export default function CombatPanel() {
                   display: 'flex', alignItems: 'flex-start', gap: 4, lineHeight: 1.4
                 }}>
                   {event.shared && <span style={{ fontSize: 5, color: 'var(--green-dim)', marginTop: 4, flexShrink: 0 }}>●</span>}
-                  {event.text}
+                  {event.type === 'save-prompt' ? (() => {
+                    const p = decodeSavePrompt(event.text)
+                    if (!p) return event.text
+                    return `${p.casterName} casts ${p.spellName}: ${p.saveAbility} save DC ${p.saveDc} (${(p.targets || []).map(t => t.name).join(', ')})`
+                  })() : event.type === 'save-prompt-resolved' ? (() => {
+                    const p = decodeSavePrompt(event.text)
+                    return p?.resolutionText || event.text
+                  })() : event.text}
                 </div>
               ))}
             </div>

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { supabase } from '@shared/lib/supabase.js'
 import { SESSION_1_PLAYER, CHARACTERS } from '@shared/content/session1.js'
 import { PLAYER_CHARACTERS } from '@shared/content/playerCharacters.js'
-import { parseCastingTimeMeta, consumeActionEconomy, ensureActionEconomy } from '@shared/lib/combatRules.js'
+import { parseCastingTimeMeta, consumeActionEconomy, ensureActionEconomy, encodeSavePrompt } from '@shared/lib/combatRules.js'
 
 /** Player client: PCs only (exclude DM companion NPCs from party list). */
 const PLAYER_RUNTIME_CHARACTERS = CHARACTERS.filter(c => !c.isNPC)
@@ -708,13 +708,13 @@ export const usePlayerStore = create((set, get) => ({
     }
   },
 
-  pushSavePrompt: async (text) => {
+  pushSavePrompt: async (payload) => {
     const { combatRound } = get()
     try {
       await supabase.from('combat_feed').insert({
         session_id: 'session-1',
         round: combatRound,
-        text,
+        text: encodeSavePrompt(payload),
         type: 'save-prompt',
         shared: true,
         timestamp: new Date().toISOString()

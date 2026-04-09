@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { usePlayerStore } from '../stores/playerStore'
-import { parseCastingTimeMeta, buildSpellEffectMetadata, ensureActionEconomy } from '@shared/lib/combatRules.js'
+import { parseCastingTimeMeta, buildSpellEffectMetadata, ensureActionEconomy, applyDeterministicRollModifiers, getAcWithEffects } from '@shared/lib/combatRules.js'
 
 // ─── Dice helpers ────────────────────────────────────────────────────────────
 const rollDie = (sides) => Math.floor(Math.random() * sides) + 1
@@ -303,6 +303,7 @@ function RollResultPanel({ result, charColour, onRollDamage, onUseBardicInspirat
 export default function CharacterProfile({ characterId }) {
   const characters = usePlayerStore(s => s.characters)
   const combatActive = usePlayerStore(s => s.combatActive)
+  const combatRound = usePlayerStore(s => s.combatRound)
   const combatCombatants = usePlayerStore(s => s.combatCombatants)
   const activeBuffs = usePlayerStore(s => s.activeBuffs)
   const bardicInspirationUses = usePlayerStore(s => s.bardicInspirationUses)
@@ -339,6 +340,7 @@ export default function CharacterProfile({ characterId }) {
   const [spellTarget, setSpellTarget] = useState(null)
   const [spellTargets, setSpellTargets] = useState([])
   const [pendingSpellDmg, setPendingSpellDmg] = useState(null) // { spell, target, slotLevel, crit }
+  const [turnPromptVisible, setTurnPromptVisible] = useState(false)
 
   if (!char) return null
 
@@ -358,6 +360,7 @@ export default function CharacterProfile({ characterId }) {
 
   const partyChars = characters.filter(c => c.id !== characterId)
   const myCombatantIndex = combatCombatants.findIndex(c => c.id === characterId)
+  const myCombatant = combatCombatants[myCombatantIndex]
   const myTurnActive = combatActive && myCombatantIndex >= 0 && myCombatantIndex === combatActiveCombatantIndex
   const myEconomy = ensureActionEconomy(getCombatantActionEconomy(characterId))
   const nextCombatant = combatCombatants[(combatActiveCombatantIndex + 1) % Math.max(combatCombatants.length, 1)]
@@ -407,7 +410,8 @@ export default function CharacterProfile({ characterId }) {
   const rollSkill = (skill) => {
     const d20 = rollDie(20)
     const mod = parseModNum(skill.mod)
-    const total = d20 + mod
+    const modded = applyDeterministicRollModifiers({ combatant: myCombatant, baseRoll: d20 + mod, rollType: 'check', includeGuidance: true })
+    const total = modded.total
     setRollResult({ type: 'skill', name: skill.name, d20, mod, total, crit: d20 === 20, fumble: d20 === 1 })
     setPendingAttack(null)
     const label = d20 === 20 ? ` NAT 20!` : d20 === 1 ? ` nat 1` : ''
@@ -417,7 +421,8 @@ export default function CharacterProfile({ characterId }) {
   const rollSave = (save) => {
     const d20 = rollDie(20)
     const mod = parseModNum(save.mod)
-    const total = d20 + mod
+    const modded = applyDeterministicRollModifiers({ combatant: myCombatant, baseRoll: d20 + mod, rollType: 'save' })
+    const total = modded.total
     setRollResult({ type: 'save', name: save.name, d20, mod, total, crit: d20 === 20, fumble: d20 === 1 })
     setPendingAttack(null)
     const label = d20 === 20 ? ` NAT 20!` : d20 === 1 ? ` nat 1` : ''
@@ -437,9 +442,10 @@ export default function CharacterProfile({ characterId }) {
     }
     const d20 = rollDie(20)
     const bonus = weapon.attackBonus || 0
-    const total = d20 + bonus
+    const modded = applyDeterministicRollModifiers({ combatant: myCombatant, baseRoll: d20 + bonus, rollType: 'attack' })
+    const total = modded.total
     const crit = d20 === 20
-    const hit = target ? (crit || total >= target.ac) : null
+    const hit = target ? (crit || total >= getAcWithEffects(target)) : null
 
     // If we have a target and it's a hit, auto-roll and apply damage immediately
     if (hit && target && weapon.damageDice) {
@@ -451,7 +457,7 @@ export default function CharacterProfile({ characterId }) {
       setPendingAttack(null)
       applyDamageToEnemy(target.id, dmgTotal, char.name, weapon.name)
       const critStr = crit ? ' CRIT!' : ''
-      pushRoll(`${weapon.name} attack: d20(${d20}) + ${bonus} = ${total} vs ${target.name} AC ${target.ac} → HIT${critStr}`, char.name)
+      pushRoll(`${weapon.name} attack: d20(${d20}) + ${bonus} = ${total} vs ${target.name} AC ${getAcWithEffects(target)} → HIT${critStr}`, char.name)
       pushRoll(`${weapon.name} damage${crit ? ' (crit)' : ''}: [${rolls.join('+')}]${dd.modifier ? `+${dd.modifier}` : ''} = ${dmgTotal} ${dd.type} → ${target.name}`, char.name)
       return
     }
@@ -465,7 +471,7 @@ export default function CharacterProfile({ characterId }) {
     }
     const hitStr = hit === null ? '' : hit ? ` → HIT` : ` → MISS`
     const critStr = crit ? ` CRITICAL!` : ''
-    const targetStr = target ? ` vs ${target.name} AC ${target.ac}` : ''
+    const targetStr = target ? ` vs ${target.name} AC ${getAcWithEffects(target)}` : ''
     pushRoll(`${weapon.name} attack: d20(${d20}) + ${bonus} = ${total}${targetStr}${hitStr}${critStr}`, char.name)
   }
 
@@ -578,9 +584,10 @@ export default function CharacterProfile({ characterId }) {
     if (spell.mechanic === 'attack') {
       const d20 = rollDie(20)
       const bonus = spell.toHit || 0
-      const total = d20 + bonus
+      const modded = applyDeterministicRollModifiers({ combatant: myCombatant, baseRoll: d20 + bonus, rollType: 'attack' })
+      const total = modded.total
       const crit = d20 === 20
-      const hit = target ? (crit || total >= target.ac) : null
+      const hit = target ? (crit || total >= getAcWithEffects(target)) : null
       setRollResult({ type: 'attack', weaponName: spell.name, d20, bonus, total, hit, target, crit })
       if (hit !== false) {
         setPendingSpellDmg({ spell, target, slotLevel: slotLvl, crit, extraLevels })
@@ -589,7 +596,7 @@ export default function CharacterProfile({ characterId }) {
       }
       const hitStr = hit === null ? '' : hit ? ' → HIT' : ' → MISS'
       const critStr = crit ? ' CRITICAL!' : ''
-      const rangeStr = target ? ` vs ${target.name} AC ${target.ac}` : ''
+      const rangeStr = target ? ` vs ${target.name} AC ${getAcWithEffects(target)}` : ''
       pushRoll(`${spell.name} attack: d20(${d20}) + ${bonus} = ${total}${rangeStr}${hitStr}${critStr}`, char.name)
 
     } else if (spell.mechanic === 'save') {
@@ -601,12 +608,24 @@ export default function CharacterProfile({ characterId }) {
         const total = rolls.reduce((a, b) => a + b, 0) + dd.mod
         const primaryTarget = selectedTargets[0] || target || null
         setRollResult({ type: 'save-spell', weaponName: spell.name, saveStr: `${spell.saveType} DC ${spell.saveDC}`, weapon: spell, target: primaryTarget, rolls, modifier: dd.mod, damageTotal: total, damageType: dd.type })
-        setPendingSpellDmg({ spell, target: primaryTarget, targets: selectedTargets, slotLevel: slotLvl, crit: false, extraLevels, precomputedDamage: total })
+        setPendingSpellDmg(null)
         const targetStr = selectedTargets.length > 1
           ? ` → ${selectedTargets.map(t => t.name).join(', ')}`
           : primaryTarget ? ` → ${primaryTarget.name}` : ''
         pushRoll(`${spell.name} (${spell.saveType} DC ${spell.saveDC}): [${rolls.join('+')}]${dd.mod ? `+${dd.mod}` : ''} = ${total} ${dd.type}${targetStr}`, char.name)
-        pushSavePrompt(`${char.name} casts ${spell.name} — ${spell.saveType} save DC ${spell.saveDC}${targetStr}. DM resolve success/failure.`)
+        const targetsPayload = (selectedTargets.length > 0 ? selectedTargets : primaryTarget ? [primaryTarget] : []).map(t => ({ id: t.id, name: t.name }))
+        pushSavePrompt({
+          promptId: `${Date.now()}-${characterId}-${spell.name}`,
+          spellName: spell.name,
+          casterId: characterId,
+          casterName: char.name,
+          saveAbility: spell.saveType,
+          saveDc: spell.saveDC,
+          targets: targetsPayload,
+          damage: dd ? { amount: total, type: dd.type, halfOnSuccess: true } : null,
+          effect: buildSpellEffectMetadata(spell),
+          raw: { targetStr }
+        })
         closeSpellPanel()
       } else {
         // Save with no damage (Bane, Command, Charm, etc.)
@@ -616,12 +635,19 @@ export default function CharacterProfile({ characterId }) {
           ? ` → ${selectedTargets.map(t => t.name).join(', ')}`
           : primaryTarget ? ` → ${primaryTarget.name}` : ''
         pushRoll(`${spell.name}: ${spell.saveType} DC ${spell.saveDC}${targetStr}`, char.name)
-        pushSavePrompt(`${char.name} casts ${spell.name} — ${spell.saveType} save DC ${spell.saveDC}${targetStr}. DM resolve success/failure.`)
-        for (const t of (selectedTargets.length > 0 ? selectedTargets : primaryTarget ? [primaryTarget] : [])) {
-          if (spell.appliesCondition) applyConditionToEnemy(t.id, spell.appliesCondition, char.name)
-          const fx = buildSpellEffectMetadata(spell)
-          if (fx) applyConditionToEnemy(t.id, fx.name, char.name)
-        }
+        const targetsPayload = (selectedTargets.length > 0 ? selectedTargets : primaryTarget ? [primaryTarget] : []).map(t => ({ id: t.id, name: t.name }))
+        pushSavePrompt({
+          promptId: `${Date.now()}-${characterId}-${spell.name}`,
+          spellName: spell.name,
+          casterId: characterId,
+          casterName: char.name,
+          saveAbility: spell.saveType,
+          saveDc: spell.saveDC,
+          targets: targetsPayload,
+          damage: null,
+          effect: buildSpellEffectMetadata(spell),
+          raw: { targetStr }
+        })
         closeSpell()
       }
 
@@ -720,6 +746,13 @@ export default function CharacterProfile({ characterId }) {
     return () => clearTimeout(t)
   }, [dmRoll, characterId])
 
+  useEffect(() => {
+    if (!myTurnActive || !combatActive) return
+    setTurnPromptVisible(true)
+    const t = setTimeout(() => setTurnPromptVisible(false), 2200)
+    return () => clearTimeout(t)
+  }, [myTurnActive, combatActive, combatRound])
+
   const showDmRoll = dmRoll && (dmRoll.targetId === 'all' || dmRoll.targetId === characterId)
 
   return (
@@ -747,6 +780,30 @@ export default function CharacterProfile({ characterId }) {
             DM Roll
           </div>
           <div style={{ fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.5 }}>{dmRoll.text}</div>
+        </div>
+      )}
+
+      {turnPromptVisible && (
+        <div style={{
+          position: 'fixed',
+          top: 76,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 260,
+          background: '#141814',
+          border: `1px solid ${char.colour}88`,
+          borderRadius: 10,
+          padding: '10px 14px',
+          boxShadow: `0 4px 24px ${char.colour}40`,
+          minWidth: 220,
+          textAlign: 'center'
+        }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: char.colour, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+            Your Turn
+          </div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
+            A:{myEconomy.actionAvailable ? 'ready' : 'used'} · BA:{myEconomy.bonusActionAvailable ? 'ready' : 'used'} · R:{myEconomy.reactionAvailable ? 'ready' : 'used'}
+          </div>
         </div>
       )}
 
