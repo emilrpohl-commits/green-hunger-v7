@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useCombatStore } from '../../stores/combatStore'
 import { supabase } from '@shared/lib/supabase.js'
 import { getSessionRunId } from '@shared/lib/runtimeContext.js'
+import { rosterToDmTargetOptions } from '@shared/lib/partyRoster.js'
 import StatBlockView from '../statblocks/StatBlockView'
 
 const BEAT_TYPE_LABEL = {
@@ -24,12 +25,6 @@ const BEAT_TYPE_STYLE = {
 }
 
 const DICE = [4, 6, 8, 10, 12, 20]
-const CHARACTERS = [
-  { id: 'dorothea', name: 'Dorothea' },
-  { id: 'kanan', name: 'Kanan' },
-  { id: 'danil', name: 'Danil' },
-  { id: 'all', name: 'All Players' }
-]
 
 function parseMechanicalEffect(value) {
   if (!value) return null
@@ -134,6 +129,11 @@ function OutcomeTable({ rows }) {
 }
 
 function DmDiceRoller({ supabaseClient }) {
+  const roster = useSessionStore(s => s.characters)
+  const dmRollTargets = useMemo(
+    () => [...rosterToDmTargetOptions(roster), { id: 'all', name: 'All Players' }],
+    [roster]
+  )
   const [die, setDie] = useState(20)
   const [modifier, setModifier] = useState(0)
   const [target, setTarget] = useState('all')
@@ -143,7 +143,7 @@ function DmDiceRoller({ supabaseClient }) {
     const sessionRunId = getSessionRunId()
     const result = Math.floor(Math.random() * die) + 1
     const total = result + modifier
-    const targetLabel = CHARACTERS.find(c => c.id === target)?.name || 'All Players'
+    const targetLabel = dmRollTargets.find(c => c.id === target)?.name || 'All Players'
     const modStr = modifier > 0 ? ` + ${modifier}` : modifier < 0 ? ` − ${Math.abs(modifier)}` : ''
     const text = `DM rolls d${die}${modStr}: ${result}${modifier !== 0 ? ` → ${total}` : ''}${target !== 'all' ? ` (for ${targetLabel})` : ''}`
     setLastRoll({ result, total, die, crit: result === 20 && die === 20, fumble: result === 1 && die === 20 })
@@ -197,7 +197,7 @@ function DmDiceRoller({ supabaseClient }) {
           background: 'var(--bg-raised)', border: '1px solid var(--border)',
           borderRadius: 'var(--radius)', color: 'var(--text-secondary)'
         }}>
-          {CHARACTERS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {dmRollTargets.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         {/* Roll button */}
         <button onClick={roll} style={{

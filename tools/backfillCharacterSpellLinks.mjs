@@ -2,6 +2,9 @@
 /**
  * Backfill character_spells with canonical spell_id links for party + Ilya.
  *
+ * Spell merge order for the live compendium is documented in docs/SPELL_MERGE_ORDER.md
+ * (rules_entities → spells → homebrew_overlays → character_spells.overrides_json).
+ *
  * Usage:
  *   node tools/backfillCharacterSpellLinks.mjs --dry-run
  *   node tools/backfillCharacterSpellLinks.mjs --write-db

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
+import { validateStatBlock } from '@shared/lib/statBlockActions.js'
 
 const ABILITY_SCORES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
 const SIZES = ['Tiny', 'Small', 'Medium', 'Large', 'Huge', 'Gargantuan']
@@ -51,6 +52,7 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [saved, setSaved] = useState(false)
+  const [validationWarnings, setValidationWarnings] = useState([])
   const [activeTab, setActiveTab] = useState('core')
 
   useEffect(() => {
@@ -90,6 +92,8 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
   }
 
   const handleSave = async () => {
+    const { warnings } = validateStatBlock(form)
+    setValidationWarnings(warnings)
     setSaving(true)
     setSaveError(null)
     const result = await saveStatBlock({ ...form, id: statBlockId || undefined })
@@ -134,6 +138,11 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
           </div>
         </div>
         {saveError && <div style={{ ...mono, fontSize: 11, color: 'var(--danger)' }}>{saveError}</div>}
+        {validationWarnings.length > 0 && (
+          <div style={{ ...mono, fontSize: 10, color: 'var(--warning)', maxWidth: 280 }} title={validationWarnings.join('\n')}>
+            {validationWarnings.length} action warning(s) — hover for list
+          </div>
+        )}
         {saved && <div style={{ ...mono, fontSize: 11, color: 'var(--green-bright)' }}>Saved</div>}
         <button
           onClick={handleSave}

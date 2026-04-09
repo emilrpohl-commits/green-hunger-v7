@@ -18,6 +18,9 @@ export function makeSavePromptPayload({
   damage = null,
   raw = {},
 }) {
+  const rules = spell?.combatProfile?.rules || spell?.rules_json || {}
+  const effect = buildSpellEffectMetadata(spell)
+  const effectKinds = (effect && effect.effect_kinds) || rules.effect_kinds || []
   return {
     promptId,
     status: 'pending',
@@ -28,7 +31,9 @@ export function makeSavePromptPayload({
     saveDc: spell.saveDC,
     targets,
     damage,
-    effect: buildSpellEffectMetadata(spell),
+    effect,
+    effect_kinds: Array.isArray(effectKinds) ? effectKinds : [],
+    resolution_path: resolveSpellPath(spell),
     raw,
   }
 }

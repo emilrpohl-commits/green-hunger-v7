@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { supabase } from '@shared/lib/supabase.js'
 import { CHARACTERS } from '@shared/content/session1.js'
+import { fetchPartyRosterForCombat } from '@shared/lib/partyRoster.js'
 import { getSessionRunId, getRulesetContext } from '@shared/lib/runtimeContext.js'
 
 export const useSessionStore = create((set, get) => ({
@@ -269,6 +270,9 @@ export const useSessionStore = create((set, get) => ({
   loadFromSupabase: async () => {
     const { sessionRunId } = get()
     try {
+      const { roster } = await fetchPartyRosterForCombat(supabase)
+      set({ characters: roster })
+
       const { data: sessionData } = await supabase
         .from('session_state')
         .select('*')

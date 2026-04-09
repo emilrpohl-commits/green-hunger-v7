@@ -425,16 +425,14 @@ const TAB_COLOUR = {
   reveal: 'var(--rot-bright)'
 }
 
-const PLAYER_OPTIONS = [
-  { id: null, label: 'Unassigned' },
-  { id: 'dorothea', label: 'Dorothea' },
-  { id: 'kanan', label: 'Kanan' },
-  { id: 'danil', label: 'Danil' },
-]
-
 function IlyaCompanionPanel() {
   const ilyaAssignedTo = useCombatStore(s => s.ilyaAssignedTo)
   const setIlyaAssignment = useCombatStore(s => s.setIlyaAssignment)
+  const roster = useSessionStore(s => s.characters)
+  const playerOptions = [
+    { id: null, label: 'Unassigned' },
+    ...roster.filter(c => !c.isNPC).map(c => ({ id: c.id, label: c.name })),
+  ]
 
   return (
     <div style={{
@@ -478,7 +476,7 @@ function IlyaCompanionPanel() {
             padding: '4px 6px', cursor: 'pointer',
           }}
         >
-          {PLAYER_OPTIONS.map(o => (
+          {playerOptions.map(o => (
             <option key={o.id ?? 'none'} value={o.id ?? ''}>{o.label}</option>
           ))}
         </select>
