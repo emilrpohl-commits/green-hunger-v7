@@ -3,12 +3,10 @@ import { usePlayerStore } from './stores/playerStore'
 import LoginScreen from './components/LoginScreen'
 import PartyView from './components/PartyView'
 import CharacterProfile from './components/CharacterProfile'
-import CombatCarousel from './components/CombatCarousel'
 
 export default function App() {
   const subscribe = usePlayerStore(s => s.subscribe)
   const ilyaAssignedTo = usePlayerStore(s => s.ilyaAssignedTo)
-  const combatActive = usePlayerStore(s => s.combatActive)
   const [loggedInAs, setLoggedInAs] = useState(null)
   const [view, setView] = useState('party')
 
@@ -28,16 +26,6 @@ export default function App() {
     }
   }, [ilyaAssignedTo])
 
-  // Auto-navigate to combat view when combat starts
-  useEffect(() => {
-    if (combatActive && view === 'party') {
-      setView('combat')
-    }
-    if (!combatActive && view === 'combat') {
-      setView('party')
-    }
-  }, [combatActive])
-
   const handleLogin = (id) => {
     sessionStorage.setItem('gh_player', id)
     setLoggedInAs(id)
@@ -53,10 +41,8 @@ export default function App() {
     return <LoginScreen onLogin={handleLogin} />
   }
 
-  // Build available nav tabs
   const navTabs = [
     { id: 'party', label: 'Party' },
-    combatActive ? { id: 'combat', label: '⚔ Combat' } : null,
     loggedInAs !== 'party' ? { id: 'profile', label: 'My Sheet' } : null,
     loggedInAs !== 'party' && ilyaAssignedTo === loggedInAs ? { id: 'companion', label: 'Ilya' } : null,
   ].filter(Boolean)
@@ -64,9 +50,6 @@ export default function App() {
   const activeView = loggedInAs === 'party' ? 'party' : view
 
   function renderView() {
-    if (activeView === 'combat' && combatActive) {
-      return <CombatCarousel loggedInAs={loggedInAs} />
-    }
     if (activeView === 'companion') {
       return <CharacterProfile characterId="ilya" />
     }
@@ -101,7 +84,6 @@ export default function App() {
         <div style={{ display: 'flex', gap: 4 }}>
           {navTabs.map(tab => {
             const isActive = activeView === tab.id
-            const isCombat = tab.id === 'combat'
             return (
               <button
                 key={tab.id}
@@ -112,21 +94,11 @@ export default function App() {
                   fontSize: 10,
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
-                  background: isActive
-                    ? (isCombat ? 'rgba(176,48,48,0.25)' : 'var(--green-dim)')
-                    : 'transparent',
-                  border: `1px solid ${
-                    isActive
-                      ? (isCombat ? 'rgba(176,48,48,0.6)' : 'var(--green-mid)')
-                      : 'var(--border)'
-                  }`,
+                  background: isActive ? 'var(--green-dim)' : 'transparent',
+                  border: `1px solid ${isActive ? 'var(--green-mid)' : 'var(--border)'}`,
                   borderRadius: 'var(--radius)',
-                  color: isActive
-                    ? (isCombat ? '#e07070' : 'var(--green-bright)')
-                    : 'var(--text-muted)',
+                  color: isActive ? 'var(--green-bright)' : 'var(--text-muted)',
                   cursor: 'pointer',
-                  // Pulse the combat tab when active but not selected
-                  animation: (isCombat && !isActive) ? 'glow-pulse 2s ease-in-out infinite' : 'none',
                 }}
               >
                 {tab.label}
