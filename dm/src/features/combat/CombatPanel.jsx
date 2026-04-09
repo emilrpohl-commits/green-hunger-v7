@@ -105,8 +105,9 @@ function CombatantCard({ combatant, isActive, flashActive = false, players = [] 
       if (atkTarget?.id) {
         const sessionRunId = getSessionRunId()
         try {
-          await supabase.from('combat_feed').insert({
+          const primaryPayload = {
             session_id: sessionRunId,
+            session_run_id: sessionRunId,
             round: useCombatStore.getState().round || 1,
             text: encodePlayerSavePrompt({
               sourceName: combatant.name,
@@ -123,8 +124,35 @@ function CombatantCard({ combatant, isActive, flashActive = false, players = [] 
             visibility: 'targeted',
             prompt_status: 'pending',
             timestamp: new Date().toISOString()
-          })
-        } catch (e) {}
+          }
+          const { error } = await supabase.from('combat_feed').insert(primaryPayload)
+          if (error) throw error
+        } catch (e) {
+          // Compatibility fallback for older schemas that may not yet include
+          // visibility/prompt_status/session_run_id columns.
+          try {
+            const { error: legacyError } = await supabase.from('combat_feed').insert({
+              session_id: sessionRunId,
+              round: useCombatStore.getState().round || 1,
+              text: encodePlayerSavePrompt({
+                sourceName: combatant.name,
+                sourceId: combatant.id,
+                actionName: selected.name,
+                saveAbility: saveType,
+                saveDc: dc,
+                targetId: atkTarget.id,
+                outcome: selected.effect || selected.desc || null
+              }),
+              type: 'player-save-prompt',
+              target_id: atkTarget.id,
+              shared: false,
+              timestamp: new Date().toISOString()
+            })
+            if (legacyError) throw legacyError
+          } catch (legacyErr) {
+            console.error('Failed to deliver player-save-prompt:', legacyErr)
+          }
+        }
       }
       setAtkResult({ hit: null, targetName: atkTarget?.name, total: dc, d20: null })
       return

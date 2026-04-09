@@ -667,3 +667,41 @@ begin
     end if;
   end loop;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- REALTIME PUBLICATION (required for postgres_changes subscriptions)
+-- ---------------------------------------------------------------------------
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'session_state'
+  ) then
+    execute 'alter publication supabase_realtime add table public.session_state';
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'combat_state'
+  ) then
+    execute 'alter publication supabase_realtime add table public.combat_state';
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'combat_feed'
+  ) then
+    execute 'alter publication supabase_realtime add table public.combat_feed';
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'reveals'
+  ) then
+    execute 'alter publication supabase_realtime add table public.reveals';
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'character_states'
+  ) then
+    execute 'alter publication supabase_realtime add table public.character_states';
+  end if;
+end $$;

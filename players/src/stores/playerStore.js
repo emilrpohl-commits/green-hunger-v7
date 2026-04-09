@@ -135,6 +135,7 @@ export const usePlayerStore = create((set, get) => ({
 
   // DM rolls directed at players
   dmRoll: null,
+  seenDmPromptIds: [],
 
   getCurrentScene: () => {
     const { session, currentSceneIndex } = get()
@@ -288,41 +289,104 @@ export const usePlayerStore = create((set, get) => ({
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'combat_feed',
-        filter: `session_id=eq.${sessionRunId}`
+        table: 'combat_feed'
       }, (payload) => {
         if (!payload.new) return
+        const rowSession = payload.new.session_run_id || payload.new.session_id
+        const isSameRun = rowSession === sessionRunId || payload.new.session_id === 'session-1'
+        if (!isSameRun) return
         if (payload.new.type === 'dm-roll') {
-          set({ dmRoll: { text: payload.new.text, targetId: payload.new.target_id, timestamp: Date.now(), kind: 'roll' } })
+          set({
+            dmRoll: {
+              text: payload.new.text,
+              targetId: payload.new.target_id,
+              timestamp: Date.now(),
+              kind: 'roll',
+              eventId: payload.new.id,
+            }
+          })
         }
         if (payload.new.type === 'player-save-prompt') {
           const decoded = decodePlayerSavePrompt(payload.new.text)
           if (!decoded) {
-            set({ dmRoll: { text: payload.new.text, targetId: payload.new.target_id, timestamp: Date.now(), kind: 'save-prompt' } })
+            set({
+              dmRoll: {
+                text: payload.new.text,
+                targetId: payload.new.target_id,
+                timestamp: Date.now(),
+                kind: 'save-prompt',
+                eventId: payload.new.id,
+              }
+            })
             return
           }
           set({
             dmRoll: {
               text: `${decoded.sourceName} uses ${decoded.actionName}. Make a ${decoded.saveAbility} save vs DC ${decoded.saveDc}.`,
-              targetId: payload.new.target_id,
+              targetId: payload.new.target_id || decoded.targetId || 'all',
               timestamp: Date.now(),
               kind: 'save-prompt',
               savePrompt: decoded,
+              eventId: payload.new.id,
             }
           })
         }
       })
       .subscribe()
 
+    // Fallback polling path for save prompts in case realtime delivery is delayed or missed.
+    const savePromptPoll = setInterval(async () => {
+      try {
+        const { seenDmPromptIds } = get()
+        const { data } = await supabase
+          .from('combat_feed')
+          .select('id,session_id,session_run_id,type,text,target_id,timestamp')
+          .in('session_id', [sessionRunId, 'session-1'])
+          .eq('type', 'player-save-prompt')
+          .order('timestamp', { ascending: false })
+          .limit(1)
+        const row = Array.isArray(data) && data.length > 0 ? data[0] : null
+        if (!row || seenDmPromptIds.includes(row.id)) return
+        const decoded = decodePlayerSavePrompt(row.text)
+        set((state) => ({
+          dmRoll: decoded
+            ? {
+                text: `${decoded.sourceName} uses ${decoded.actionName}. Make a ${decoded.saveAbility} save vs DC ${decoded.saveDc}.`,
+                targetId: row.target_id || decoded.targetId || 'all',
+                timestamp: Date.now(),
+                kind: 'save-prompt',
+                savePrompt: decoded,
+                eventId: row.id,
+              }
+            : {
+                text: row.text,
+                targetId: row.target_id,
+                timestamp: Date.now(),
+                kind: 'save-prompt',
+                eventId: row.id,
+              },
+          seenDmPromptIds: [row.id, ...(state.seenDmPromptIds || [])].slice(0, 100),
+        }))
+      } catch {
+        // Non-fatal fallback polling path.
+      }
+    }, 2000)
+
     return () => {
       supabase.removeChannel(sessionChannel)
       supabase.removeChannel(charChannel)
       supabase.removeChannel(combatChannel)
       supabase.removeChannel(dmRollChannel)
+      clearInterval(savePromptPoll)
     }
   },
 
-  clearDmRoll: () => set({ dmRoll: null }),
+  clearDmRoll: () => set((state) => ({
+    dmRoll: null,
+    seenDmPromptIds: state.dmRoll?.eventId
+      ? [state.dmRoll.eventId, ...(state.seenDmPromptIds || [])].slice(0, 100)
+      : state.seenDmPromptIds,
+  })),
 
   // Load characters and spells from Supabase, overwriting the hardcoded fallback
   loadCharacters: async () => {
