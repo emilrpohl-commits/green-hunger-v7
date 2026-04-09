@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { usePlayerStore } from '../stores/playerStore'
 import { parseCastingTimeMeta, ensureActionEconomy, applyDeterministicRollModifiers, getAcWithEffects } from '@shared/lib/combatRules.js'
 import { makeSavePromptPayload, resolveSpellPath } from '@shared/lib/domain/spellResolution.js'
+import PortraitHeader from './PortraitHeader'
+import ConditionsBar from './ConditionsBar'
+import SpellCard from './SpellCard'
 
 // ─── Dice helpers ────────────────────────────────────────────────────────────
 const rollDie = (sides) => Math.floor(Math.random() * sides) + 1
@@ -327,6 +330,7 @@ export default function CharacterProfile({ characterId }) {
   const submitInitiative = usePlayerStore(s => s.submitInitiative)
   const tryUseCombatActionType = usePlayerStore(s => s.tryUseCombatActionType)
   const getCombatantActionEconomy = usePlayerStore(s => s.getCombatantActionEconomy)
+  const ilyaAssignedTo = usePlayerStore(s => s.ilyaAssignedTo)
 
   const char = playerCharacters[characterId]
   const liveChar = characters.find(c => c.id === characterId)
@@ -885,112 +889,67 @@ export default function CharacterProfile({ characterId }) {
         </div>
       )}
 
-      {combatActive && (
-        <div style={{ margin: '10px 0 12px', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', background: myTurnActive ? `${char.colour}12` : 'var(--bg-card)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: myTurnActive ? char.colour : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              {myTurnActive ? 'Your Turn' : `Active: ${combatCombatants[combatActiveCombatantIndex]?.name || '—'}`}
-            </div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>
-              Next: {nextCombatant?.name || '—'}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-            <span style={{ padding: '2px 8px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', color: myEconomy.actionAvailable ? 'var(--green-bright)' : 'var(--danger)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>Action {myEconomy.actionAvailable ? 'ready' : 'used'}</span>
-            <span style={{ padding: '2px 8px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', color: myEconomy.bonusActionAvailable ? 'var(--green-bright)' : 'var(--danger)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>Bonus {myEconomy.bonusActionAvailable ? 'ready' : 'used'}</span>
-            <span style={{ padding: '2px 8px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', color: myEconomy.reactionAvailable ? 'var(--green-bright)' : 'var(--danger)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>Reaction {myEconomy.reactionAvailable ? 'ready' : 'used'}</span>
-          </div>
-        </div>
-      )}
+      {/* ── Portrait Header ── */}
+      <PortraitHeader
+        char={char}
+        curHp={curHp}
+        tempHp={tempHp}
+        concentration={concentration}
+        myCombatant={myCombatant}
+        combatActive={combatActive}
+        charColour={char.colour}
+        ilyaAssignedTo={ilyaAssignedTo}
+        loggedInAs={characterId}
+      />
 
-      {/* ── Large Portrait ── */}
-      <div style={{
-        width: '100%',
-        height: 320,
-        position: 'relative',
-        overflow: 'hidden',
-        borderBottom: `3px solid ${char.colour}`,
-        marginBottom: 0
-      }}>
-        <img
-          src={`characters/${char.image}`}
-          alt={char.name}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }}
-          onError={e => { e.target.style.display = 'none' }}
-        />
-        {/* Gradient overlay */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'linear-gradient(to bottom, transparent 40%, rgba(8,10,8,0.95) 100%)'
-        }} />
-        {/* Character info overlaid on portrait */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          <div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, color: 'var(--text-primary)', letterSpacing: '0.04em', lineHeight: 1.1 }}>
-              {char.name}
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 3 }}>
-              {char.species} · {char.class} {char.level} · {char.subclass}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', marginTop: 1 }}>
-              {char.background}
-            </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 32, color: hpColour, lineHeight: 1, fontWeight: 600 }}>
-              {curHp}
-              {tempHp > 0 && <span style={{ fontSize: 16, color: 'var(--info)' }}>+{tempHp}</span>}
-            </div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>/ {char.stats.maxHp} HP</div>
-            {concentration && (
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--warning)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>
-                Concentrating
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      <div style={{ padding: '12px 16px 0' }}>
 
-      {/* HP bar */}
-      <div style={{ height: 5, background: 'var(--border)', overflow: 'hidden', marginBottom: 16 }}>
-        <div style={{ height: '100%', width: `${hpPct}%`, background: hpColour, transition: 'width 0.5s ease, background 0.5s ease' }} />
-      </div>
-
-      <div style={{ padding: '0 16px' }}>
-
-        {/* Quick stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 16 }}>
-          {[
-            { label: 'AC', value: combatActive && myCombatant ? getAcWithEffects(myCombatant) : char.stats.ac },
-            { label: 'Speed', value: char.stats.speed + ' ft.' },
-            { label: 'Init', value: char.stats.initiative },
-            { label: 'Prof', value: char.stats.proficiencyBonus },
-            { label: 'Save DC', value: char.stats.spellSaveDC }
-          ].map(s => (
-            <div key={s.label} style={{
-              background: 'var(--bg-card)', border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-lg)', padding: '10px 6px', textAlign: 'center'
-            }}>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 16, color: 'var(--text-primary)', fontWeight: 500 }}>{s.value}</div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 2 }}>{s.label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Buffs indicator */}
-        {myBuffs.length > 0 && (
+        {/* ── Combat strip ── */}
+        {combatActive && (
           <div style={{
-            padding: '8px 12px', marginBottom: 12,
-            background: '#9070a015', border: '1px solid #9070a040',
-            borderRadius: 'var(--radius-lg)', display: 'flex', gap: 8, alignItems: 'center'
+            marginBottom: 12,
+            padding: '10px 14px',
+            border: `1px solid ${myTurnActive ? char.colour + '50' : 'var(--border)'}`,
+            borderRadius: 'var(--radius-lg)',
+            background: myTurnActive ? `${char.colour}10` : 'var(--bg-card)',
           }}>
-            <span style={{ fontSize: 14 }}>✨</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#b090c0' }}>
-              {myBuffs.map(b => b.type === 'bardic' ? 'Bardic Inspiration (1d6)' : b.type).join(', ')} available
-            </span>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>— use when rolling</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: myTurnActive ? char.colour : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                {myTurnActive ? '▶ Your Turn' : `Active: ${combatCombatants[combatActiveCombatantIndex]?.name || '—'}`}
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>
+                Next: {nextCombatant?.name || '—'}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {[
+                { label: 'Action', ready: myEconomy.actionAvailable },
+                { label: 'Bonus', ready: myEconomy.bonusActionAvailable },
+                { label: 'Reaction', ready: myEconomy.reactionAvailable },
+              ].map(({ label, ready }) => (
+                <span key={label} style={{
+                  padding: '3px 10px',
+                  borderRadius: 20,
+                  border: `1px solid ${ready ? 'var(--green-mid)' : 'var(--border)'}`,
+                  background: ready ? 'var(--green-dim)' : 'transparent',
+                  color: ready ? 'var(--green-bright)' : 'var(--text-muted)',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 10,
+                }}>
+                  {label} {ready ? '●' : '○'}
+                </span>
+              ))}
+            </div>
           </div>
         )}
+
+        {/* ── Conditions / effects / buffs ── */}
+        <ConditionsBar
+          conditions={myCombatant?.conditions}
+          effects={myCombatant?.effects}
+          myBuffs={myBuffs}
+          concentration={concentration}
+        />
 
         {/* Tab nav */}
         <div style={{ display: 'flex', gap: 5, marginBottom: 14, flexWrap: 'wrap' }}>
@@ -1142,33 +1101,32 @@ export default function CharacterProfile({ characterId }) {
         {/* ════ SPELLS TAB ════ */}
         {tab === 'spells' && (
           <>
-            <Section title="Spell Slots (Live)">
-              {Object.entries(spellSlots).map(([level, slot]) => {
-                const remaining = slot.max - slot.used
-                return (
-                  <div key={level} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', width: 50, textTransform: 'uppercase' }}>
-                      Level {level}
-                    </span>
-                    <div style={{ display: 'flex', gap: 5 }}>
-                      {Array.from({ length: slot.max }).map((_, i) => (
-                        <div key={i} style={{
-                          width: 14, height: 14, borderRadius: '50%',
-                          background: i < remaining ? 'var(--green-mid)' : 'transparent',
-                          border: '1px solid var(--green-dim)', transition: 'background 0.3s'
-                        }} />
-                      ))}
-                    </div>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: remaining === 0 ? 'var(--danger)' : 'var(--text-secondary)' }}>
-                      {remaining}/{slot.max}
-                    </span>
-                  </div>
-                )
-              })}
-              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                Spell Attack: {char.stats.spellAttack} · Save DC: {char.stats.spellSaveDC} · Ability: {char.stats.spellcastingAbility}
-              </div>
-            </Section>
+            <div style={{
+              marginBottom: 14,
+              padding: '8px 12px',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-lg)',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '4px 16px',
+              alignItems: 'center',
+            }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                Spellcasting
+              </span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-secondary)' }}>
+                Attack {char.stats.spellAttack}
+              </span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-secondary)' }}>
+                Save DC {char.stats.spellSaveDC}
+              </span>
+              {char.stats.spellcastingAbility && (
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>
+                  {char.stats.spellcastingAbility}
+                </span>
+              )}
+            </div>
 
             {/* Active spell panel */}
             {activeSpell && (() => {
@@ -1342,78 +1300,82 @@ export default function CharacterProfile({ characterId }) {
               )
             })()}
 
-            {Object.entries(char.spells).map(([level, spells]) => (
-              <Section key={level} title={level === 'cantrips' ? 'Cantrips' : `Level ${level} Spells`}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {spells.map(spell => {
-                    const displaySpell = resolveSpellForCasting(spell)
-                    const isActive = activeSpell?.name === displaySpell.name
-                    const slotKey = displaySpell.minSlot || (displaySpell.level > 0 ? displaySpell.level : null)
-                    const slot = slotKey ? (spellSlots[slotKey] || { max: 0, used: 0 }) : null
-                    const noSlots = !!(slot && slot.used >= slot.max)
-                    const isCantrip = displaySpell.level === 0
-                    const mechColour = displaySpell.mechanic === 'attack' ? 'var(--danger)'
-                      : displaySpell.mechanic === 'save' ? 'var(--warning)'
-                      : displaySpell.mechanic === 'auto' ? '#a0a0ff'
-                      : displaySpell.mechanic === 'heal' ? 'var(--green-bright)'
-                      : 'var(--text-muted)'
+            {Object.entries(char.spells).map(([level, levelSpells]) => {
+              const isCantrips = level === 'cantrips'
+              const slotData = !isCantrips ? (spellSlots[level] || null) : null
+              const slotsRemaining = slotData ? Math.max(0, slotData.max - slotData.used) : null
 
-                    return (
-                      <div key={displaySpell.name} style={{
-                        background: isActive ? `${char.colour}15` : 'var(--bg-raised)',
-                        border: `1px solid ${isActive ? char.colour + '50' : 'var(--border)'}`,
-                        borderRadius: 'var(--radius-lg)', padding: '10px 12px',
-                        opacity: noSlots && !isCantrip ? 0.5 : 1,
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>{displaySpell.name}</span>
-                              {displaySpell.concentration && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--warning)', border: '1px solid rgba(196,160,64,0.3)', borderRadius: 3, padding: '1px 4px' }}>CONC</span>}
-                              {displaySpell.limitedUse && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 3, padding: '1px 4px' }}>{displaySpell.limitedUse}</span>}
-                            </div>
-                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: mechColour, marginTop: 2 }}>
-                              {displaySpell.mechanic === 'attack' ? `+${displaySpell.toHit} to hit · ${displaySpell.damage?.count}d${displaySpell.damage?.sides} ${displaySpell.damage?.type}`
-                               : displaySpell.mechanic === 'save' ? `${displaySpell.saveType} DC ${displaySpell.saveDC}${displaySpell.damage ? ` · ${displaySpell.damage.count}d${displaySpell.damage.sides} ${displaySpell.damage.type}` : ''}`
-                               : displaySpell.mechanic === 'auto' ? `${displaySpell.missiles} missiles · ${displaySpell.damage?.count}d${displaySpell.damage?.sides}+${displaySpell.damage?.mod} ${displaySpell.damage?.type}`
-                               : displaySpell.mechanic === 'heal' ? `${displaySpell.healDice?.count}d${displaySpell.healDice?.sides}+${displaySpell.healDice?.mod} HP`
-                               : displaySpell.castingTime}
-                            </div>
-                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: displaySpell.actionType === 'bonus_action' ? 'var(--warning)' : displaySpell.actionType === 'reaction' ? '#a6b5ff' : 'var(--text-muted)', marginTop: 2 }}>
-                              {displaySpell.actionType === 'bonus_action' ? 'Bonus Action' : displaySpell.actionType === 'reaction' ? 'Reaction' : displaySpell.actionType === 'action' ? 'Action' : displaySpell.castingTime}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => isActive ? closeSpell() : openSpell(displaySpell)}
-                            style={{
-                              padding: '5px 12px', fontFamily: 'var(--font-mono)', fontSize: 10,
-                              textTransform: 'uppercase', letterSpacing: '0.06em',
-                              background: isActive ? `${char.colour}30` : 'transparent',
-                              border: `1px solid ${isActive ? char.colour : 'var(--border)'}`,
-                              borderRadius: 'var(--radius)',
-                              color: isActive ? char.colour : 'var(--text-secondary)',
-                              cursor: 'pointer', flexShrink: 0,
-                            }}
-                          >
-                            {isActive ? 'Cancel' : 'Cast'}
-                          </button>
+              return (
+                <div key={level} style={{ marginBottom: 16 }}>
+                  {/* Level header with slot pips */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    marginBottom: 8,
+                    padding: '0 2px',
+                  }}>
+                    <span style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 9,
+                      color: 'var(--text-muted)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.12em',
+                      flexShrink: 0,
+                    }}>
+                      {isCantrips ? 'Cantrips' : `Level ${level}`}
+                    </span>
+
+                    {slotData && (
+                      <>
+                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                          {Array.from({ length: slotData.max }).map((_, i) => (
+                            <div key={i} style={{
+                              width: 10,
+                              height: 10,
+                              borderRadius: '50%',
+                              background: i < slotsRemaining ? 'var(--green-mid)' : 'transparent',
+                              border: '1px solid var(--green-dim)',
+                              transition: 'background 0.3s',
+                            }} />
+                          ))}
                         </div>
-                        {displaySpell.description && (
-                          <div style={{
-                            marginTop: 7, paddingTop: 7,
-                            borderTop: '1px solid var(--border)',
-                            fontSize: 12, color: 'var(--text-muted)',
-                            fontStyle: 'italic', lineHeight: 1.55,
-                          }}>
-                            {displaySpell.description}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                        <span style={{
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: 9,
+                          color: slotsRemaining === 0 ? 'var(--danger)' : 'var(--text-muted)',
+                        }}>
+                          {slotsRemaining}/{slotData.max}
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Spell cards */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {levelSpells.map(spell => {
+                      const displaySpell = resolveSpellForCasting(spell)
+                      const isActive = activeSpell?.name === displaySpell.name
+                      const slotKey = displaySpell.minSlot || (displaySpell.level > 0 ? displaySpell.level : null)
+                      const slot = slotKey ? (spellSlots[slotKey] || { max: 0, used: 0 }) : null
+                      const noSlots = !!(slot && slot.used >= slot.max && !isCantrips)
+
+                      return (
+                        <SpellCard
+                          key={displaySpell.name}
+                          spell={displaySpell}
+                          isActive={isActive}
+                          isExhausted={noSlots}
+                          onCast={() => openSpell(displaySpell)}
+                          onCancel={() => closeSpell()}
+                          charColour={char.colour}
+                        />
+                      )
+                    })}
+                  </div>
                 </div>
-              </Section>
-            ))}
+              )
+            })}
           </>
         )}
 
