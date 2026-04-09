@@ -93,16 +93,30 @@ export function consumeActionEconomy(combatant, actionType) {
 }
 
 export function buildSpellEffectMetadata(spell) {
-  const spellId = String(spell?.spellId || spell?.spell_id || spell?.name || '').toLowerCase()
+  const rules = spell?.combatProfile?.rules || spell?.rules_json || {}
+  const card = rules.card || {}
+  if (card.short_effect || card.mechanic) {
+    return {
+      name: card.name || spell?.name || 'Spell',
+      mechanic: card.mechanic || card.short_effect,
+      deterministic: !!card.deterministic,
+      effect_kinds: Array.isArray(rules.effect_kinds) ? rules.effect_kinds : [],
+      control: card.control || null,
+    }
+  }
+  const spellId = String(spell?.spellId || spell?.spell_id || spell?.name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/^_+|_+$/g, '')
   const mapping = {
-    bane: { name: 'Bane', mechanic: '-1d4 attacks & saves', deterministic: true },
-    bless: { name: 'Bless', mechanic: '+1d4 attacks & saves', deterministic: true },
-    faerie_fire: { name: 'Faerie Fire', mechanic: 'Attacks vs target have advantage', deterministic: true },
-    hex: { name: 'Hex', mechanic: 'Marked by Hex', deterministic: true },
-    hunters_mark: { name: "Hunter's Mark", mechanic: 'Marked by Hunter', deterministic: true },
-    guiding_bolt: { name: 'Guiding Bolt', mechanic: 'Next attack has advantage', deterministic: true },
-    shield_of_faith: { name: 'Shield of Faith', mechanic: '+2 AC', deterministic: true },
-    sanctuary: { name: 'Sanctuary', mechanic: 'Protection ward', deterministic: true },
+    bane: { name: 'Bane', mechanic: '-1d4 attacks & saves', deterministic: true, effect_kinds: ['debuff'] },
+    bless: { name: 'Bless', mechanic: '+1d4 attacks & saves', deterministic: true, effect_kinds: ['buff'] },
+    faerie_fire: { name: 'Faerie Fire', mechanic: 'Attacks vs target have advantage', deterministic: true, effect_kinds: ['debuff'] },
+    hex: { name: 'Hex', mechanic: 'Marked by Hex', deterministic: true, effect_kinds: ['debuff'] },
+    hunters_mark: { name: "Hunter's Mark", mechanic: 'Marked by Hunter', deterministic: true, effect_kinds: ['debuff'] },
+    guiding_bolt: { name: 'Guiding Bolt', mechanic: 'Next attack has advantage', deterministic: true, effect_kinds: ['damage', 'buff'] },
+    shield_of_faith: { name: 'Shield of Faith', mechanic: '+2 AC', deterministic: true, effect_kinds: ['buff'] },
+    sanctuary: { name: 'Sanctuary', mechanic: 'Protection ward', deterministic: true, effect_kinds: ['buff'] },
   }
   return mapping[spellId] || null
 }

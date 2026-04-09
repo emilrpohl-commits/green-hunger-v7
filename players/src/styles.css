@@ -25,6 +25,32 @@
 
   --radius: 4px;
   --radius-lg: 8px;
+
+  /* Portrait UI */
+  --portrait-height: 340px;
+  --portrait-height-sm: 80px;
+  --portrait-active-scale: 1.04;
+  --portrait-transition: transform 350ms ease, box-shadow 350ms ease, opacity 350ms ease;
+
+  /* Carousel */
+  --carousel-tile-gap: 12px;
+  --carousel-slide-duration: 380ms;
+
+  /* Spell card category tints */
+  --spell-attack-tint: rgba(180, 60, 40, 0.18);
+  --spell-attack-border: #b04030;
+  --spell-save-tint: rgba(180, 140, 40, 0.15);
+  --spell-save-border: #b09030;
+  --spell-control-tint: rgba(100, 60, 160, 0.18);
+  --spell-control-border: #7040a0;
+  --spell-heal-tint: rgba(40, 130, 80, 0.15);
+  --spell-heal-border: #3a8050;
+  --spell-utility-tint: rgba(40, 80, 160, 0.15);
+  --spell-utility-border: #3060a0;
+
+  /* Conditions bar */
+  --conditions-bg: rgba(20, 14, 30, 0.80);
+  --conditions-border: rgba(80, 50, 120, 0.40);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -55,3 +81,127 @@ body {
 ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
 
 h1, h2, h3 { font-family: var(--font-display); font-weight: 400; letter-spacing: 0.05em; }
+
+/* ── Portrait animations ─────────────────────────────────────────────────── */
+
+@keyframes pulse-border {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(176, 144, 48, 0.0), 0 0 20px rgba(176, 144, 48, 0.25); }
+  50%       { box-shadow: 0 0 0 3px rgba(176, 144, 48, 0.5), 0 0 28px rgba(176, 144, 48, 0.45); }
+}
+
+@keyframes portrait-appear {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slide-up-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 1.0; }
+}
+
+.portrait-active {
+  transform: scale(var(--portrait-active-scale));
+  transition: var(--portrait-transition);
+}
+
+.portrait-concentrating {
+  animation: pulse-border 2s ease-in-out infinite;
+}
+
+.portrait-appear {
+  animation: portrait-appear 0.3s ease forwards;
+}
+
+/* ── Carousel ────────────────────────────────────────────────────────────── */
+
+.carousel-track {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: transform var(--carousel-slide-duration) cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.carousel-tile {
+  transition: var(--portrait-transition), filter 350ms ease;
+  flex-shrink: 0;
+}
+
+.carousel-tile--active {
+  transform: scale(var(--portrait-active-scale));
+}
+
+.carousel-tile--inactive {
+  opacity: 0.42;
+  filter: grayscale(0.35);
+  transform: scale(0.92);
+}
+
+/* ── Spell cards ─────────────────────────────────────────────────────────── */
+
+.spell-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  transition: border-color 180ms ease, background 180ms ease;
+  cursor: pointer;
+}
+
+.spell-card:hover {
+  border-color: var(--border-bright);
+}
+
+.spell-card--attack  { border-left: 3px solid var(--spell-attack-border);  background: var(--spell-attack-tint); }
+.spell-card--save    { border-left: 3px solid var(--spell-save-border);    background: var(--spell-save-tint); }
+.spell-card--control { border-left: 3px solid var(--spell-control-border); background: var(--spell-control-tint); }
+.spell-card--heal    { border-left: 3px solid var(--spell-heal-border);    background: var(--spell-heal-tint); }
+.spell-card--utility { border-left: 3px solid var(--spell-utility-border); background: var(--spell-utility-tint); }
+
+/* ── Conditions bar ──────────────────────────────────────────────────────── */
+
+.conditions-bar {
+  background: var(--conditions-bg);
+  border: 1px solid var(--conditions-border);
+  border-radius: var(--radius-lg);
+  padding: 8px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.condition-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.condition-chip:hover {
+  border-color: var(--border-bright);
+}
+
+/* ── HP bar ──────────────────────────────────────────────────────────────── */
+
+.hp-bar-track {
+  height: 5px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.hp-bar-fill {
+  height: 100%;
+  transition: width 0.5s ease, background 0.5s ease;
+}

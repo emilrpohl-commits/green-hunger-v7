@@ -281,6 +281,46 @@ create index if not exists spells_level_name_idx on spells(level, name);
 create index if not exists character_spells_character_slot_order_idx on character_spells(character_id, slot_level, order_index);
 create index if not exists character_spells_spell_id_idx on character_spells(spell_id);
 
+-- Static PC / companion sheets (players/src/stores/playerStore.js loadCharacters + party roster)
+create table if not exists characters (
+  id text primary key,
+  campaign_id uuid references campaigns(id) on delete set null,
+  name text not null,
+  password text,
+  class text not null,
+  subclass text,
+  level int not null default 1,
+  species text,
+  background text,
+  player text,
+  image text,
+  colour text,
+  is_npc boolean default false,
+  is_active boolean default true,
+  notes text,
+  stats jsonb default '{}',
+  ability_scores jsonb default '{}',
+  saving_throws jsonb default '[]',
+  skills jsonb default '[]',
+  spell_slots jsonb default '{}',
+  sorcery_points jsonb,
+  features jsonb default '[]',
+  weapons jsonb default '[]',
+  healing_actions jsonb default '[]',
+  buff_actions jsonb default '[]',
+  equipment jsonb default '[]',
+  magic_items jsonb default '[]',
+  passive_scores jsonb default '{}',
+  senses text,
+  languages text,
+  backstory text,
+  srd_refs jsonb default '{}',
+  homebrew_json jsonb default '{}',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+create index if not exists characters_campaign_id_idx on characters(campaign_id);
+
 create table if not exists npcs (
   id uuid primary key default gen_random_uuid(),
   campaign_id uuid references campaigns(id) on delete cascade not null,
@@ -437,8 +477,24 @@ create table if not exists combat_feed (
   target_id text,
   ruleset text,
   source_of_truth text,
+  metadata jsonb default '{}',
   timestamp timestamptz default now()
 );
+
+alter table combat_feed
+  add column if not exists metadata jsonb default '{}';
+
+-- Structured resolution / QA (optional; combat_feed remains primary narrative log)
+create table if not exists combat_resolution_events (
+  id bigserial primary key,
+  session_run_id text not null,
+  round int default 0,
+  kind text not null,
+  payload jsonb default '{}',
+  created_at timestamptz default now()
+);
+create index if not exists combat_resolution_events_session_idx
+  on combat_resolution_events(session_run_id, created_at desc);
 
 create table if not exists reveals (
   id bigserial primary key,
@@ -613,7 +669,9 @@ alter table combat_state enable row level security;
 alter table combat_feed enable row level security;
 alter table reveals enable row level security;
 alter table character_spells enable row level security;
+alter table characters enable row level security;
 alter table revealed_content enable row level security;
+alter table combat_resolution_events enable row level security;
 alter table rules_sources enable row level security;
 alter table rules_entities enable row level security;
 alter table rules_sync_runs enable row level security;
@@ -650,7 +708,9 @@ begin
     ('combat_feed',     'allow_all_combat_feed'),
     ('reveals',         'allow_all_reveals'),
     ('character_spells','allow_all_character_spells'),
+    ('characters',      'allow_all_characters'),
     ('revealed_content','allow_all_revealed_content'),
+    ('combat_resolution_events','allow_all_combat_resolution_events'),
     ('rules_sources',   'allow_all_rules_sources'),
     ('rules_entities',  'allow_all_rules_entities'),
     ('rules_sync_runs', 'allow_all_rules_sync_runs'),

@@ -185,6 +185,8 @@ function buildNormalized(entry) {
     },
     tags: [],
     source: trimString(entry.source) || null,
+    source_index: spellId,
+    ruleset: '2024',
     classes: [],
     notes: null,
     updated_at: new Date().toISOString(),

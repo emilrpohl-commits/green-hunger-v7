@@ -13,8 +13,12 @@ This project now supports a self-hosted 5e engine path with feature flags and fa
 ## Runtime Data Sources
 
 1. Canonical engine data from `rules_entities` (2024 primary).
-2. Campaign-authored data from `spells`, `stat_blocks`, and content tables.
+2. Campaign-authored data from `spells`, `stat_blocks`, `characters`, and content tables.
 3. Legacy/static content fallback in shared content and existing store behavior.
+
+Apply `supabase/schema.sql` (includes `characters`, `combat_feed.metadata`, `combat_resolution_events`), then seed PCs with `node tools/seedCharactersFromBundle.mjs --write-db`. Spell merge order: [SPELL_MERGE_ORDER.md](./SPELL_MERGE_ORDER.md).
+
+`node tools/engineSmokeCheck.mjs` checks `rules_entities` and reports `characters` (set `GH_REQUIRE_CHARACTERS=1` to fail the run if the `characters` check does not succeed).
 
 ## Safe Rollout Order
 

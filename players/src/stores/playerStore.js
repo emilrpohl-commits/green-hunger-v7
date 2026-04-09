@@ -7,6 +7,10 @@ import { featureFlags } from '@shared/lib/featureFlags.js'
 import { mapApiSpellToCharacterSpell } from '@shared/lib/engine/mappers.js'
 import { getRulesetContext, getSessionRunId } from '@shared/lib/runtimeContext.js'
 import { qaHoldSavePromptChannelName } from '@shared/lib/qaDevChannels.js'
+import { buildPlayerRuntimeCharacters } from '@shared/lib/partyRoster.js'
+import { applyHomebrewPlayerSheet, shouldSkipLegacyPlayerSanitize } from '@shared/lib/homebrewPlayerSheet.js'
+import { applySpellHomebrewOverlays } from '@shared/lib/mergeSpellHomebrew.js'
+import { logCombatResolutionEvent } from '@shared/lib/logCombatResolution.js'
 
 /** Player client: PCs only (exclude DM companion NPCs from party list). */
 const PLAYER_RUNTIME_CHARACTERS = CHARACTERS.filter(c => !c.isNPC)
@@ -457,12 +461,14 @@ export const usePlayerStore = create((set, get) => ({
     const rulesetContext = getRulesetContext()
     const selectedRuleset = rulesetContext.active_ruleset === 'custom' ? '2024' : rulesetContext.active_ruleset
     try {
+      const sessionRunId = getSessionRunId()
       const [
         { data: charRows },
         { data: spellRows },
         { data: compendiumRows },
         { data: rulesSpellRows },
         { data: conditionRows },
+        { data: sessionRow },
       ] = await Promise.all([
         supabase.from('characters').select('*'),
         supabase.from('character_spells').select('*').order('order_index'),
@@ -481,7 +487,19 @@ export const usePlayerStore = create((set, get) => ({
             .eq('entity_type', 'conditions')
             .eq('ruleset', selectedRuleset)
           : Promise.resolve({ data: [] }),
+        supabase.from('session_state').select('campaign_id').eq('id', sessionRunId).maybeSingle(),
       ])
+
+      let spellOverlays = []
+      const campaignId = sessionRow?.campaign_id
+      if (campaignId) {
+        const { data: ho } = await supabase
+          .from('homebrew_overlays')
+          .select('entity_type,canonical_ref,overlay_payload')
+          .eq('campaign_id', campaignId)
+          .eq('is_active', true)
+        spellOverlays = ho || []
+      }
       if (!charRows || charRows.length === 0) return
 
       const spellCompendium = {}
@@ -494,6 +512,7 @@ export const usePlayerStore = create((set, get) => ({
           || (row.target_mode && row.target_mode.startsWith('area') ? 'enemy' : null)
         spellCompendium[spellId] = {
           spellId,
+          source_index: row.source_index || spellId,
           name: row.name,
           level: row.level,
           school: row.school,
@@ -515,6 +534,7 @@ export const usePlayerStore = create((set, get) => ({
           source: row.source || null,
           area: row.area || null,
           scaling: row.scaling || {},
+          rules_json: row.rules_json || {},
           combatProfile: {
             resolutionType: row.resolution_type || 'special',
             targetMode: row.target_mode || 'special',
@@ -532,6 +552,10 @@ export const usePlayerStore = create((set, get) => ({
           spellCompendium[mapped.spellId] = mapped
         }
       })
+
+      for (const k of Object.keys(spellCompendium)) {
+        spellCompendium[k] = applySpellHomebrewOverlays(spellCompendium[k], spellOverlays)
+      }
 
       // Group spells by character + slot level
       const spellsByChar = {}
@@ -564,7 +588,7 @@ export const usePlayerStore = create((set, get) => ({
 
       const playerCharacters = {}
       for (const row of charRows) {
-        playerCharacters[row.id] = {
+        let sheet = {
           id: row.id,
           name: row.name,
           password: row.password,
@@ -595,17 +619,26 @@ export const usePlayerStore = create((set, get) => ({
           senses: row.senses,
           languages: row.languages,
           backstory: row.backstory,
+          homebrew_json: row.homebrew_json || {},
         }
-      }
-      if (playerCharacters.ilya) {
-        playerCharacters.ilya = sanitizeIlyaSheet(playerCharacters.ilya)
+        sheet = applyHomebrewPlayerSheet(sheet)
+        if (sheet.id === 'ilya' && !shouldSkipLegacyPlayerSanitize(row.homebrew_json)) {
+          sheet = sanitizeIlyaSheet(sheet)
+        }
+        playerCharacters[row.id] = sheet
       }
       const knownConditions = (conditionRows || []).map((row) => ({
         index: row.source_index,
         name: row.name,
         desc: Array.isArray(row.payload?.desc) ? row.payload.desc.join('\n\n') : (row.payload?.desc || ''),
       }))
-      set({ playerCharacters: withSpellIds(playerCharacters), spellCompendium, knownConditions })
+      const runtimeCharacters = buildPlayerRuntimeCharacters(charRows, [], PLAYER_RUNTIME_CHARACTERS)
+      set({
+        playerCharacters: withSpellIds(playerCharacters),
+        spellCompendium,
+        knownConditions,
+        characters: runtimeCharacters,
+      })
     } catch (e) {
       console.log('Could not load characters from server, using defaults.')
     }
@@ -1012,6 +1045,14 @@ export const usePlayerStore = create((set, get) => ({
     const { combatRound, sessionRunId } = get()
     try {
       const envelope = makeSavePromptEnvelope(payload)
+      const metadata = {
+        prompt_id: envelope.promptId,
+        spell_name: envelope.spellName,
+        save_ability: envelope.saveAbility,
+        save_dc: envelope.saveDc,
+        effect_kinds: envelope.effect_kinds || payload.effect_kinds,
+        resolution_path: envelope.resolution_path || payload.resolution_path,
+      }
       await supabase.from('combat_feed').insert({
         session_id: sessionRunId,
         round: combatRound,
@@ -1020,7 +1061,14 @@ export const usePlayerStore = create((set, get) => ({
         shared: false,
         visibility: 'targeted',
         prompt_status: 'pending',
+        metadata,
         timestamp: new Date().toISOString()
+      })
+      await logCombatResolutionEvent(supabase, {
+        sessionRunId,
+        round: combatRound,
+        kind: 'save_prompt',
+        payload: metadata,
       })
     } catch (e) {}
   },

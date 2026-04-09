@@ -41,56 +41,94 @@ export default function App() {
     return <LoginScreen onLogin={handleLogin} />
   }
 
+  const navTabs = [
+    { id: 'party', label: 'Party' },
+    loggedInAs !== 'party' ? { id: 'profile', label: 'My Sheet' } : null,
+    loggedInAs !== 'party' && ilyaAssignedTo === loggedInAs ? { id: 'companion', label: 'Ilya' } : null,
+  ].filter(Boolean)
+
+  const activeView = loggedInAs === 'party' ? 'party' : view
+
+  function renderView() {
+    if (activeView === 'companion') {
+      return <CharacterProfile characterId="ilya" />
+    }
+    if (activeView === 'profile' && loggedInAs !== 'party') {
+      return <CharacterProfile characterId={loggedInAs} />
+    }
+    return <PartyView />
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-deep)', display: 'flex', flexDirection: 'column' }}>
+      {/* ── Header ── */}
       <div style={{
-        padding: '14px 20px',
+        padding: '12px 20px',
         borderBottom: '1px solid var(--border)',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         background: 'var(--bg-surface)',
-        flexShrink: 0
+        flexShrink: 0,
       }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, color: 'var(--green-bright)', letterSpacing: '0.1em' }}>
+        <div style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: 14,
+          color: 'var(--green-bright)',
+          letterSpacing: '0.1em',
+        }}>
           The Green Hunger
         </div>
+
+        {/* Nav tabs */}
         <div style={{ display: 'flex', gap: 4 }}>
-          {[
-            'party',
-            loggedInAs !== 'party' ? 'profile' : null,
-            loggedInAs !== 'party' && ilyaAssignedTo === loggedInAs ? 'companion' : null
-          ].filter(Boolean).map(v => (
-            <button key={v} onClick={() => setView(v)} style={{
-              padding: '5px 14px',
-              fontFamily: 'var(--font-mono)', fontSize: 10,
-              textTransform: 'uppercase', letterSpacing: '0.08em',
-              background: view === v ? 'var(--green-dim)' : 'transparent',
-              border: `1px solid ${view === v ? 'var(--green-mid)' : 'var(--border)'}`,
-              borderRadius: 'var(--radius)',
-              color: view === v ? 'var(--green-bright)' : 'var(--text-muted)',
-              cursor: 'pointer'
-            }}>
-              {v === 'profile' ? 'My Sheet' : v === 'companion' ? 'Ilya' : 'Party'}
-            </button>
-          ))}
+          {navTabs.map(tab => {
+            const isActive = activeView === tab.id
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setView(tab.id)}
+                style={{
+                  padding: '5px 14px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 10,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  background: isActive ? 'var(--green-dim)' : 'transparent',
+                  border: `1px solid ${isActive ? 'var(--green-mid)' : 'var(--border)'}`,
+                  borderRadius: 'var(--radius)',
+                  color: isActive ? 'var(--green-bright)' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                }}
+              >
+                {tab.label}
+              </button>
+            )
+          })}
         </div>
-        <button onClick={handleLogout} style={{
-          padding: '4px 10px', fontFamily: 'var(--font-mono)', fontSize: 9,
-          textTransform: 'uppercase', letterSpacing: '0.06em',
-          background: 'transparent', border: '1px solid var(--border)',
-          borderRadius: 'var(--radius)', color: 'var(--text-muted)', cursor: 'pointer'
-        }}>
+
+        <button
+          onClick={handleLogout}
+          style={{
+            padding: '4px 10px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 9,
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            background: 'transparent',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+          }}
+        >
           Leave
         </button>
       </div>
+
+      {/* ── Main content ── */}
       <div style={{ flex: 1, overflow: 'auto' }}>
-        {view === 'party' || loggedInAs === 'party'
-          ? <PartyView />
-          : view === 'companion'
-            ? <CharacterProfile characterId="ilya" />
-            : <CharacterProfile characterId={loggedInAs} />
-        }
+        {renderView()}
       </div>
     </div>
   )

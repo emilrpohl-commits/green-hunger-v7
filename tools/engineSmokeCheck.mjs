@@ -47,8 +47,28 @@ async function run() {
     report.db.rules_entities = { ok: false, error: String(err?.message || err) }
   }
 
+  try {
+    const charRes = await fetch(`${SUPABASE_URL}/rest/v1/characters?select=id`, {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        Prefer: 'count=exact',
+      },
+    })
+    if (!charRes.ok) throw new Error(await charRes.text())
+    report.db.characters = {
+      ok: true,
+      countHeader: charRes.headers.get('content-range') || null,
+    }
+  } catch (err) {
+    report.db.characters = { ok: false, error: String(err?.message || err) }
+  }
+
   console.log(JSON.stringify(report, null, 2))
-  const failed = Object.values(report.api).some((v) => !v.ok) || Object.values(report.db).some((v) => !v.ok)
+  let failed = Object.values(report.api).some((v) => !v.ok) || !report.db.rules_entities?.ok
+  if (process.env.GH_REQUIRE_CHARACTERS === '1') {
+    failed = failed || !report.db.characters?.ok
+  }
   if (failed) process.exitCode = 1
 }
 

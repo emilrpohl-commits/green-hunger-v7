@@ -5,6 +5,7 @@ import { supabase } from '@shared/lib/supabase.js'
 import { getSessionRunId } from '@shared/lib/runtimeContext.js'
 import { qaHoldSavePromptChannelName } from '@shared/lib/qaDevChannels.js'
 import { encodePlayerSavePrompt, buildSavePromptDamageMeta } from '@shared/lib/combatRules.js'
+import DmCombatCarousel from './DmCombatCarousel.jsx'
 
 const CONDITIONS = ['Blinded', 'Charmed', 'Frightened', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious', 'Grappled', 'Paralysed']
 
@@ -196,86 +197,206 @@ function CombatantCard({ combatant, isActive, flashActive = false, players = [] 
     }
   }
 
+  const portraitSrc = combatant.image
+    ? (isEnemy
+      ? combatant.image
+      : `https://emilrpohl-commits.github.io/greenhunger-players/characters/${combatant.image}`)
+    : null
+
   return (
     <div style={{
       background: isActive ? 'rgba(122,184,106,0.06)' : isDead ? 'rgba(196,64,64,0.04)' : 'var(--bg-card)',
       border: `1px solid ${isActive ? 'var(--green-dim)' : 'var(--border)'}`,
-      borderLeft: `4px solid ${isActive ? 'var(--green-bright)' : isDead ? 'var(--danger)' : isEnemy ? 'var(--rot-mid)' : 'var(--green-dim)'}`,
+      borderTop: `3px solid ${isActive ? 'var(--green-bright)' : isDead ? 'var(--danger)' : isEnemy ? 'var(--rot-mid)' : 'var(--green-dim)'}`,
       borderRadius: 'var(--radius-lg)',
-      padding: '14px 16px',
+      overflow: 'hidden',
       opacity: isDead ? 0.5 : 1,
       transition: 'all 0.2s ease',
-      boxShadow: flashActive ? '0 0 0 2px rgba(122,184,106,0.4), 0 0 24px rgba(122,184,106,0.35)' : 'none'
+      boxShadow: flashActive ? `0 0 0 2px rgba(122,184,106,0.4), 0 0 24px rgba(122,184,106,0.35)` : 'none',
     }}>
-      {/* Header row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text-muted)', textTransform: 'uppercase' }}>INIT</span>
-            <input
-              type="number"
-              value={combatant.initiative}
-              onChange={e => setInitiative(combatant.id, e.target.value)}
-              style={{
-                width: 38, height: 26, textAlign: 'center',
-                fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600,
-                background: isActive ? 'var(--green-dim)' : 'var(--bg-raised)',
-                border: `1px solid ${isActive ? 'var(--green-mid)' : 'var(--border)'}`,
-                borderRadius: 'var(--radius)', color: isActive ? 'var(--green-bright)' : 'var(--text-secondary)', outline: 'none'
-              }}
-            />
-          </div>
-          {combatant.image && (
+
+      {/* ── Portrait header ── */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'stretch',
+        gap: 0,
+      }}>
+        {/* Portrait thumbnail */}
+        <div style={{
+          width: 64,
+          flexShrink: 0,
+          position: 'relative',
+          overflow: 'hidden',
+          background: `${isEnemy ? 'rgba(122,64,32,0.25)' : 'rgba(32,64,24,0.25)'}`,
+        }}>
+          {portraitSrc ? (
             <img
-              src={isEnemy ? combatant.image : `https://emilrpohl-commits.github.io/greenhunger-players/characters/${combatant.image}`}
+              src={portraitSrc}
               alt={combatant.name}
               style={{
-                width: 40, height: 40, borderRadius: isEnemy ? 4 : '50%',
-                objectFit: 'cover', objectPosition: 'top',
-                border: `2px solid ${isActive ? 'var(--green-bright)' : isEnemy ? 'var(--rot-mid)' : 'var(--green-dim)'}`,
-                flexShrink: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                objectPosition: 'top center',
+                display: 'block',
               }}
               onError={e => { e.target.style.display = 'none' }}
             />
+          ) : (
+            <div style={{
+              width: '100%', height: '100%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: 'var(--font-display)', fontSize: 22,
+              color: isEnemy ? 'var(--rot-mid)' : 'var(--green-mid)',
+            }}>
+              {combatant.name[0]}
+            </div>
           )}
-          <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {/* Subtle overlay */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(to right, transparent 60%, rgba(10,12,10,0.6) 100%)',
+            pointerEvents: 'none',
+          }} />
+        </div>
+
+        {/* Identity + stats */}
+        <div style={{
+          flex: 1,
+          padding: '10px 12px 8px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+          minWidth: 0,
+        }}>
+          {/* Name row */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
               <span style={{
                 fontFamily: isEnemy ? 'var(--font-body)' : 'var(--font-display)',
-                fontSize: isEnemy ? 15 : 14, fontWeight: isEnemy ? 400 : 600,
+                fontSize: isEnemy ? 14 : 13,
+                fontWeight: isEnemy ? 400 : 600,
                 color: isEnemy ? '#d49070' : 'var(--text-primary)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}>
                 {combatant.name}
               </span>
               {isActive && (
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--green-bright)', background: 'rgba(122,184,106,0.15)', border: '1px solid rgba(122,184,106,0.3)', borderRadius: 'var(--radius)', padding: '2px 5px', textTransform: 'uppercase' }}>
-                  ACTIVE
+                <span style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 7,
+                  color: 'var(--green-bright)',
+                  background: 'rgba(122,184,106,0.15)',
+                  border: '1px solid rgba(122,184,106,0.3)',
+                  borderRadius: 'var(--radius)',
+                  padding: '1px 4px',
+                  textTransform: 'uppercase',
+                  flexShrink: 0,
+                }}>
+                  ▶ Active
+                </span>
+              )}
+              {combatant.concentration && (
+                <span style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 7,
+                  color: 'var(--warning)',
+                  border: '1px solid rgba(196,160,64,0.35)',
+                  borderRadius: 'var(--radius)',
+                  padding: '1px 4px',
+                  flexShrink: 0,
+                }}>
+                  ◈
                 </span>
               )}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
-              AC {combatant.ac}
-              {combatant.conditions?.length > 0 && (
-                <span style={{ marginLeft: 6, color: 'var(--warning)' }}>{combatant.conditions.join(' · ')}</span>
-              )}
+
+            {/* HP number */}
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 18,
+                fontWeight: 600,
+                color: hpColour,
+                lineHeight: 1,
+              }}>
+                {combatant.curHp}
+                {combatant.tempHp > 0 && (
+                  <span style={{ fontSize: 11, color: 'var(--info)' }}>+{combatant.tempHp}</span>
+                )}
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)' }}>
+                / {combatant.maxHp}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* HP */}
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 500, color: hpColour, lineHeight: 1 }}>
-            {combatant.curHp}
-            {combatant.tempHp > 0 && <span style={{ fontSize: 12, color: 'var(--info)' }}>+{combatant.tempHp}</span>}
+          {/* Meta: AC + conditions */}
+          <div style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10,
+            color: 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexWrap: 'wrap',
+          }}>
+            <span>AC {combatant.ac}</span>
+            {combatant.conditions?.map(c => (
+              <span key={c} style={{ color: 'var(--warning)', fontSize: 9 }}>{c}</span>
+            ))}
           </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>/ {combatant.maxHp}</div>
+
+          {/* Initiative input + action economy */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {/* Initiative */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Init</span>
+              <input
+                type="number"
+                value={combatant.initiative}
+                onChange={e => setInitiative(combatant.id, e.target.value)}
+                style={{
+                  width: 36, height: 22, textAlign: 'center',
+                  fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600,
+                  background: isActive ? 'var(--green-dim)' : 'var(--bg-raised)',
+                  border: `1px solid ${isActive ? 'var(--green-mid)' : 'var(--border)'}`,
+                  borderRadius: 'var(--radius)',
+                  color: isActive ? 'var(--green-bright)' : 'var(--text-secondary)',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Action economy chips */}
+            {[
+              { label: 'A', ready: economy.actionAvailable },
+              { label: 'BA', ready: economy.bonusActionAvailable },
+              { label: 'R', ready: economy.reactionAvailable },
+            ].map(({ label, ready }) => (
+              <span key={label} style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 9,
+                padding: '1px 6px',
+                border: `1px solid ${ready ? 'var(--green-dim)' : 'var(--border)'}`,
+                borderRadius: 'var(--radius)',
+                color: ready ? 'var(--green-bright)' : 'var(--danger)',
+                background: ready ? 'rgba(74,122,66,0.15)' : 'transparent',
+              }}>
+                {label} {ready ? '●' : '○'}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* HP bar */}
-      <div style={{ height: 4, background: 'var(--bg-raised)', borderRadius: 2, marginBottom: 10, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${hpPct}%`, background: hpColour, borderRadius: 2, transition: 'width 0.4s ease' }} />
+      <div style={{ height: 4, background: 'var(--bg-raised)', overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${hpPct}%`, background: hpColour, transition: 'width 0.4s ease' }} />
       </div>
+
+      {/* Card body */}
+      <div style={{ padding: '10px 14px' }}>
 
       {/* Active spell effects */}
       {effects.length > 0 && (
@@ -305,13 +426,6 @@ function CombatantCard({ combatant, isActive, flashActive = false, players = [] 
           ))}
         </div>
       )}
-
-      {/* Controls */}
-      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, padding: '2px 7px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: economy.actionAvailable ? 'var(--green-bright)' : 'var(--danger)' }}>A {economy.actionAvailable ? 'ready' : 'used'}</span>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, padding: '2px 7px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: economy.bonusActionAvailable ? 'var(--green-bright)' : 'var(--danger)' }}>BA {economy.bonusActionAvailable ? 'ready' : 'used'}</span>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, padding: '2px 7px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: economy.reactionAvailable ? 'var(--green-bright)' : 'var(--danger)' }}>R {economy.reactionAvailable ? 'ready' : 'used'}</span>
-      </div>
 
       {/* Controls */}
       <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
@@ -468,6 +582,7 @@ function CombatantCard({ combatant, isActive, flashActive = false, players = [] 
           </div>
         )}
       </div>
+      </div>
     </div>
   )
 }
@@ -488,6 +603,7 @@ export default function CombatPanel() {
   const resolveSavePrompt = useCombatStore(s => s.resolveSavePrompt)
 
   const [logOpen, setLogOpen] = useState(false)
+  const [viewMode, setViewMode] = useState('grid') // 'grid' | 'carousel'
   const [flashActiveIndex, setFlashActiveIndex] = useState(activeCombatantIndex)
   const [manualSaveTotals, setManualSaveTotals] = useState({})
   const [qaHoldSavePrompt, setQaHoldSavePrompt] = useState(false)
@@ -570,6 +686,15 @@ export default function CombatPanel() {
               Hold save prompts (QA)
             </label>
           )}
+          <button onClick={() => setViewMode(m => m === 'grid' ? 'carousel' : 'grid')} style={{
+            padding: '6px 12px', fontSize: 11, fontFamily: 'var(--font-mono)',
+            background: viewMode === 'carousel' ? 'rgba(176,144,64,0.15)' : 'var(--bg-card)',
+            border: `1px solid ${viewMode === 'carousel' ? 'rgba(176,144,64,0.5)' : 'var(--border)'}`,
+            borderRadius: 'var(--radius)', color: viewMode === 'carousel' ? 'var(--warning)' : 'var(--text-muted)', cursor: 'pointer',
+            textTransform: 'uppercase', letterSpacing: '0.06em'
+          }}>
+            {viewMode === 'carousel' ? '⊞ Grid' : '⊟ Carousel'}
+          </button>
           <button onClick={() => setLogOpen(o => !o)} style={{
             padding: '6px 12px', fontSize: 11, fontFamily: 'var(--font-mono)',
             background: logOpen ? 'rgba(122,184,106,0.1)' : 'var(--bg-card)',
@@ -696,68 +821,74 @@ export default function CombatPanel() {
       {/* Main content */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
-        {/* Combatant columns */}
-        <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px', display: 'flex', gap: 16 }}>
+        {viewMode === 'carousel' ? (
+          <DmCombatCarousel feed={feed} logOpen={logOpen} />
+        ) : (
+          <>
+            {/* Combatant columns */}
+            <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px', display: 'flex', gap: 16 }}>
 
-          {/* Players */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Players</div>
-            {players.map(c => (
-              <div key={c.id} style={{ position: 'relative' }}>
-                <CombatantCard combatant={c} isActive={combatants.indexOf(c) === activeCombatantIndex} flashActive={combatants.indexOf(c) === flashActiveIndex} />
+              {/* Players */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Players</div>
+                {players.map(c => (
+                  <div key={c.id} style={{ position: 'relative' }}>
+                    <CombatantCard combatant={c} isActive={combatants.indexOf(c) === activeCombatantIndex} flashActive={combatants.indexOf(c) === flashActiveIndex} />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          {/* Enemies */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#c48060', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Enemies</div>
-            {enemies.map(c => (
-              <div key={c.id} style={{ position: 'relative' }}>
-                <CombatantCard combatant={c} isActive={combatants.indexOf(c) === activeCombatantIndex} flashActive={combatants.indexOf(c) === flashActiveIndex} players={players} />
+              {/* Enemies */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#c48060', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Enemies</div>
+                {enemies.map(c => (
+                  <div key={c.id} style={{ position: 'relative' }}>
+                    <CombatantCard combatant={c} isActive={combatants.indexOf(c) === activeCombatantIndex} flashActive={combatants.indexOf(c) === flashActiveIndex} players={players} />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Combat log — collapsible sidebar */}
-        {logOpen && (
-          <div style={{
-            width: 220, borderLeft: '1px solid var(--border)',
-            display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0
-          }}>
-            <div style={{ padding: '10px 12px 6px', borderBottom: '1px solid var(--border)', fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              Combat Log
             </div>
-            <div style={{ flex: 1, overflow: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {feed.filter(e => e.type !== 'player-save-prompt').map(event => (
-                <div key={event.id} style={{
-                  fontSize: event.type === 'round' ? 9 : 12,
-                  fontFamily: event.type === 'round' ? 'var(--font-mono)' : 'var(--font-body)',
-                  color: event.type === 'damage' ? '#c49070'
-                    : event.type === 'heal' ? 'var(--green-bright)'
-                    : event.type === 'save-prompt' ? 'var(--warning)'
-                    : event.type === 'round' ? 'var(--text-muted)'
-                    : event.type === 'system' ? 'var(--warning)'
-                    : 'var(--text-secondary)',
-                  borderTop: event.type === 'round' ? '1px solid var(--border)' : 'none',
-                  paddingTop: event.type === 'round' ? 5 : 0,
-                  marginTop: event.type === 'round' ? 3 : 0,
-                  display: 'flex', alignItems: 'flex-start', gap: 4, lineHeight: 1.4
-                }}>
-                  {event.shared && <span style={{ fontSize: 5, color: 'var(--green-dim)', marginTop: 4, flexShrink: 0 }}>●</span>}
-                  {event.type === 'save-prompt' ? (() => {
-                    const p = decodeSavePrompt(event.text)
-                    if (!p) return event.text
-                    return `${p.casterName} casts ${p.spellName}: ${p.saveAbility} save DC ${p.saveDc} (${(p.targets || []).map(t => t.name).join(', ')})`
-                  })() : event.type === 'save-prompt-resolved' ? (() => {
-                    const p = decodeSavePrompt(event.text)
-                    return p?.resolutionText || event.text
-                  })() : event.text}
+
+            {/* Combat log — collapsible sidebar */}
+            {logOpen && (
+              <div style={{
+                width: 220, borderLeft: '1px solid var(--border)',
+                display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0
+              }}>
+                <div style={{ padding: '10px 12px 6px', borderBottom: '1px solid var(--border)', fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                  Combat Log
                 </div>
-              ))}
-            </div>
-          </div>
+                <div style={{ flex: 1, overflow: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  {feed.filter(e => e.type !== 'player-save-prompt').map(event => (
+                    <div key={event.id} style={{
+                      fontSize: event.type === 'round' ? 9 : 12,
+                      fontFamily: event.type === 'round' ? 'var(--font-mono)' : 'var(--font-body)',
+                      color: event.type === 'damage' ? '#c49070'
+                        : event.type === 'heal' ? 'var(--green-bright)'
+                        : event.type === 'save-prompt' ? 'var(--warning)'
+                        : event.type === 'round' ? 'var(--text-muted)'
+                        : event.type === 'system' ? 'var(--warning)'
+                        : 'var(--text-secondary)',
+                      borderTop: event.type === 'round' ? '1px solid var(--border)' : 'none',
+                      paddingTop: event.type === 'round' ? 5 : 0,
+                      marginTop: event.type === 'round' ? 3 : 0,
+                      display: 'flex', alignItems: 'flex-start', gap: 4, lineHeight: 1.4
+                    }}>
+                      {event.shared && <span style={{ fontSize: 5, color: 'var(--green-dim)', marginTop: 4, flexShrink: 0 }}>●</span>}
+                      {event.type === 'save-prompt' ? (() => {
+                        const p = decodeSavePrompt(event.text)
+                        if (!p) return event.text
+                        return `${p.casterName} casts ${p.spellName}: ${p.saveAbility} save DC ${p.saveDc} (${(p.targets || []).map(t => t.name).join(', ')})`
+                      })() : event.type === 'save-prompt-resolved' ? (() => {
+                        const p = decodeSavePrompt(event.text)
+                        return p?.resolutionText || event.text
+                      })() : event.text}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

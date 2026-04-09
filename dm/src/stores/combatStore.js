@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { supabase } from '@shared/lib/supabase.js'
-import { CHARACTERS } from '@shared/content/session1.js'
+import { fetchPartyRosterForCombat } from '@shared/lib/partyRoster.js'
+import { normalizeStatBlockAction } from '@shared/lib/statBlockActions.js'
 import { SESSION_2_ENEMIES } from '@shared/content/session2.js'
 import { useSessionStore } from './sessionStore.js'
 import { makeActionEconomy, ensureActionEconomy, consumeActionEconomy, sortCombatantsByInitiative, decodeSavePrompt, applyDeterministicRollModifiers, encodeSavePrompt, normalizeEffectRecord } from '@shared/lib/combatRules.js'
@@ -304,7 +305,8 @@ export const useCombatStore = create((set, get) => ({
     const sbMap = {}
     if (statBlocks) statBlocks.forEach(sb => { sbMap[sb.slug] = sb })
 
-    const pcIds = CHARACTERS.map(c => c.id).filter(Boolean)
+    const { roster: partyRoster } = await fetchPartyRosterForCombat(supabase)
+    const pcIds = partyRoster.map(c => c.id).filter(Boolean)
     let charStates = null
     try {
       const { data, error } = await supabase
@@ -323,7 +325,7 @@ export const useCombatStore = create((set, get) => ({
     if (charStates) charStates.forEach(s => { stateMap[s.id] = s })
 
     // Build combatant list from players + enemies
-    const playerCombatants = CHARACTERS.map(c => {
+    const playerCombatants = partyRoster.map(c => {
       const saved = stateMap[c.id]
       return {
         id: c.id,
@@ -383,9 +385,9 @@ export const useCombatStore = create((set, get) => ({
         abilityScores: sb?.ability_scores || {},
         savingThrows: sb?.saving_throws || [],
         actionOptions: [
-          ...((sb?.actions || []).map(a => ({ ...a, actionType: 'action' }))),
-          ...((sb?.bonus_actions || []).map(a => ({ ...a, actionType: 'bonus_action' }))),
-          ...((sb?.reactions || []).map(a => ({ ...a, actionType: 'reaction' }))),
+          ...((sb?.actions || []).map(a => ({ ...normalizeStatBlockAction(a), actionType: 'action' }))),
+          ...((sb?.bonus_actions || []).map(a => ({ ...normalizeStatBlockAction(a), actionType: 'bonus_action' }))),
+          ...((sb?.reactions || []).map(a => ({ ...normalizeStatBlockAction(a), actionType: 'reaction' }))),
           ...((e.actions || []).map(a => ({ ...a, actionType: a.actionType || 'action', source: 'normalized' }))),
           ...((e.bonus_actions || []).map(a => ({ ...a, actionType: 'bonus_action', source: 'normalized' }))),
           ...((e.reactions || []).map(a => ({ ...a, actionType: 'reaction', source: 'normalized' }))),
