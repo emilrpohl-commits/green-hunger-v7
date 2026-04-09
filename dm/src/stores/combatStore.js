@@ -3,7 +3,7 @@ import { supabase } from '@shared/lib/supabase.js'
 import { CHARACTERS } from '@shared/content/session1.js'
 import { SESSION_2_ENEMIES } from '@shared/content/session2.js'
 import { useSessionStore } from './sessionStore.js'
-import { makeActionEconomy, ensureActionEconomy, consumeActionEconomy, sortCombatantsByInitiative } from '@shared/lib/combatRules.js'
+import { makeActionEconomy, ensureActionEconomy, consumeActionEconomy, sortCombatantsByInitiative, decodeSavePrompt, applyDeterministicRollModifiers, encodeSavePrompt } from '@shared/lib/combatRules.js'
 
 const CORRUPTED_WOLF = {
   id: 'corrupted-wolf',
@@ -36,7 +36,9 @@ export const useCombatStore = create((set, get) => ({
   // Player roll feed (type='roll' entries from combat_feed)
   playerRolls: [],
   rollFeedChannel: null,
+  feedChannel: null,
   combatStateChannel: null,
+  savePrompts: [],
 
   // Hydrate DM store from a combat_state row (DB is updated by player clients too)
   applyCombatStateRow: (row) => {
@@ -133,6 +135,42 @@ export const useCombatStore = create((set, get) => ({
     set({ rollFeedChannel: channel })
   },
 
+  subscribeToFeed: () => {
+    const existing = get().feedChannel
+    if (existing) return
+    const channel = supabase
+      .channel('combat-feed-dm')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'combat_feed',
+        filter: 'session_id=eq.session-1'
+      }, (payload) => {
+        const row = payload.new
+        if (!row) return
+        const event = { id: row.id || Date.now(), round: row.round, text: row.text, type: row.type, shared: row.shared, timestamp: row.timestamp }
+        set(state => ({ feed: [event, ...state.feed].slice(0, 80) }))
+        if (row.type === 'save-prompt') {
+          const prompt = decodeSavePrompt(row.text)
+          if (!prompt) return
+          set(state => ({
+            savePrompts: [
+              { ...prompt, eventId: row.id || Date.now(), resolved: false },
+              ...state.savePrompts.filter(p => p.promptId !== prompt.promptId)
+            ].slice(0, 30)
+          }))
+        }
+        if (row.type === 'save-prompt-resolved') {
+          const resolvedPrompt = decodeSavePrompt(row.text)
+          const promptId = resolvedPrompt?.promptId
+          if (!promptId) return
+          set(state => ({ savePrompts: state.savePrompts.map(p => p.promptId === promptId ? { ...p, resolved: true } : p) }))
+        }
+      })
+      .subscribe()
+    set({ feedChannel: channel })
+  },
+
   // Load recent player rolls from Supabase
   loadPlayerRolls: async () => {
     try {
@@ -156,6 +194,51 @@ export const useCombatStore = create((set, get) => ({
     try {
       await supabase.from('combat_feed').delete().eq('session_id', 'session-1').eq('type', 'roll')
     } catch (e) {}
+  },
+
+  resolveSavePrompt: async ({ prompt, targetId, mode = 'roll', manualTotal = null }) => {
+    if (!prompt || !targetId) return
+    const { combatants } = get()
+    const target = combatants.find(c => c.id === targetId)
+    if (!target) return
+    const baseD20 = Math.floor(Math.random() * 20) + 1
+    const saveBonus = Array.isArray(target.savingThrows)
+      ? (target.savingThrows.find(s => String(s.name || '').toUpperCase() === String(prompt.saveAbility || '').toUpperCase())?.mod || 0)
+      : 0
+    const rolled = applyDeterministicRollModifiers({
+      combatant: target,
+      baseRoll: baseD20 + saveBonus,
+      rollType: 'save'
+    })
+    const total = mode === 'manual' ? (parseInt(manualTotal, 10) || 0) : rolled.total
+    const success = total >= (prompt.saveDc || 10)
+    const dmg = prompt.damage?.amount || 0
+    const applyDmg = success ? (prompt.damage?.halfOnSuccess ? Math.floor(dmg / 2) : 0) : dmg
+
+    if (applyDmg > 0) await get().damageCombatant(targetId, applyDmg)
+    if (!success && prompt.effect?.name) {
+      await get().addEffect(targetId, {
+        name: prompt.effect.name,
+        mechanic: prompt.effect.mechanic || '',
+        source: prompt.casterName || null,
+        colour: '#a060c0',
+      })
+    }
+    const resolutionText = `${target.name} ${prompt.saveAbility} save vs ${prompt.spellName} DC ${prompt.saveDc}: ${total} (${success ? 'SUCCESS' : 'FAIL'})${applyDmg > 0 ? `, damage ${applyDmg}` : ''}`
+    const { feed, round } = get()
+    const event = { id: Date.now(), round, text: resolutionText, type: 'save-prompt-resolved', shared: true, timestamp: new Date().toISOString() }
+    set({ feed: [event, ...feed].slice(0, 80) })
+    try {
+      await supabase.from('combat_feed').insert({
+        session_id: 'session-1',
+        round,
+        text: encodeSavePrompt({ promptId: prompt.promptId, resolutionText }),
+        type: 'save-prompt-resolved',
+        shared: true,
+        timestamp: event.timestamp
+      })
+    } catch (e) {}
+    set(state => ({ savePrompts: state.savePrompts.map(p => p.promptId === prompt.promptId ? { ...p, resolved: true } : p) }))
   },
 
   // Add/remove a spell effect on a combatant
@@ -531,7 +614,12 @@ export const useCombatStore = create((set, get) => ({
         .limit(50)
 
       if (data) {
-        set({ feed: data.map(d => ({ id: d.id, round: d.round, text: d.text, type: d.type, shared: d.shared })) })
+        const feed = data.map(d => ({ id: d.id, round: d.round, text: d.text, type: d.type, shared: d.shared }))
+        const savePrompts = data
+          .filter(d => d.type === 'save-prompt')
+          .map(d => ({ ...(decodeSavePrompt(d.text) || {}), eventId: d.id, resolved: false }))
+          .filter(p => p.promptId)
+        set({ feed, savePrompts })
       }
     } catch (e) {
       console.log('No combat feed found.')
