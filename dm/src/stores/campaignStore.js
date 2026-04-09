@@ -13,6 +13,7 @@ import { supabase } from '@shared/lib/supabase.js'
 
 const SPELL_DB_COLUMNS = [
   'id',
+  'spell_id',
   'campaign_id',
   'name',
   'level',
@@ -30,6 +31,12 @@ const SPELL_DB_COLUMNS = [
   'healing_dice',
   'save_type',
   'attack_type',
+  'resolution_type',
+  'target_mode',
+  'save_ability',
+  'area',
+  'scaling',
+  'rules_json',
   'tags',
   'source',
   'classes',
@@ -38,8 +45,15 @@ const SPELL_DB_COLUMNS = [
 ]
 
 function sanitizeSpellPayload(spell, campaignId) {
+  const normalizedSpellId = spell.spell_id || String(spell.name || '')
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
   const withManagedFields = {
     ...spell,
+    spell_id: normalizedSpellId,
     campaign_id: campaignId,
     updated_at: new Date().toISOString(),
   }
@@ -56,6 +70,7 @@ export const useCampaignStore = create((set, get) => ({
   statBlocks: [],        // flat list
   statBlockMap: {},      // slug → statBlock (and id → statBlock)
   spells: [],
+  compendiumSpells: [],
   npcs: [],
   assets: [],
   archivedSessions: [],
@@ -98,11 +113,11 @@ export const useCampaignStore = create((set, get) => ({
         statBlockMap[sb.id] = sb
       })
 
-      // Spells
+      // Spells (campaign + global compendium)
       const { data: spells } = await supabase
         .from('spells')
         .select('*')
-        .eq('campaign_id', campaign.id)
+        .or(`campaign_id.eq.${campaign.id},campaign_id.is.null`)
         .order('level, name')
 
       // NPCs
@@ -153,6 +168,9 @@ export const useCampaignStore = create((set, get) => ({
         archivedSessionsRaw.map(s => get().loadSessionContent(s))
       )
 
+      const campaignSpells = (spells || []).filter(s => s.campaign_id === campaign.id)
+      const compendiumSpells = (spells || []).filter(s => s.campaign_id == null)
+
       set({
         campaign,
         adventureId,
@@ -160,7 +178,8 @@ export const useCampaignStore = create((set, get) => ({
         statBlocks: activeStatBlocks,
         archivedStatBlocks,
         statBlockMap,
-        spells: spells || [],
+        spells: campaignSpells,
+        compendiumSpells,
         npcs: npcs || [],
         assets: assets || [],
         archivedSessions,
@@ -449,7 +468,7 @@ export const useCampaignStore = create((set, get) => ({
     if (result.error) return { error: result.error.message }
     const { spells } = get()
     const updated = spell.id ? spells.map(s => s.id === result.data.id ? result.data : s) : [...spells, result.data]
-    set({ spells: updated })
+    set({ spells: updated.sort((a, b) => (a.level - b.level) || String(a.name || '').localeCompare(String(b.name || ''))) })
     return { data: result.data }
   },
 
@@ -458,6 +477,60 @@ export const useCampaignStore = create((set, get) => ({
     if (error) return { error: error.message }
     set({ spells: get().spells.filter(s => s.id !== id) })
     return { success: true }
+  },
+
+  assignSpellsToCharacters: async ({ spellIds, characterIds }) => {
+    const cleanSpellIds = Array.from(new Set((spellIds || []).filter(Boolean)))
+    const cleanCharacterIds = Array.from(new Set((characterIds || []).filter(Boolean)))
+    if (cleanSpellIds.length === 0 || cleanCharacterIds.length === 0) {
+      return { error: 'Select at least one spell and one character.' }
+    }
+
+    const allSpells = [...(get().compendiumSpells || []), ...(get().spells || [])]
+    const spellMap = {}
+    allSpells.forEach(s => {
+      if (s.spell_id) spellMap[s.spell_id] = s
+    })
+    const selectedSpells = cleanSpellIds.map(id => spellMap[id]).filter(Boolean)
+    if (selectedSpells.length === 0) return { error: 'No valid spells found for assignment.' }
+
+    const rowsToInsert = []
+    for (const characterId of cleanCharacterIds) {
+      const { data: existingRows, error: existingError } = await supabase
+        .from('character_spells')
+        .select('slot_level, order_index, spell_id')
+        .eq('character_id', characterId)
+      if (existingError) return { error: existingError.message }
+
+      const existingBySlot = {}
+      ;(existingRows || []).forEach(r => {
+        const key = String(r.slot_level)
+        if (!existingBySlot[key]) existingBySlot[key] = { maxOrder: 0, spellIds: new Set() }
+        existingBySlot[key].maxOrder = Math.max(existingBySlot[key].maxOrder, r.order_index || 0)
+        if (r.spell_id) existingBySlot[key].spellIds.add(r.spell_id)
+      })
+
+      selectedSpells.forEach(spell => {
+        const slotLevel = spell.level === 0 ? 'cantrip' : String(spell.level)
+        if (!existingBySlot[slotLevel]) existingBySlot[slotLevel] = { maxOrder: 0, spellIds: new Set() }
+        if (existingBySlot[slotLevel].spellIds.has(spell.spell_id)) return
+        existingBySlot[slotLevel].maxOrder += 1
+        rowsToInsert.push({
+          character_id: characterId,
+          slot_level: slotLevel,
+          order_index: existingBySlot[slotLevel].maxOrder,
+          spell_id: spell.spell_id,
+          spell_data: spell,
+          overrides_json: {},
+          updated_at: new Date().toISOString(),
+        })
+      })
+    }
+
+    if (rowsToInsert.length === 0) return { data: { inserted: 0, skippedAll: true } }
+    const { error } = await supabase.from('character_spells').insert(rowsToInsert)
+    if (error) return { error: error.message }
+    return { data: { inserted: rowsToInsert.length } }
   },
 
   // ---------------------------------------------------------------------------
