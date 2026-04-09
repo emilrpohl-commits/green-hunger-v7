@@ -167,8 +167,5 @@ export function parseSpell(rawText) {
     })
   }
 
-  // --- Slug ---
-  result.slug = result.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-
   return result
 }
