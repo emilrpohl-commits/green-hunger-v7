@@ -71,10 +71,10 @@ function SkillCheckTableEditor({ value, onChange }) {
   }
 
   const update = (i, field, val) => {
-    const next = rows.map((r, idx) => idx === i ? { ...r, [field]: field === 'dc' ? (parseInt(val) || '') : val } : r)
+    const next = rows.map((r, idx) => idx === i ? { ...r, [field]: val } : r)
     onChange(JSON.stringify(next))
   }
-  const addRow = () => onChange(JSON.stringify([...rows, { trigger: '', skill: '', dc: '', result: '' }]))
+  const addRow = () => onChange(JSON.stringify([...rows, { trigger: '', skill: '', dc: '', whatTheyLearn: '' }]))
   const removeRow = (i) => onChange(JSON.stringify(rows.filter((_, idx) => idx !== i)))
 
   const thStyle = { ...mono, fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', padding: '4px 6px', textAlign: 'left', letterSpacing: '0.08em', borderBottom: '1px solid var(--border)' }
@@ -98,8 +98,8 @@ function SkillCheckTableEditor({ value, onChange }) {
             <tr key={i}>
               <td style={tdStyle}><input value={row.trigger || ''} onChange={e => update(i, 'trigger', e.target.value)} style={cellInput()} /></td>
               <td style={tdStyle}><input value={row.skill || ''} onChange={e => update(i, 'skill', e.target.value)} style={cellInput(160)} /></td>
-              <td style={tdStyle}><input value={row.dc || ''} onChange={e => update(i, 'dc', e.target.value)} style={cellInput(48)} type="number" /></td>
-              <td style={tdStyle}><input value={row.result || ''} onChange={e => update(i, 'result', e.target.value)} style={cellInput()} /></td>
+              <td style={tdStyle}><input value={row.dc || ''} onChange={e => update(i, 'dc', e.target.value)} style={cellInput(64)} placeholder="12 or Auto" /></td>
+              <td style={tdStyle}><input value={row.whatTheyLearn || row.result || ''} onChange={e => update(i, 'whatTheyLearn', e.target.value)} style={cellInput()} /></td>
               <td style={tdStyle}>
                 <button onClick={() => removeRow(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 12, padding: '2px 4px' }}>×</button>
               </td>

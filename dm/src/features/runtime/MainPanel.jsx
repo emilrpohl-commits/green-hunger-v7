@@ -30,6 +30,108 @@ const CHARACTERS = [
   { id: 'all', name: 'All Players' }
 ]
 
+function parseMechanicalEffect(value) {
+  if (!value) return null
+  if (Array.isArray(value)) return value
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value)
+      return Array.isArray(parsed) ? parsed : null
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
+function SkillCheckTable({ rows }) {
+  if (!rows?.length) return null
+  const thStyle = {
+    fontFamily: 'var(--font-mono)',
+    fontSize: 9,
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    textAlign: 'left',
+    padding: '8px 10px',
+    borderBottom: '1px solid var(--border)',
+  }
+  const tdStyle = {
+    padding: '8px 10px',
+    fontSize: 13,
+    color: 'var(--text-secondary)',
+    borderBottom: '1px solid rgba(255,255,255,0.05)',
+    verticalAlign: 'top',
+  }
+
+  return (
+    <div style={{ marginBottom: 18, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            <th style={thStyle}>Trigger</th>
+            <th style={thStyle}>Skill / Save</th>
+            <th style={{ ...thStyle, width: 70 }}>DC</th>
+            <th style={thStyle}>What They Learn</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i}>
+              <td style={tdStyle}>{row.trigger || '—'}</td>
+              <td style={tdStyle}>{row.skill || '—'}</td>
+              <td style={{ ...tdStyle, fontFamily: 'var(--font-mono)', color: 'var(--info)' }}>{row.dc ?? '—'}</td>
+              <td style={tdStyle}>{row.whatTheyLearn || row.result || '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function OutcomeTable({ rows }) {
+  if (!rows?.length) return null
+  const thStyle = {
+    fontFamily: 'var(--font-mono)',
+    fontSize: 9,
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    textAlign: 'left',
+    padding: '8px 10px',
+    borderBottom: '1px solid var(--border)',
+  }
+  const tdStyle = {
+    padding: '8px 10px',
+    fontSize: 13,
+    color: 'var(--text-secondary)',
+    borderBottom: '1px solid rgba(255,255,255,0.05)',
+    verticalAlign: 'top',
+  }
+
+  return (
+    <div style={{ marginBottom: 18, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            <th style={thStyle}>Outcome</th>
+            <th style={thStyle}>Consequence</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i}>
+              <td style={tdStyle}>{row.outcome || '—'}</td>
+              <td style={tdStyle}>{row.consequence || row.result || '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function DmDiceRoller({ supabaseClient }) {
   const [die, setDie] = useState(20)
   const [modifier, setModifier] = useState(0)
@@ -168,6 +270,21 @@ export default function MainPanel() {
   if (!scene || !beat) return null
 
   const typeStyle = BEAT_TYPE_STYLE[beat.type] || BEAT_TYPE_STYLE.narrative
+  const mechanicalRows = parseMechanicalEffect(beat.mechanical_effect)
+  const checkRows = beat.type === 'check'
+    ? (mechanicalRows || []).map(r => ({
+        trigger: r?.trigger ?? '',
+        skill: r?.skill ?? '',
+        dc: r?.dc ?? '',
+        whatTheyLearn: r?.whatTheyLearn ?? r?.result ?? '',
+      }))
+    : []
+  const decisionRows = beat.type === 'decision'
+    ? (mechanicalRows || []).map(r => ({
+        outcome: r?.outcome ?? r?.trigger ?? '',
+        consequence: r?.consequence ?? r?.whatTheyLearn ?? r?.result ?? '',
+      }))
+    : []
 
   return (
     <div style={{
@@ -258,6 +375,9 @@ export default function MainPanel() {
         }}>
           {beat.title}
         </h2>
+
+        {checkRows.length > 0 && <SkillCheckTable rows={checkRows} />}
+        {decisionRows.length > 0 && <OutcomeTable rows={decisionRows} />}
 
         {/* Beat content — read aloud text */}
         <div style={{
