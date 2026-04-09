@@ -1,0 +1,93 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            dm/package-lock.json
+            players/package-lock.json
+
+      - name: Install DM dependencies
+        run: npm ci
+        working-directory: dm
+
+      - name: Install Players dependencies
+        run: npm ci
+        working-directory: players
+
+      - name: Build DM app for Pages
+        run: VITE_BASE_PATH=/green-hunger-v7/dm/ npm run build
+        working-directory: dm
+
+      - name: Build Players app for Pages
+        run: VITE_BASE_PATH=/green-hunger-v7/players/ npm run build
+        working-directory: players
+
+      - name: Assemble Pages artifact
+        run: |
+          mkdir -p _site/dm _site/players
+          cp -R dm/dist/* _site/dm/
+          cp -R players/dist/* _site/players/
+          cat > _site/index.html <<'EOF'
+          <!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="UTF-8" />
+              <meta name="viewport" content="width=device-width,initial-scale=1" />
+              <title>green-hunger-v7</title>
+              <style>
+                body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 2rem; line-height: 1.4; }
+                a { display: inline-block; margin: 0.5rem 0; font-size: 1.1rem; }
+              </style>
+            </head>
+            <body>
+              <h1>green-hunger-v7</h1>
+              <p>Select app:</p>
+              <a href="./dm/">DM App</a><br />
+              <a href="./players/">Players App</a>
+            </body>
+          </html>
+          EOF
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+

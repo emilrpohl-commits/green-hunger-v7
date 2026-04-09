@@ -8,7 +8,7 @@ const root = path.resolve(__dirname, '..')
 
 export default defineConfig({
   plugins: [react()],
-  base: '/greenhunger-players/',
+  base: process.env.VITE_BASE_PATH || '/greenhunger-players/',
   build: {
     outDir: 'dist'
   },
