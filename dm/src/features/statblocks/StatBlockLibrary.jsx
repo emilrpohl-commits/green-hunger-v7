@@ -4,8 +4,11 @@ import ImportModal from '../builder/ImportModal'
 
 export default function StatBlockLibrary({ onEdit, onCreate }) {
   const [showImport, setShowImport] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
   const statBlocks = useCampaignStore(s => s.statBlocks)
+  const archivedStatBlocks = useCampaignStore(s => s.archivedStatBlocks)
   const deleteStatBlock = useCampaignStore(s => s.deleteStatBlock)
+  const restoreStatBlock = useCampaignStore(s => s.restoreStatBlock)
   const duplicateStatBlock = useCampaignStore(s => s.duplicateStatBlock)
   const [search, setSearch] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -54,6 +57,16 @@ export default function StatBlockLibrary({ onEdit, onCreate }) {
             }}
           >
             + New Stat Block
+          </button>
+          <button
+            onClick={() => setShowArchived(v => !v)}
+            style={{
+              padding: '8px 18px', background: 'transparent', color: showArchived ? 'var(--warning)' : 'var(--text-secondary)',
+              border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer',
+              ...mono, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
+            }}
+          >
+            {showArchived ? 'Hide Archived' : `Archived (${archivedStatBlocks.length})`}
           </button>
         </div>
       </div>
@@ -130,16 +143,38 @@ export default function StatBlockLibrary({ onEdit, onCreate }) {
               <ActionBtn label="Copy" onClick={() => handleDuplicate(sb.id)} />
               {confirmDelete === sb.id ? (
                 <>
-                  <ActionBtn label="Confirm" onClick={() => handleDelete(sb.id)} danger />
+                  <ActionBtn label="Confirm Archive" onClick={() => handleDelete(sb.id)} danger />
                   <ActionBtn label="Cancel" onClick={() => setConfirmDelete(null)} />
                 </>
               ) : (
-                <ActionBtn label="Delete" onClick={() => setConfirmDelete(sb.id)} danger />
+                <ActionBtn label="Archive" onClick={() => setConfirmDelete(sb.id)} danger />
               )}
             </div>
           </div>
         ))}
       </div>
+
+      {showArchived && (
+        <div style={{ marginTop: 24 }}>
+          <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+            Archived Stat Blocks
+          </div>
+          {archivedStatBlocks.length === 0 && (
+            <div style={{ padding: '10px 12px', border: '1px dashed var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-muted)', fontSize: 12 }}>
+              No archived stat blocks.
+            </div>
+          )}
+          {archivedStatBlocks.map(sb => (
+            <div key={sb.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: 6, opacity: 0.9 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{sb.name}</div>
+                <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)' }}>{sb.archived_at ? `Archived: ${new Date(sb.archived_at).toLocaleString()}` : 'Archived'}</div>
+              </div>
+              <ActionBtn label="Restore" onClick={() => restoreStatBlock(sb.id)} />
+            </div>
+          ))}
+        </div>
+      )}
 
       {showImport && (
         <ImportModal

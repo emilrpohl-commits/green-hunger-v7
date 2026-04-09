@@ -202,7 +202,8 @@ export default function DocxImportModal({ onClose, onDone }) {
       p_adventure_id: adventureId,
       p_campaign_id: campaignId,
       p_payload: payload,
-      p_overwrite_session_id: conflictSession?.id || null,
+      // Safety: never overwrite an existing session during import.
+      p_overwrite_session_id: null,
     })
     if (error) return { error: error.message }
     return { data }
