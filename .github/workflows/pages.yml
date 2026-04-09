@@ -60,17 +60,118 @@ jobs:
             <head>
               <meta charset="UTF-8" />
               <meta name="viewport" content="width=device-width,initial-scale=1" />
-              <title>green-hunger-v7</title>
+              <title>The Green Hunger</title>
               <style>
-                body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 2rem; line-height: 1.4; }
-                a { display: inline-block; margin: 0.5rem 0; font-size: 1.1rem; }
+                :root {
+                  --bg-deep: #0a0f0c;
+                  --bg-surface: rgba(16, 22, 18, 0.78);
+                  --border: rgba(130, 166, 126, 0.35);
+                  --text-primary: #e8efe7;
+                  --text-muted: #9aa99a;
+                  --green-bright: #8fd68a;
+                  --green-mid: #5f9860;
+                  --green-dim: rgba(90, 140, 86, 0.32);
+                }
+                * { box-sizing: border-box; }
+                html, body { margin: 0; min-height: 100%; }
+                body {
+                  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+                  color: var(--text-primary);
+                  background:
+                    linear-gradient(180deg, rgba(0,0,0,0.52), rgba(0,0,0,0.74)),
+                    radial-gradient(1200px 700px at 50% 20%, rgba(70, 92, 80, 0.35), transparent 70%),
+                    var(--bg-deep);
+                }
+                .wrap {
+                  min-height: 100vh;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  padding: 24px;
+                }
+                .panel {
+                  width: min(560px, 100%);
+                  background: var(--bg-surface);
+                  border: 1px solid var(--border);
+                  border-radius: 14px;
+                  backdrop-filter: blur(3px);
+                  box-shadow: 0 18px 60px rgba(0,0,0,0.45);
+                  padding: 28px;
+                }
+                .eyebrow {
+                  margin: 0 0 8px;
+                  font-size: 11px;
+                  letter-spacing: 0.14em;
+                  text-transform: uppercase;
+                  color: var(--text-muted);
+                }
+                h1 {
+                  margin: 0 0 10px;
+                  font-size: 34px;
+                  letter-spacing: 0.06em;
+                  line-height: 1.1;
+                }
+                .sub {
+                  margin: 0 0 18px;
+                  font-size: 14px;
+                  color: var(--text-muted);
+                }
+                .grid {
+                  display: grid;
+                  gap: 12px;
+                }
+                .card {
+                  display: block;
+                  text-decoration: none;
+                  padding: 14px 16px;
+                  border: 1px solid var(--border);
+                  border-radius: 10px;
+                  background: rgba(30, 40, 33, 0.6);
+                  color: var(--text-primary);
+                  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+                }
+                .card:hover {
+                  transform: translateY(-1px);
+                  border-color: var(--green-mid);
+                  background: rgba(38, 56, 43, 0.66);
+                }
+                .title {
+                  font-size: 14px;
+                  letter-spacing: 0.08em;
+                  text-transform: uppercase;
+                  color: var(--green-bright);
+                  margin-bottom: 4px;
+                }
+                .desc {
+                  font-size: 13px;
+                  color: var(--text-muted);
+                }
+                .foot {
+                  margin-top: 16px;
+                  font-size: 12px;
+                  color: var(--text-muted);
+                }
               </style>
             </head>
             <body>
-              <h1>green-hunger-v7</h1>
-              <p>Select app:</p>
-              <a href="./dm/">DM App</a><br />
-              <a href="./players/">Players App</a>
+              <main class="wrap">
+                <section class="panel">
+                  <p class="eyebrow">The Green Hunger</p>
+                  <h1>Choose Experience</h1>
+                  <p class="sub">Launch the DM console or player app.</p>
+                  <div class="grid">
+                    <a class="card" href="./dm/">
+                      <div class="title">DM App</div>
+                      <div class="desc">Run scenes, encounters, and combat control.</div>
+                    </a>
+                    <a class="card" href="./players/">
+                      <div class="title">Player App</div>
+                      <div class="desc">Character sheet, combat feed, and rolls.</div>
+                    </a>
+                  </div>
+                  <div class="foot">Tip: bookmark each app URL after first launch.</div>
+                </section>
+              </main>
             </body>
           </html>
           EOF
