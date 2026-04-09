@@ -36,6 +36,13 @@ function parseDmgString(str, crit = false) {
   return { total: rolls.reduce((a, b) => a + b, 0) + mod, rolls }
 }
 
+function parseDamageFromStatblock(text) {
+  const raw = String(text || '')
+  const m = raw.match(/(\d+d\d+(?:\s*[+-]\s*\d+)?)/i)
+  if (!m) return null
+  return m[1].replace(/\s+/g, '')
+}
+
 function CombatantCard({ combatant, isActive, players = [] }) {
   const damageCombatant = useCombatStore(s => s.damageCombatant)
   const healCombatant = useCombatStore(s => s.healCombatant)
@@ -44,6 +51,7 @@ function CombatantCard({ combatant, isActive, players = [] }) {
   const addEffect = useCombatStore(s => s.addEffect)
   const removeEffect = useCombatStore(s => s.removeEffect)
   const pushFeedEvent = useCombatStore(s => s.pushFeedEvent)
+  const useCombatantActionType = useCombatStore(s => s.useCombatantActionType)
 
   const [amount, setAmount] = useState('')
   const [showConditions, setShowConditions] = useState(false)
@@ -53,12 +61,14 @@ function CombatantCard({ combatant, isActive, players = [] }) {
   const [atkBonus, setAtkBonus] = useState(4)
   const [dmgInput, setDmgInput] = useState('2d4+2')
   const [atkResult, setAtkResult] = useState(null)
+  const [monsterAction, setMonsterAction] = useState(null)
 
   const hpPct = combatant.maxHp > 0 ? (combatant.curHp / combatant.maxHp) * 100 : 0
   const hpColour = HP_COLOUR(hpPct, combatant.curHp)
   const isEnemy = combatant.type === 'enemy'
   const isDead = combatant.curHp === 0 && isEnemy
   const effects = combatant.effects || []
+  const economy = combatant.actionEconomy || {}
 
   const applyDamage = () => {
     const val = parseInt(amount)
@@ -86,24 +96,46 @@ function CombatantCard({ combatant, isActive, players = [] }) {
     pushFeedEvent(msg, 'roll', false)
   }
 
-  const rollEnemyAttack = () => {
-    if (!atkTarget) return
+  const rollEnemyAttack = async () => {
+    const selected = monsterAction || { toHit: atkBonus, damage: dmgInput, name: 'Attack', type: 'attack', actionType: 'action' }
+    if (!atkTarget && selected.type !== 'special') return
+    if (selected.actionType) {
+      const ok = await useCombatantActionType(combatant.id, selected.actionType, selected.name)
+      if (!ok) {
+        pushFeedEvent(`${combatant.name} already used ${selected.actionType === 'bonus_action' ? 'bonus action' : selected.actionType} this turn.`, 'system', false)
+        return
+      }
+    }
+    if (selected.type === 'save') {
+      const dc = selected.saveDC || 12
+      const saveType = selected.saveType || 'DEX'
+      pushFeedEvent(`${combatant.name} uses ${selected.name}: ${atkTarget?.name || 'target'} makes ${saveType} save (DC ${dc}).`, 'save-prompt', true)
+      setAtkResult({ hit: null, targetName: atkTarget?.name, total: dc, d20: null })
+      return
+    }
+    if (selected.type === 'special') {
+      pushFeedEvent(`${combatant.name} uses ${selected.name}. ${selected.desc || selected.effect || ''}`.trim(), 'action', true)
+      setAtkResult({ hit: null, targetName: atkTarget?.name || '—', total: null, d20: null })
+      return
+    }
     const d20 = rollDie(20)
     const bane = effects.find(e => e.name === 'Bane')
     const banePenalty = bane ? rollDie(4) : 0
-    const total = d20 + atkBonus - banePenalty
+    const toHit = Number(selected.toHit ?? atkBonus) || 0
+    const total = d20 + toHit - banePenalty
     const crit = d20 === 20
     const hit = crit || total >= atkTarget.ac
     if (hit) {
-      const dmg = parseDmgString(dmgInput, crit)
+      const damageExpr = parseDamageFromStatblock(selected.damage) || dmgInput
+      const dmg = parseDmgString(damageExpr, crit)
       damageCombatant(atkTarget.id, dmg.total)
       const critStr = crit ? ' CRIT!' : ''
       const baneStr = banePenalty ? ` −Bane(${banePenalty})` : ''
-      pushFeedEvent(`${combatant.name} → ${atkTarget.name}${critStr}: d20(${d20}) + ${atkBonus}${baneStr} = ${total} → HIT! ${dmg.total} damage`, 'damage', true)
+      pushFeedEvent(`${combatant.name} uses ${selected.name} on ${atkTarget.name}${critStr}: d20(${d20}) + ${toHit}${baneStr} = ${total} → HIT! ${dmg.total} damage`, 'damage', true)
       setAtkResult({ hit: true, d20, total, crit, dmgTotal: dmg.total, targetName: atkTarget.name })
     } else {
       const baneStr = banePenalty ? ` −Bane(${banePenalty})` : ''
-      pushFeedEvent(`${combatant.name} → ${atkTarget.name}: d20(${d20}) + ${atkBonus}${baneStr} = ${total} vs AC ${atkTarget.ac} → MISS`, 'roll', true)
+      pushFeedEvent(`${combatant.name} uses ${selected.name} on ${atkTarget.name}: d20(${d20}) + ${toHit}${baneStr} = ${total} vs AC ${atkTarget.ac} → MISS`, 'roll', true)
       setAtkResult({ hit: false, d20, total, targetName: atkTarget.name })
     }
   }
@@ -218,6 +250,13 @@ function CombatantCard({ combatant, isActive, players = [] }) {
       )}
 
       {/* Controls */}
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, padding: '2px 7px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: economy.actionAvailable ? 'var(--green-bright)' : 'var(--danger)' }}>A {economy.actionAvailable ? 'ready' : 'used'}</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, padding: '2px 7px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: economy.bonusActionAvailable ? 'var(--green-bright)' : 'var(--danger)' }}>BA {economy.bonusActionAvailable ? 'ready' : 'used'}</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, padding: '2px 7px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: economy.reactionAvailable ? 'var(--green-bright)' : 'var(--danger)' }}>R {economy.reactionAvailable ? 'ready' : 'used'}</span>
+      </div>
+
+      {/* Controls */}
       <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
         <input
           type="number"
@@ -274,6 +313,29 @@ function CombatantCard({ combatant, isActive, players = [] }) {
           {showAtk && (
             <div style={{ marginTop: 6, padding: '10px 12px', background: 'rgba(196,64,64,0.05)', border: '1px solid rgba(196,64,64,0.2)', borderRadius: 'var(--radius-lg)' }}>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                {(combatant.actionOptions || []).map((a) => (
+                  <button
+                    key={`${a.actionType || 'action'}-${a.name}`}
+                    onClick={() => {
+                      setMonsterAction(a)
+                      const parsed = parseDamageFromStatblock(a.damage)
+                      if (parsed) setDmgInput(parsed)
+                      setAtkBonus(Number(a.toHit || 0))
+                    }}
+                    style={{
+                      padding: '3px 8px',
+                      fontSize: 10,
+                      fontFamily: 'var(--font-mono)',
+                      background: monsterAction?.name === a.name ? 'rgba(196,160,64,0.18)' : 'transparent',
+                      border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius)',
+                      color: monsterAction?.name === a.name ? 'var(--warning)' : 'var(--text-muted)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {a.name} [{a.actionType === 'bonus_action' ? 'BA' : a.actionType === 'reaction' ? 'R' : 'A'}]
+                  </button>
+                ))}
                 {players.filter(p => p.curHp > 0).map(p => (
                   <button key={p.id} onClick={() => setAtkTarget(p)} style={{
                     padding: '3px 8px', fontSize: 10, fontFamily: 'var(--font-mono)',
@@ -284,9 +346,9 @@ function CombatantCard({ combatant, isActive, players = [] }) {
                 ))}
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>Atk</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>To Hit</span>
                 <input type="number" value={atkBonus} onChange={e => setAtkBonus(parseInt(e.target.value) || 0)} style={{ width: 46, padding: '3px 6px', fontFamily: 'var(--font-mono)', fontSize: 12, background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', outline: 'none' }} />
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>Dmg</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>Damage</span>
                 <input value={dmgInput} onChange={e => setDmgInput(e.target.value)} placeholder="2d4+2" style={{ width: 72, padding: '3px 6px', fontFamily: 'var(--font-mono)', fontSize: 12, background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', outline: 'none' }} />
                 <button onClick={rollEnemyAttack} disabled={!atkTarget} style={{ padding: '4px 12px', fontSize: 11, fontFamily: 'var(--font-mono)', background: atkTarget ? 'rgba(196,64,64,0.2)' : 'transparent', border: '1px solid rgba(196,64,64,0.4)', borderRadius: 'var(--radius)', color: atkTarget ? 'var(--danger)' : 'var(--text-muted)', cursor: atkTarget ? 'pointer' : 'not-allowed' }}>
                   Roll
@@ -381,6 +443,7 @@ export default function CombatPanel() {
   const [logOpen, setLogOpen] = useState(false)
 
   const activeCombatant = combatants[activeCombatantIndex]
+  const nextCombatant = combatants[(activeCombatantIndex + 1) % Math.max(combatants.length, 1)]
   const players = combatants.filter(c => c.type === 'player')
   const enemies = combatants.filter(c => c.type === 'enemy')
 
@@ -401,6 +464,9 @@ export default function CombatPanel() {
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-secondary)' }}>Round {round}</span>
           {activeCombatant && (
             <span style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>— {activeCombatant.name}'s turn</span>
+          )}
+          {nextCombatant && (
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Next: {nextCombatant.name}</span>
           )}
         </div>
 
@@ -518,6 +584,7 @@ export default function CombatPanel() {
                   fontFamily: event.type === 'round' ? 'var(--font-mono)' : 'var(--font-body)',
                   color: event.type === 'damage' ? '#c49070'
                     : event.type === 'heal' ? 'var(--green-bright)'
+                    : event.type === 'save-prompt' ? 'var(--warning)'
                     : event.type === 'round' ? 'var(--text-muted)'
                     : event.type === 'system' ? 'var(--warning)'
                     : 'var(--text-secondary)',
