@@ -49,9 +49,13 @@ export default function FocusedCard({ combatant, players = [] }) {
   const hpColour  = HP_COLOUR(hpPct, safeCurHp)
 
   const portrait = combatant.image
-    ? (isEnemy
-      ? combatant.image
-      : `https://emilrpohl-commits.github.io/greenhunger-players/characters/${combatant.image}`)
+    ? (
+      /^https?:\/\//i.test(String(combatant.image)) || String(combatant.image).startsWith('data:')
+        ? combatant.image
+        : (isEnemy
+          ? combatant.image
+          : `https://emilrpohl-commits.github.io/greenhunger-players/characters/${combatant.image}`)
+    )
     : null
 
   const scores = combatant.abilityScores || combatant.stats?.abilityScores

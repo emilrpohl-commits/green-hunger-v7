@@ -20,6 +20,14 @@ export default function PortraitHeader({
   ilyaAssignedTo,
   loggedInAs,
 }) {
+  const portraitSrc = (() => {
+    const p = char.portraitUrl || char.portrait_url || null
+    if (p && /^https?:\/\//i.test(String(p))) return p
+    if (p && String(p).startsWith('data:')) return p
+    if (char.image && /^https?:\/\//i.test(String(char.image))) return char.image
+    return `characters/${char.image}`
+  })()
+
   const maxHp = char.stats.maxHp
   const hpPct = maxHp > 0 ? Math.max(0, Math.min(100, (curHp / maxHp) * 100)) : 0
   const hpColour =
@@ -52,7 +60,7 @@ export default function PortraitHeader({
         }}
       >
         <img
-          src={`characters/${char.image}`}
+          src={portraitSrc}
           alt={char.name}
           style={{
             width: '100%',

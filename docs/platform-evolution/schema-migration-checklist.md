@@ -53,10 +53,10 @@ Use this as a living checklist when authoring `supabase/migrations/*.sql`. Do no
 
 ## Stage 7 — Portraits
 
-- [ ] **Storage bucket** `portraits` (private or public per threat model).
-- [ ] **`characters`:** `portrait_original_storage_path`, `portrait_crop` jsonb, `portrait_thumb_storage_path` (optional).
-- [ ] **`stat_blocks`:** same triplet (mirror columns).
-- [ ] **`npcs`:** already has `portrait_url`; migrate to storage + crop columns for consistency.
+- [x] **Storage bucket** `portraits` (public in dev via migration policies).
+- [x] **`characters`:** `portrait_original_storage_path`, `portrait_crop` jsonb, `portrait_thumb_storage_path` (optional).
+- [x] **`stat_blocks`:** same triplet (mirror columns).
+- [x] **`npcs`:** existing `portrait_url` kept for compatibility + storage path/crop columns added.
 
 ### Suggested `portrait_crop` shape (example)
 

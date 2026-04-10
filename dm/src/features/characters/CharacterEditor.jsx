@@ -7,6 +7,7 @@ import {
   dbRowToEditorForm,
   toAbilityBlock,
 } from '@shared/lib/characterSheetShape.js'
+import PortraitUploadField from '../../components/PortraitUploadField.jsx'
 import SRD_RACES from '../../../../docs/5e-database-main/src/2014/5e-SRD-Races.json'
 import SRD_BACKGROUNDS from '../../../../docs/5e-database-main/src/2014/5e-SRD-Backgrounds.json'
 
@@ -611,6 +612,22 @@ export default function CharacterEditor() {
               />
               Active
             </label>
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <PortraitUploadField
+              label="Portrait (Stage 7)"
+              campaignId={campaign?.id}
+              entityType="characters"
+              entityId={editing === '__new__' ? form.id : editing}
+              storagePath={form.portrait_original_storage_path}
+              crop={form.portrait_crop}
+              onChange={({ storagePath, crop }) => setForm((f) => ({
+                ...f,
+                portrait_original_storage_path: storagePath,
+                portrait_crop: crop,
+                portrait_thumb_storage_path: null,
+              }))}
+            />
           </div>
         </div>
 

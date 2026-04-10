@@ -8,6 +8,7 @@ import { applySpellHomebrewOverlays } from '@shared/lib/mergeSpellHomebrew.js'
 import { fetchSessionWithContentById } from '@shared/lib/sessionTreeLoader.js'
 import { normalizeSessionsFromDb, toPlayerNarrativeSession } from '@shared/lib/sessionContentNormalize.js'
 import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
+import { getPortraitPublicUrl } from '@shared/lib/portraitStorage.js'
 import {
   filterValidCharacterRows,
   filterValidCharacterStateRows,
@@ -230,12 +231,17 @@ export const createDataSlice = (set, get) => ({
 
       const playerCharacters = {}
       for (const row of validChars) {
+        const portraitUrl = getPortraitPublicUrl(row.portrait_thumb_storage_path || row.portrait_original_storage_path)
         let sheet = {
           id: row.id, name: row.name, password: row.password,
           class: row.class, subclass: row.subclass, level: row.level,
           species: row.species, background: row.background,
           player: row.player, isNPC: row.is_npc, isActive: row.is_active,
           image: row.image, colour: row.colour,
+          portraitUrl: portraitUrl || row.image || null,
+          portrait_original_storage_path: row.portrait_original_storage_path || null,
+          portrait_thumb_storage_path: row.portrait_thumb_storage_path || null,
+          portrait_crop: row.portrait_crop || null,
           stats: row.stats || {}, abilityScores: row.ability_scores || {},
           savingThrows: row.saving_throws || [], skills: row.skills || [],
           spellSlots: row.spell_slots || {}, sorceryPoints: row.sorcery_points || null,

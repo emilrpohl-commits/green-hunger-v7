@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
 import { validateStatBlock } from '@shared/lib/statBlockActions.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
+import PortraitUploadField from '../../components/PortraitUploadField.jsx'
 
 const ABILITY_SCORES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
 const SIZES = ['Tiny', 'Small', 'Medium', 'Large', 'Huge', 'Gargantuan']
@@ -43,10 +44,14 @@ function blankStatBlock() {
     dm_notes: [],
     tags: [],
     slug: '',
+    portrait_original_storage_path: null,
+    portrait_crop: { unit: 'relative', x: 0.12, y: 0.08, width: 0.76, height: 0.84, zoom: 1.0 },
+    portrait_thumb_storage_path: null,
   }
 }
 
 export default function StatBlockEditor({ statBlockId, onClose }) {
+  const campaign = useCampaignStore(s => s.campaign)
   const statBlocks = useCampaignStore(s => s.statBlocks)
   const saveStatBlock = useCampaignStore(s => s.saveStatBlock)
   const [form, setForm] = useState(blankStatBlock())
@@ -81,6 +86,9 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
           combat_prompts: sb.combat_prompts || [],
           dm_notes: Array.isArray(sb.dm_notes) ? sb.dm_notes : sb.dm_notes ? [sb.dm_notes] : [],
           tags: sb.tags || [],
+          portrait_original_storage_path: sb.portrait_original_storage_path || null,
+          portrait_crop: sb.portrait_crop || blankStatBlock().portrait_crop,
+          portrait_thumb_storage_path: sb.portrait_thumb_storage_path || null,
         })
       }
     }
@@ -310,29 +318,21 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
             <SectionDivider label="Images" />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div style={{ marginBottom: 16 }}>
-                <label style={labelStyle}>Portrait</label>
-                <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                  <label style={{
-                    padding: '6px 12px', cursor: 'pointer', fontSize: 11,
-                    background: 'var(--bg-raised)', border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius)', color: 'var(--text-secondary)',
-                    fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em',
-                    flexShrink: 0,
-                  }}>
-                    Upload
-                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
-                      const file = e.target.files[0]
-                      if (!file) return
-                      const reader = new FileReader()
-                      reader.onload = ev => update('portrait_url', ev.target.result)
-                      reader.readAsDataURL(file)
-                    }} />
-                  </label>
-                  <input style={inputStyle} value={form.portrait_url?.startsWith('data:') ? '' : (form.portrait_url || '')} onChange={e => update('portrait_url', e.target.value)} placeholder="or paste URL…" />
-                </div>
-                {form.portrait_url && (
-                  <img src={form.portrait_url} alt="portrait preview" style={{ marginTop: 4, maxWidth: '100%', maxHeight: 120, objectFit: 'contain', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }} onError={e => { e.target.style.display = 'none' }} />
-                )}
+                <PortraitUploadField
+                  label="Portrait (Stage 7)"
+                  campaignId={campaign?.id}
+                  entityType="stat_blocks"
+                  entityId={statBlockId || form.slug || form.name || '__new__'}
+                  storagePath={form.portrait_original_storage_path}
+                  crop={form.portrait_crop}
+                  legacyUrl={form.portrait_url || null}
+                  onChange={({ storagePath, crop, publicUrl }) => {
+                    update('portrait_original_storage_path', storagePath)
+                    update('portrait_crop', crop)
+                    update('portrait_thumb_storage_path', null)
+                    update('portrait_url', publicUrl || null)
+                  }}
+                />
               </div>
               <div style={{ marginBottom: 16 }}>
                 <label style={labelStyle}>Token</label>

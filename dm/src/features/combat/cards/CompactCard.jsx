@@ -263,7 +263,11 @@ function PCCard({ combatant, isActive, flashActive }) {
   const subtitle = typeLine(combatant)
 
   const portrait = combatant.image
-    ? `https://emilrpohl-commits.github.io/greenhunger-players/characters/${combatant.image}`
+    ? (
+      /^https?:\/\//i.test(String(combatant.image)) || String(combatant.image).startsWith('data:')
+        ? combatant.image
+        : `https://emilrpohl-commits.github.io/greenhunger-players/characters/${combatant.image}`
+    )
     : null
 
   const topBorderColour = isActive ? 'var(--active-border)' : 'var(--green-dim)'
