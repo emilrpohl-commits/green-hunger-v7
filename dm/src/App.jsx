@@ -5,7 +5,9 @@ import { getDmAuthSession, signInDmWithEmailPassword } from '@shared/lib/dmAuth.
 import { useSessionStore } from './stores/sessionStore'
 import { useCombatStore } from './stores/combatStore'
 import { useCampaignStore } from './stores/campaignStore'
+import { featureFlags } from '@shared/lib/featureFlags.js'
 import TopBar from './features/runtime/TopBar'
+import SeedlessCampaignHome from './features/runtime/SeedlessCampaignHome'
 import LeftRail from './features/runtime/LeftRail'
 import MainPanel from './features/runtime/MainPanel'
 import CombatPanel from './features/combat/CombatPanel'
@@ -55,7 +57,7 @@ function DmGate({ onUnlock }) {
         padding: 24, boxShadow: '0 8px 40px rgba(0,0,0,0.45)'
       }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
-          The Green Hunger
+          {featureFlags.appTitle}
         </div>
         <h1 style={{ margin: '0 0 10px', fontFamily: 'var(--font-display)', color: 'var(--text-primary)', fontSize: 24 }}>
           DM Access Required
@@ -158,6 +160,25 @@ function ModeTab({ label, active, onClick }) {
 function RunLayout() {
   const combatActive = useCombatStore(s => s.active)
   const navigate = useNavigate()
+  const campaign = useCampaignStore(s => s.campaign)
+  const loading = useCampaignStore(s => s.loading)
+  const seedlessHome = featureFlags.seedlessPlatform && !featureFlags.demoCampaign
+
+  if (seedlessHome && !loading && !campaign) {
+    return (
+      <div style={{
+        display: 'grid',
+        gridTemplateRows: '48px 1fr',
+        height: '100vh',
+        background: 'var(--bg-deep)',
+        overflow: 'hidden',
+      }}
+      >
+        <TopBar onSwitchToBuilder={() => navigate('/build')} />
+        <SeedlessCampaignHome />
+      </div>
+    )
+  }
 
   return (
     <div style={{
@@ -188,7 +209,7 @@ function BuildLayout() {
         padding: '0 16px', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', gap: 16,
       }}>
         <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, letterSpacing: '0.1em', color: 'var(--green-bright)', textTransform: 'uppercase' }}>
-          The Green Hunger
+          {featureFlags.appTitle}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <ModeTab label="Builder" active onClick={() => {}} />

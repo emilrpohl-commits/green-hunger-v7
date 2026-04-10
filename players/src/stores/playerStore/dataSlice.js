@@ -19,7 +19,8 @@ import {
   withSpellIds, sanitizeIlyaSheet,
 } from './helpers.js'
 
-const PLAYER_RUNTIME_CHARACTERS = CHARACTERS.filter(c => !c.isNPC)
+const useBundledPlayerRuntime = !featureFlags.seedlessPlatform || featureFlags.demoCampaign
+const PLAYER_RUNTIME_CHARACTERS = useBundledPlayerRuntime ? CHARACTERS.filter(c => !c.isNPC) : []
 
 export const createDataSlice = (set, get) => ({
   spellCompendium: {},
@@ -125,6 +126,13 @@ export const createDataSlice = (set, get) => ({
         })
         set({
           charactersLoadError: 'no_valid_characters',
+          ...(useBundledPlayerRuntime
+            ? {}
+            : {
+                characters: [],
+                playerCharacters: withSpellIds({}),
+                spellCompendium: {},
+              }),
         })
         return
       }

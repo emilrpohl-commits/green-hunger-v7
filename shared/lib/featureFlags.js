@@ -6,7 +6,17 @@ function asBool(value, fallback = false) {
   return v === '1' || v === 'true' || v === 'yes' || v === 'on'
 }
 
+const rawTitle = env.VITE_APP_TITLE != null ? String(env.VITE_APP_TITLE).trim() : ''
 export const featureFlags = {
+  /** Product label for DM/player chrome (replaces hard-coded campaign name in headers). */
+  appTitle: rawTitle || 'Campaign Console',
+  /**
+   * When true (and demo is off), DM boot lists campaigns from Supabase instead of assuming `green-hunger`.
+   * Player app starts without bundled static party sheets until DB load succeeds.
+   */
+  seedlessPlatform: asBool(env.VITE_SEEDLESS_PLATFORM, false),
+  /** Restores legacy implicit `green-hunger` + bundled demo content for showcases. */
+  demoCampaign: asBool(env.VITE_DEMO_CAMPAIGN, false),
   // Engine integration defaults to on, with legacy fallback always retained.
   use5eEngine: asBool(env.VITE_USE_5E_ENGINE, true),
   engineReadOnlyCatalog: asBool(env.VITE_ENGINE_READ_ONLY_CATALOG, true),

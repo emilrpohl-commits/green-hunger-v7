@@ -1,6 +1,25 @@
 import { supabase } from '@shared/lib/supabase.js'
+import { featureFlags } from '@shared/lib/featureFlags.js'
 import { loadSessionContentTree } from '@shared/lib/sessionTreeLoader.js'
 import { filterValidSpellRows } from '@shared/lib/validation/storeBoundaries.js'
+
+function emptyCampaignState(campaignChoices = []) {
+  return {
+    campaign: null,
+    adventureId: null,
+    sessions: [],
+    statBlocks: [],
+    statBlockMap: {},
+    spells: [],
+    compendiumSpells: [],
+    npcs: [],
+    assets: [],
+    encounters: [],
+    archivedSessions: [],
+    archivedStatBlocks: [],
+    campaignChoices,
+  }
+}
 
 export function createDataSlice(set, get) {
   return {
@@ -17,18 +36,70 @@ export function createDataSlice(set, get) {
     encounters: [],
     archivedSessions: [],
     archivedStatBlocks: [],
+    /** Seedless boot: multiple campaigns when no slug was passed — DM picks one to load */
+    campaignChoices: [],
 
     loading: false,
     error: null,
     lastLoaded: null,
 
-    loadCampaign: async (campaignSlug = 'green-hunger') => {
-      set({ loading: true, error: null })
+    loadCampaign: async (campaignSlug) => {
+      const explicit = campaignSlug !== undefined && campaignSlug !== null && String(campaignSlug).trim() !== ''
+
+      let slug = explicit ? String(campaignSlug).trim() : null
+
+      if (!slug) {
+        const legacyImplicit = !featureFlags.seedlessPlatform || featureFlags.demoCampaign
+        if (legacyImplicit) {
+          slug = 'green-hunger'
+        } else {
+          set({ loading: true, error: null })
+          try {
+            const { data: rows, error: listErr } = await supabase
+              .from('campaigns')
+              .select('id, slug, title, subtitle')
+              .order('created_at', { ascending: true })
+            if (listErr) throw new Error(`campaigns: ${listErr.message}`)
+            const list = rows || []
+            if (list.length === 0) {
+              set({
+                ...emptyCampaignState([]),
+                loading: false,
+                error: null,
+                lastLoaded: null,
+              })
+              return { ok: true, mode: 'empty' }
+            }
+            if (list.length === 1) {
+              set({ loading: false })
+              return get().loadCampaign(list[0].slug)
+            }
+            set({
+              ...emptyCampaignState(list),
+              loading: false,
+              error: null,
+              lastLoaded: null,
+            })
+            return { ok: true, mode: 'pick', campaigns: list }
+          } catch (e) {
+            console.error('loadCampaign (campaign list) error:', e)
+            set({
+              loading: false,
+              error: e.message,
+              ...emptyCampaignState([]),
+              lastLoaded: null,
+            })
+            return { ok: false, error: e.message }
+          }
+        }
+      }
+
+      set({ loading: true, error: null, campaignChoices: [] })
       try {
         const { data: campaign, error: ce } = await supabase
           .from('campaigns')
           .select('*')
-          .eq('slug', campaignSlug)
+          .eq('slug', slug)
           .single()
         if (ce) throw new Error(`campaign: ${ce.message}`)
 
@@ -122,12 +193,15 @@ export function createDataSlice(set, get) {
           assets: assets || [],
           encounters: encountersRaw || [],
           archivedSessions,
+          campaignChoices: [],
           loading: false,
           lastLoaded: new Date(),
         })
+        return { ok: true, mode: 'loaded', slug }
       } catch (e) {
         console.error('loadCampaign error:', e)
         set({ loading: false, error: e.message })
+        return { ok: false, error: e.message }
       }
     },
 

@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from 'react'
 import { usePlayerStore } from '../stores/playerStore'
 
 const SESSION_ERROR_COPY = {
-  no_active_session: 'The DM has not set a live session yet. Scene text will appear once they select a session in the DM console.',
-  session_not_found: 'The live session ID from the server could not be loaded. Ask the DM to re-select the session.',
+  no_active_session: 'The DM has not set a live session yet. Scene text will appear once they select a session in the DM console. If the DM is in seedless mode, they must load a campaign before sessions exist.',
+  session_not_found: 'The live session ID from the server could not be loaded. Ask the DM to re-select the session or confirm the campaign was loaded successfully.',
   incomplete_narrative: 'This session has no player-facing scenes in the database yet.',
   load_failed: 'Could not load session content from the server. Check your connection and try again.',
 }

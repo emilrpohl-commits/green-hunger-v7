@@ -1,9 +1,12 @@
 import React from 'react'
+import { featureFlags } from '@shared/lib/featureFlags.js'
 import { useSessionStore } from '../../stores/sessionStore'
+import { useCampaignStore } from '../../stores/campaignStore'
 
 export default function TopBar({ onSwitchToBuilder }) {
   const syncStatus = useSessionStore(s => s.syncStatus)
   const session = useSessionStore(s => s.session)
+  const campaign = useCampaignStore(s => s.campaign)
   const currentSceneIndex = useSessionStore(s => s.currentSceneIndex)
   const scene = session?.scenes?.[currentSceneIndex]
 
@@ -44,11 +47,11 @@ export default function TopBar({ onSwitchToBuilder }) {
           color: 'var(--green-bright)',
           textTransform: 'uppercase'
         }}>
-          The Green Hunger
+          {featureFlags.appTitle}
         </span>
         <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>·</span>
         <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
-          {session?.title || 'No session loaded'}
+          {campaign?.title || session?.title || 'No session loaded'}
         </span>
       </div>
 
