@@ -13,32 +13,38 @@ import { rollDie, parseDmgString, parseDamageFromStatblock } from '../constants.
 /**
  * ActionsList
  *
- * Enemy attack panel:
- *   - Action option buttons (from combatant.actionOptions)
- *   - PC target picker
- *   - To Hit / Damage inputs
- *   - Roll button
- *   - Result line with hit/miss/crit styling
+ * Two modes:
+ *   inline (default) — action buttons always visible as a horizontal strip.
+ *     When one is selected and a target is chosen, roll UI appears inline.
+ *   popover — wrapped inside a "⚔ Attack ▾" toggle (original behaviour,
+ *     used when vertical space is very limited, e.g. FocusedCard Actions tab).
  *
- * All attack resolution logic is self-contained here.
- * Pass `players` array (all live player combatants) for target selection.
+ * Pass `mode="popover"` to get the old collapsed panel.
  */
-export default function ActionsList({ combatant, players = [] }) {
+export default function ActionsList({ combatant, players = [], mode = 'inline' }) {
   const useCombatantActionType = useCombatStore(s => s.useCombatantActionType)
   const pushFeedEvent          = useCombatStore(s => s.pushFeedEvent)
   const damageCombatant        = useCombatStore(s => s.damageCombatant)
 
-  const [open, setOpen]               = useState(false)
+  const [open, setOpen]             = useState(mode === 'inline')
   const [monsterAction, setMonsterAction] = useState(null)
-  const [atkTarget, setAtkTarget]     = useState(null)
-  const [atkBonus, setAtkBonus]       = useState(4)
-  const [dmgInput, setDmgInput]       = useState('2d4+2')
-  const [atkResult, setAtkResult]     = useState(null)
+  const [atkTarget, setAtkTarget]   = useState(null)
+  const [atkBonus, setAtkBonus]     = useState(4)
+  const [dmgInput, setDmgInput]     = useState('2d4+2')
+  const [atkResult, setAtkResult]   = useState(null)
 
   const isEnemy = combatant.type === 'enemy'
   const isDead  = combatant.curHp === 0 && isEnemy
 
   if (!isEnemy || isDead) return null
+
+  function selectAction(a) {
+    setMonsterAction(prev => prev?.name === a.name ? null : a)
+    const p = parseDamageFromStatblock(a.damage)
+    if (p) setDmgInput(p)
+    setAtkBonus(Number(a.toHit || 0))
+    setAtkResult(null)
+  }
 
   async function rollEnemyAttack() {
     const selected = monsterAction || {
@@ -136,6 +142,149 @@ export default function ActionsList({ combatant, players = [] }) {
     }
   }
 
+  const actionOptions = combatant.actionOptions || []
+
+  // ── Inline mode (always visible, attack buttons shown as a row) ─────────
+  if (mode === 'inline') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {/* Section label */}
+        <div style={{
+          fontFamily: 'var(--font-mono)', fontSize: 8,
+          color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em',
+        }}>
+          ⚔ Attacks
+        </div>
+
+        {/* Action option buttons */}
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          {actionOptions.length > 0 ? actionOptions.map(a => {
+            const sel     = monsterAction?.name === a.name
+            const aTag    = a.actionType === 'bonus_action' ? 'BA' : a.actionType === 'reaction' ? 'R' : 'A'
+            const isSpec  = a.type === 'special' || a.type === 'trait'
+            return (
+              <button
+                key={`${a.actionType}-${a.name}`}
+                onClick={() => selectAction(a)}
+                style={{
+                  padding: '3px 8px', fontSize: 10, fontFamily: 'var(--font-mono)',
+                  background: sel ? 'rgba(196,64,64,0.2)' : 'rgba(196,64,64,0.05)',
+                  border: `1px solid ${sel ? 'rgba(196,64,64,0.7)' : 'rgba(196,64,64,0.3)'}`,
+                  borderRadius: 'var(--radius)',
+                  color: sel ? '#ff9070' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  transition: 'all 120ms ease',
+                }}
+              >
+                {a.name}
+                {a.toHit != null && !isSpec && (
+                  <span style={{ opacity: 0.65, marginLeft: 4 }}>
+                    {Number(a.toHit) >= 0 ? `+${a.toHit}` : a.toHit}
+                  </span>
+                )}
+                {a.recharge && (
+                  <span style={{ color: 'var(--warning)', marginLeft: 4, fontSize: 8 }}>[{a.recharge}]</span>
+                )}
+                <span style={{ marginLeft: 4, opacity: 0.45, fontSize: 8 }}>[{aTag}]</span>
+              </button>
+            )
+          }) : (
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)' }}>
+              No action data — use manual roll below
+            </span>
+          )}
+        </div>
+
+        {/* Target picker (visible once an action is selected or actionOptions is empty) */}
+        {(monsterAction || actionOptions.length === 0) && (
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text-muted)', textTransform: 'uppercase' }}>→</span>
+            {players.filter(p => (p.curHp ?? 0) > 0).map(p => {
+              const sel = atkTarget?.id === p.id
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => setAtkTarget(sel ? null : p)}
+                  style={{
+                    padding: '2px 8px', fontSize: 10, fontFamily: 'var(--font-mono)',
+                    background: sel ? 'rgba(255,255,255,0.08)' : 'transparent',
+                    border: `1px solid ${sel ? 'rgba(255,255,255,0.3)' : 'var(--border)'}`,
+                    borderRadius: 'var(--radius)',
+                    color: sel ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {p.name}
+                  <span style={{ marginLeft: 4, opacity: 0.5, fontSize: 9 }}>AC {p.ac ?? '?'}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Manual to-hit/damage + Roll (when no actionOptions, or extra control wanted) */}
+        {atkTarget && (
+          <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
+            {actionOptions.length === 0 && (
+              <>
+                <input
+                  type="number" value={atkBonus}
+                  onChange={e => setAtkBonus(parseInt(e.target.value) || 0)}
+                  placeholder="+hit"
+                  style={{ width: 48, padding: '2px 5px', fontFamily: 'var(--font-mono)', fontSize: 11, background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', outline: 'none' }}
+                />
+                <input
+                  value={dmgInput} onChange={e => setDmgInput(e.target.value)}
+                  placeholder="2d6+3"
+                  style={{ width: 68, padding: '2px 5px', fontFamily: 'var(--font-mono)', fontSize: 11, background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', outline: 'none' }}
+                />
+              </>
+            )}
+            <button
+              onClick={rollEnemyAttack}
+              style={{
+                padding: '3px 14px', fontSize: 11, fontFamily: 'var(--font-mono)',
+                background: 'rgba(196,64,64,0.18)',
+                border: '1px solid rgba(196,64,64,0.5)',
+                borderRadius: 'var(--radius)',
+                color: 'var(--danger)', cursor: 'pointer',
+                fontWeight: 600,
+              }}
+            >
+              Roll
+            </button>
+          </div>
+        )}
+
+        {/* Result line */}
+        {atkResult && (
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: 10,
+            color: atkResult.hit === true ? 'var(--danger)'
+              : atkResult.hit === false ? 'var(--text-muted)'
+              : 'var(--warning)',
+            padding: '3px 7px',
+            background: atkResult.hit === true ? 'rgba(196,64,64,0.08)'
+              : atkResult.hit === false ? 'rgba(255,255,255,0.02)'
+              : 'rgba(196,160,64,0.08)',
+            border: `1px solid ${atkResult.hit === true ? 'rgba(196,64,64,0.2)' : atkResult.hit === false ? 'var(--border)' : 'rgba(196,160,64,0.2)'}`,
+            borderRadius: 'var(--radius)',
+          }}>
+            {atkResult.hit === true
+              ? `${atkResult.crit ? 'CRIT! ' : 'HIT '}d20(${atkResult.d20})=${atkResult.total} → ${atkResult.dmgTotal} dmg to ${atkResult.targetName}`
+              : atkResult.hit === false
+                ? `MISS d20(${atkResult.d20})=${atkResult.total} vs ${atkResult.targetName}`
+                : atkResult.type === 'save'
+                  ? `${atkResult.targetName}: DC ${atkResult.total} save`
+                  : `${atkResult.targetName}: special`
+            }
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── Popover mode (toggle button + collapsible panel) ─────────────────────
   return (
     <div>
       <button
@@ -159,20 +308,14 @@ export default function ActionsList({ combatant, players = [] }) {
           borderRadius: 'var(--radius-lg)',
           animation: 'fade-in-down 150ms ease forwards',
         }}>
-          {/* Action options + targets */}
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8 }}>
-            {(combatant.actionOptions || []).map(a => {
+            {actionOptions.map(a => {
               const aLabel = a.actionType === 'bonus_action' ? 'BA' : a.actionType === 'reaction' ? 'R' : 'A'
               const sel    = monsterAction?.name === a.name
               return (
                 <button
                   key={`${a.actionType}-${a.name}`}
-                  onClick={() => {
-                    setMonsterAction(a)
-                    const p = parseDamageFromStatblock(a.damage)
-                    if (p) setDmgInput(p)
-                    setAtkBonus(Number(a.toHit || 0))
-                  }}
+                  onClick={() => selectAction(a)}
                   style={{
                     padding: '3px 8px', fontSize: 10, fontFamily: 'var(--font-mono)',
                     background: sel ? 'rgba(196,160,64,0.18)' : 'transparent',
@@ -186,14 +329,12 @@ export default function ActionsList({ combatant, players = [] }) {
                 </button>
               )
             })}
-
-            {/* Target buttons */}
-            {players.filter(p => p.curHp > 0).map(p => {
+            {players.filter(p => (p.curHp ?? 0) > 0).map(p => {
               const sel = atkTarget?.id === p.id
               return (
                 <button
                   key={p.id}
-                  onClick={() => setAtkTarget(p)}
+                  onClick={() => setAtkTarget(sel ? null : p)}
                   style={{
                     padding: '3px 8px', fontSize: 10, fontFamily: 'var(--font-mono)',
                     background: sel ? 'rgba(196,64,64,0.15)' : 'transparent',
@@ -203,53 +344,27 @@ export default function ActionsList({ combatant, players = [] }) {
                     cursor: 'pointer',
                   }}
                 >
-                  {p.name} <span style={{ opacity: 0.6 }}>(AC {p.ac})</span>
+                  {p.name} <span style={{ opacity: 0.6 }}>(AC {p.ac ?? '?'})</span>
                 </button>
               )
             })}
           </div>
-
-          {/* To Hit / Damage / Roll */}
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>To Hit</span>
-            <input
-              type="number" value={atkBonus}
-              onChange={e => setAtkBonus(parseInt(e.target.value) || 0)}
-              style={{ width: 46, padding: '3px 6px', fontFamily: 'var(--font-mono)', fontSize: 12, background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', outline: 'none' }}
-            />
+            <input type="number" value={atkBonus} onChange={e => setAtkBonus(parseInt(e.target.value) || 0)}
+              style={{ width: 46, padding: '3px 6px', fontFamily: 'var(--font-mono)', fontSize: 12, background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', outline: 'none' }} />
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>Damage</span>
-            <input
-              value={dmgInput} onChange={e => setDmgInput(e.target.value)} placeholder="2d4+2"
-              style={{ width: 72, padding: '3px 6px', fontFamily: 'var(--font-mono)', fontSize: 12, background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', outline: 'none' }}
-            />
-            <button
-              onClick={rollEnemyAttack}
-              disabled={!atkTarget}
-              style={{
-                padding: '4px 14px', fontSize: 11, fontFamily: 'var(--font-mono)',
-                background: atkTarget ? 'rgba(196,64,64,0.2)' : 'transparent',
-                border: '1px solid rgba(196,64,64,0.4)',
-                borderRadius: 'var(--radius)',
-                color: atkTarget ? 'var(--danger)' : 'var(--text-muted)',
-                cursor: atkTarget ? 'pointer' : 'not-allowed',
-              }}
-            >
+            <input value={dmgInput} onChange={e => setDmgInput(e.target.value)} placeholder="2d4+2"
+              style={{ width: 72, padding: '3px 6px', fontFamily: 'var(--font-mono)', fontSize: 12, background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', outline: 'none' }} />
+            <button onClick={rollEnemyAttack} disabled={!atkTarget}
+              style={{ padding: '4px 14px', fontSize: 11, fontFamily: 'var(--font-mono)', background: atkTarget ? 'rgba(196,64,64,0.2)' : 'transparent', border: '1px solid rgba(196,64,64,0.4)', borderRadius: 'var(--radius)', color: atkTarget ? 'var(--danger)' : 'var(--text-muted)', cursor: atkTarget ? 'pointer' : 'not-allowed' }}>
               Roll
             </button>
           </div>
-
-          {/* Result */}
           {atkResult && (
-            <div style={{
-              marginTop: 8,
-              fontFamily: 'var(--font-mono)', fontSize: 11,
+            <div style={{ marginTop: 8, fontFamily: 'var(--font-mono)', fontSize: 11,
               color: atkResult.hit === true ? 'var(--danger)' : atkResult.hit === false ? 'var(--text-muted)' : 'var(--warning)',
-              padding: '4px 8px',
-              background: atkResult.hit === true
-                ? 'rgba(196,64,64,0.08)'
-                : atkResult.hit === false
-                  ? 'rgba(255,255,255,0.02)'
-                  : 'rgba(196,160,64,0.08)',
+              padding: '4px 8px', background: atkResult.hit === true ? 'rgba(196,64,64,0.08)' : atkResult.hit === false ? 'rgba(255,255,255,0.02)' : 'rgba(196,160,64,0.08)',
               border: `1px solid ${atkResult.hit === true ? 'rgba(196,64,64,0.2)' : atkResult.hit === false ? 'var(--border)' : 'rgba(196,160,64,0.2)'}`,
               borderRadius: 'var(--radius)',
             }}>

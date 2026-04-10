@@ -32,7 +32,8 @@ import { isDead, isBloodied, kindColourRaw, typeLine, HP_COLOUR } from './consta
 export default function FocusedCard({ combatant, players = [] }) {
   const setInitiative = useCombatStore(s => s.setInitiative)
 
-  const [activeTab, setActiveTab] = useState('overview')
+  // Enemies default to 'actions' tab so attacks are immediately visible
+  const [activeTab, setActiveTab] = useState(combatant.type === 'enemy' ? 'actions' : 'overview')
 
   const dead     = isDead(combatant)
   const bloodied = isBloodied(combatant)
@@ -42,8 +43,10 @@ export default function FocusedCard({ combatant, players = [] }) {
   const accent   = kindColourRaw(combatant)
   const subtitle = typeLine(combatant)
 
-  const hpPct     = combatant.maxHp > 0 ? Math.min(100, (combatant.curHp / combatant.maxHp) * 100) : 0
-  const hpColour  = HP_COLOUR(hpPct, combatant.curHp)
+  const safeCurHp = typeof combatant.curHp === 'number' ? combatant.curHp : 0
+  const safeMaxHp = typeof combatant.maxHp === 'number' && combatant.maxHp > 0 ? combatant.maxHp : 1
+  const hpPct     = Math.min(100, (safeCurHp / safeMaxHp) * 100)
+  const hpColour  = HP_COLOUR(hpPct, safeCurHp)
 
   const portrait = combatant.image
     ? (isEnemy
@@ -158,23 +161,26 @@ export default function FocusedCard({ combatant, players = [] }) {
 
         {/* HP overlay: bottom-right */}
         <div style={{ position: 'absolute', bottom: 14, right: 16, textAlign: 'right' }}>
-          <div style={{
-            fontFamily: 'var(--font-mono)', fontSize: 40, fontWeight: 700,
-            color: hpColour, lineHeight: 1,
-            textShadow: `0 2px 12px ${hpColour}80`,
-          }}>
-            {combatant.curHp}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, justifyContent: 'flex-end' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>HP</span>
+            <span style={{
+              fontFamily: 'var(--font-mono)', fontSize: 40, fontWeight: 700,
+              color: hpColour, lineHeight: 1,
+              textShadow: `0 2px 12px ${hpColour}80`,
+            }}>
+              {safeCurHp}
+            </span>
             {(combatant.tempHp ?? 0) > 0 && (
-              <span style={{ fontSize: 18, color: 'var(--info)' }}>+{combatant.tempHp}</span>
+              <span style={{ fontSize: 18, color: 'var(--info)' }}>●+{combatant.tempHp}</span>
             )}
           </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
-            / {combatant.maxHp} hp
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>
+            / {safeMaxHp} hp
           </div>
         </div>
       </div>
 
-      {/* HP bar */}
+      {/* HP bar — uses the same safeCurHp/safeMaxHp as the number overlay */}
       <div className="hp-track" style={{ borderRadius: 0 }}>
         <div className="hp-fill" style={{ width: `${hpPct}%`, background: hpColour }} />
       </div>
@@ -341,9 +347,9 @@ export default function FocusedCard({ combatant, players = [] }) {
 
         {activeTab === 'actions' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {/* Enemy: full attack panel */}
+            {/* Enemy: full attack panel — always expanded inline since this is the actions tab */}
             {isEnemy && !dead && (
-              <ActionsList combatant={combatant} players={players} />
+              <ActionsList combatant={combatant} players={players} mode="inline" />
             )}
 
             {/* PC: spell slots */}
