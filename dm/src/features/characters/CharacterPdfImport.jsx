@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url'
 import { supabase } from '@shared/lib/supabase.js'
 import { useCampaignStore } from '../../stores/campaignStore'
 import { makeCampaignSpellId, referenceSpellRowToCampaignPayload } from '@shared/lib/reference/referenceSpellToCampaign.js'
@@ -86,8 +87,9 @@ function parseDraftFromText(rawText) {
 
 async function pdfToText(file) {
   const pdfjs = await import('pdfjs-dist')
+  pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker
   const bytes = new Uint8Array(await file.arrayBuffer())
-  const loadingTask = pdfjs.getDocument({ data: bytes, disableWorker: true })
+  const loadingTask = pdfjs.getDocument({ data: bytes })
   const pdf = await loadingTask.promise
   const chunks = []
   for (let p = 1; p <= pdf.numPages; p += 1) {
