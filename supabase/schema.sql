@@ -360,6 +360,19 @@ create table if not exists encounters (
   updated_at timestamptz default now()
 );
 
+-- Phase 2F: DM lore card catalog (replaces static LORE_CARDS when populated)
+create table if not exists lore_cards (
+  id text primary key,
+  campaign_id uuid references campaigns(id) on delete cascade,
+  category text,
+  title text not null,
+  content text not null,
+  tone text,
+  sort_order int default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 create table if not exists items (
   id uuid primary key default gen_random_uuid(),
   campaign_id uuid references campaigns(id) on delete set null,
@@ -659,6 +672,7 @@ alter table spells enable row level security;
 alter table spells_raw enable row level security;
 alter table npcs enable row level security;
 alter table encounters enable row level security;
+alter table lore_cards enable row level security;
 alter table items enable row level security;
 alter table locations enable row level security;
 alter table factions enable row level security;
@@ -698,6 +712,7 @@ begin
     ('spells_raw',      'allow_all_spells_raw'),
     ('npcs',            'allow_all_npcs'),
     ('encounters',      'allow_all_encounters'),
+    ('lore_cards',      'allow_all_lore_cards'),
     ('items',           'allow_all_items'),
     ('locations',       'allow_all_locations'),
     ('factions',        'allow_all_factions'),

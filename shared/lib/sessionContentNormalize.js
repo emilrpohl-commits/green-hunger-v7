@@ -38,6 +38,7 @@ export function normalizeSessionsFromDb(dbSessions) {
 
 /**
  * Player SceneDisplay: slim scenes (no DM notes). Subtitle prefers player_description.
+ * Phase 2F: optional beats with player_text only (never dm_notes).
  */
 export function toPlayerNarrativeSession(dbSession) {
   if (!dbSession) return null
@@ -50,6 +51,15 @@ export function toPlayerNarrativeSession(dbSession) {
       order: s.order || 0,
       title: s.title,
       subtitle: s.player_description || s.subtitle || s.summary || '',
+      beats: (s.beats || [])
+        .map(b => ({
+          id: b.id,
+          order: b.order || 0,
+          title: b.title || '',
+          type: b.type,
+          playerText: String(b.player_text || b.playerText || '').trim(),
+        }))
+        .sort((a, b) => (a.order || 0) - (b.order || 0)),
     })).sort((a, b) => a.order - b.order),
   }
 }

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { SESSION_1_PLAYER, CHARACTERS } from '@shared/content/session1.js'
+import { CHARACTERS } from '@shared/content/session1.js'
 import { PLAYER_CHARACTERS } from '@shared/content/playerCharacters.js'
 import { getSessionRunId } from '@shared/lib/runtimeContext.js'
 import { withSpellIds } from './helpers.js'
@@ -12,7 +12,8 @@ const PLAYER_RUNTIME_CHARACTERS = CHARACTERS.filter(c => !c.isNPC)
 export const usePlayerStore = create((set, get) => ({
   sessionRunId: getSessionRunId(),
 
-  session: SESSION_1_PLAYER,
+  /** Phase 2B: narrative comes only from DB active_session_uuid — null until hydrated */
+  session: null,
   currentSceneIndex: 0,
   currentBeatIndex: 0,
 
@@ -21,12 +22,14 @@ export const usePlayerStore = create((set, get) => ({
 
   getCurrentScene: () => {
     const { session, currentSceneIndex } = get()
-    return session.scenes[currentSceneIndex]
+    if (!session?.scenes?.length) return null
+    return session.scenes[currentSceneIndex] || null
   },
 
   getCurrentBeat: () => {
     const { session, currentSceneIndex, currentBeatIndex } = get()
-    return session.scenes[currentSceneIndex]?.beats[currentBeatIndex] || null
+    const scene = session?.scenes?.[currentSceneIndex]
+    return scene?.beats?.[currentBeatIndex] || null
   },
 
   ...createCombatSlice(set, get),

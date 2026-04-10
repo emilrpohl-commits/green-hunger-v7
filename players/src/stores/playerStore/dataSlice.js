@@ -5,8 +5,9 @@ import { getRulesetContext, getSessionRunId } from '@shared/lib/runtimeContext.j
 import { buildPlayerRuntimeCharacters } from '@shared/lib/partyRoster.js'
 import { applyHomebrewPlayerSheet, shouldSkipLegacyPlayerSanitize } from '@shared/lib/homebrewPlayerSheet.js'
 import { applySpellHomebrewOverlays } from '@shared/lib/mergeSpellHomebrew.js'
-import { fetchActiveSessionsWithContent } from '@shared/lib/sessionTreeLoader.js'
+import { fetchSessionWithContentById } from '@shared/lib/sessionTreeLoader.js'
 import { normalizeSessionsFromDb, toPlayerNarrativeSession } from '@shared/lib/sessionContentNormalize.js'
+import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
 import {
   filterValidCharacterRows,
   filterValidCharacterStateRows,
@@ -23,6 +24,63 @@ const PLAYER_RUNTIME_CHARACTERS = CHARACTERS.filter(c => !c.isNPC)
 export const createDataSlice = (set, get) => ({
   spellCompendium: {},
   knownConditions: [],
+  /** Phase 2D: surfaced in UI when character load fails or returns no valid rows */
+  charactersLoadError: null,
+  /** Phase 2B/D: no_active_session | session_not_found | incomplete_narrative | load_failed */
+  sessionHydrationError: null,
+  sessionHydrationDetail: null,
+
+  /**
+   * Phase 2B: hydrate narrative only for session_state.active_session_uuid (no first-session fallback).
+   */
+  hydratePlayerSessionFromUuid: async (sessionUuid) => {
+    if (!sessionUuid) {
+      set({
+        session: null,
+        sessionHydrationError: 'no_active_session',
+        sessionHydrationDetail: null,
+      })
+      return
+    }
+    try {
+      const raw = await fetchSessionWithContentById(supabase, sessionUuid)
+      if (!raw) {
+        set({
+          session: null,
+          sessionHydrationError: 'session_not_found',
+          sessionHydrationDetail: sessionUuid,
+        })
+        return
+      }
+      const normalized = normalizeSessionsFromDb([raw])
+      const active = normalized[0]
+      const narrative = toPlayerNarrativeSession(active)
+      if (narrative?.scenes?.length) {
+        set({
+          session: narrative,
+          sessionHydrationError: null,
+          sessionHydrationDetail: null,
+        })
+      } else {
+        warnFallback('Player session DB tree has no scenes for narrative', {
+          system: 'playerSession',
+          id: sessionUuid,
+        })
+        set({
+          session: null,
+          sessionHydrationError: 'incomplete_narrative',
+          sessionHydrationDetail: sessionUuid,
+        })
+      }
+    } catch (e) {
+      console.warn('hydratePlayerSessionFromUuid failed:', e?.message || e)
+      set({
+        session: null,
+        sessionHydrationError: 'load_failed',
+        sessionHydrationDetail: String(e?.message || e),
+      })
+    }
+  },
 
   loadCharacters: async () => {
     const rulesetContext = getRulesetContext()
@@ -60,7 +118,17 @@ export const createDataSlice = (set, get) => ({
         spellOverlays = ho || []
       }
       const validChars = filterValidCharacterRows(charRows || [])
-      if (validChars.length === 0) return
+      if (validChars.length === 0) {
+        warnFallback('loadCharacters: no valid character rows from DB; keeping prior store state', {
+          system: 'playerData',
+          reason: 'empty_after_validation',
+        })
+        set({
+          charactersLoadError: 'no_valid_characters',
+        })
+        return
+      }
+      set({ charactersLoadError: null })
 
       const spellCompendium = {}
       ;(filterValidSpellRows(compendiumRows || [])).forEach((row) => {
@@ -125,6 +193,14 @@ export const createDataSlice = (set, get) => ({
           if (!spellsByChar[cid][key]) spellsByChar[cid][key] = []
           const rowSpellId = normalizeSpellId(row.spell_id || row.spell_data?.spellId || row.spell_data?.name)
           const compendiumSpell = rowSpellId ? spellCompendium[rowSpellId] : null
+          if (!compendiumSpell && (row.spell_data && Object.keys(row.spell_data).length > 0)) {
+            warnFallback('Character spell merged from row.spell_data only (no compendium match)', {
+              system: 'playerData',
+              character_id: cid,
+              spell_id: rowSpellId,
+              source: 'merged',
+            })
+          }
           const baseSpell = compendiumSpell || row.spell_data || {}
           const mergedSpell = mergeSpellWithOverride(baseSpell, row.overrides_json || {})
           const mechanic = mergedSpell.mechanic || mergedSpell.combatProfile?.resolutionType || 'utility'
@@ -181,7 +257,11 @@ export const createDataSlice = (set, get) => ({
         characters: runtimeCharacters,
       })
     } catch (e) {
-      console.log('Could not load characters from server, using defaults.')
+      warnFallback('Could not load characters from server; keeping prior store state', {
+        system: 'playerData',
+        reason: String(e?.message || e),
+      })
+      set({ charactersLoadError: 'fetch_failed' })
     }
   },
 
@@ -194,22 +274,11 @@ export const createDataSlice = (set, get) => ({
       if (sessionData) {
         set({
           currentSceneIndex: sessionData.current_scene_index || 0,
-          currentBeatIndex: sessionData.current_beat_index || 0
+          currentBeatIndex: sessionData.current_beat_index || 0,
         })
       }
 
-      try {
-        const rawSessions = await fetchActiveSessionsWithContent(supabase)
-        const normalized = normalizeSessionsFromDb(rawSessions)
-        const activeId = sessionData?.active_session_uuid || normalized[0]?.id
-        const active = normalized.find(s => s.id === activeId) || normalized[0]
-        const narrative = toPlayerNarrativeSession(active)
-        if (narrative?.scenes?.length) {
-          set({ session: narrative })
-        }
-      } catch (e) {
-        console.warn('Player session hydrate from DB skipped:', e?.message || e)
-      }
+      await get().hydratePlayerSessionFromUuid(sessionData?.active_session_uuid ?? null)
 
       const { data: charData } = await supabase.from('character_states').select('*')
       const validStates = filterValidCharacterStateRows(charData || [])
@@ -236,7 +305,14 @@ export const createDataSlice = (set, get) => ({
         get().applyCombatStateRow(combatData)
       }
     } catch (e) {
-      console.log('Could not load state from server, using defaults.')
+      warnFallback('Could not load initial player state from server', {
+        system: 'playerData',
+        reason: String(e?.message || e),
+      })
+      set({
+        sessionHydrationError: get().sessionHydrationError || 'load_failed',
+        sessionHydrationDetail: String(e?.message || e),
+      })
     }
   },
 })

@@ -291,5 +291,35 @@ export function createEntityCrudSlice(set, get) {
       set({ npcs: get().npcs.filter(n => n.id !== id) })
       return { success: true }
     },
+
+    /** Phase 2F: persist encounter library row (participants JSONB). */
+    saveEncounter: async (encounter) => {
+      const { campaign, encounters } = get()
+      if (!campaign?.id) return { error: 'No campaign loaded' }
+      const payload = {
+        title: encounter.title,
+        type: encounter.type || 'combat',
+        difficulty: encounter.difficulty || null,
+        participants: encounter.participants || [],
+        notes: encounter.notes || null,
+        campaign_id: campaign.id,
+        updated_at: new Date().toISOString(),
+      }
+      let result
+      if (encounter.id) {
+        result = await supabase.from('encounters').update(payload).eq('id', encounter.id).select().single()
+      } else {
+        result = await supabase.from('encounters').insert(payload).select().single()
+      }
+      if (result.error) return { error: result.error.message }
+      const saved = result.data
+      const updated = encounter.id
+        ? encounters.map((e) => (e.id === saved.id ? saved : e))
+        : [...encounters, saved]
+      set({
+        encounters: updated.sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''))),
+      })
+      return { data: saved }
+    },
   }
 }

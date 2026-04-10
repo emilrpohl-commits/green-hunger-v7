@@ -1,6 +1,7 @@
 import { supabase } from '@shared/lib/supabase.js'
 import { decodePlayerSavePrompt } from '@shared/lib/combatRules.js'
 import { qaHoldSavePromptChannelName } from '@shared/lib/qaDevChannels.js'
+import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
 import { shouldAcceptDmTargetForClient } from './helpers.js'
 
 export const createRealtimeSlice = (set, get) => ({
@@ -33,6 +34,16 @@ export const createRealtimeSlice = (set, get) => ({
             currentBeatIndex: payload.new.current_beat_index || 0,
             lastUpdated: new Date()
           })
+          const prevU = payload.old?.active_session_uuid
+          const nextU = payload.new.active_session_uuid
+          if (prevU !== nextU) {
+            get().hydratePlayerSessionFromUuid(nextU ?? null).catch((e) => {
+              warnFallback('Realtime active_session_uuid hydrate failed', {
+                system: 'playerRealtime',
+                reason: String(e?.message || e),
+              })
+            })
+          }
         }
       })
       .subscribe((status) => {
@@ -147,7 +158,12 @@ export const createRealtimeSlice = (set, get) => ({
               },
           seenDmPromptIds: [row.id, ...(state.seenDmPromptIds || [])].slice(0, 100),
         }))
-      } catch { /* Non-fatal fallback polling path */ }
+      } catch (e) {
+        warnFallback('Save-prompt polling path failed', {
+          system: 'playerRealtime',
+          reason: String(e?.message || e),
+        })
+      }
     }, 2000)
 
     let qaHoldChannel = null

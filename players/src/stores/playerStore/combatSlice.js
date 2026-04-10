@@ -3,6 +3,7 @@ import { consumeActionEconomy, ensureActionEconomy, encodeSavePrompt, makeSavePr
 import { getRulesetContext } from '@shared/lib/runtimeContext.js'
 import { logCombatResolutionEvent } from '@shared/lib/logCombatResolution.js'
 import { parseCombatantsArray } from '@shared/lib/validation/storeBoundaries.js'
+import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
 import { sanitizeCombatantForPlayer } from './helpers.js'
 
 export const createCombatSlice = (set, get) => ({
@@ -69,7 +70,11 @@ export const createCombatSlice = (set, get) => ({
         list = parseCombatantsArray(data.combatants, 'fetchCombatantsForWrite')
       }
       return list
-    } catch {
+    } catch (e) {
+      warnFallback('fetchCombatantsForWrite failed; using in-memory combatants', {
+        system: 'playerCombat',
+        reason: String(e?.message || e),
+      })
       return get().combatCombatants
     }
   },
@@ -155,6 +160,13 @@ export const createCombatSlice = (set, get) => ({
     const target = characters.find(c => c.id === targetId)
     const staticChar = get().playerCharacters[targetId]
     if (!target && !staticChar) return
+    if (!target && staticChar) {
+      warnFallback('Healing applied using static player sheet (runtime row missing)', {
+        system: 'playerCombat',
+        id: targetId,
+        source: 'static',
+      })
+    }
     const maxHp = staticChar?.stats?.maxHp || target?.maxHp || 0
     const currentHp = target?.curHp ?? maxHp
     const newHp = Math.min(maxHp, currentHp + amount)
@@ -206,6 +218,13 @@ export const createCombatSlice = (set, get) => ({
     const target = characters.find(c => c.id === targetId)
     const staticChar = get().playerCharacters[targetId]
     if (!target && !staticChar) return
+    if (!target && staticChar) {
+      warnFallback('Damage applied using static player sheet (runtime row missing)', {
+        system: 'playerCombat',
+        id: targetId,
+        source: 'static',
+      })
+    }
     const maxHp = staticChar?.stats?.maxHp || target?.maxHp || 0
     const currentHp = target?.curHp ?? maxHp
     const list = await get().fetchCombatantsForWrite()
@@ -289,6 +308,13 @@ export const createCombatSlice = (set, get) => ({
     const char = characters.find(c => c.id === characterId)
     const staticChar = playerCharacters[characterId]
     const slotsSource = char?.spellSlots || companionSpellSlots[characterId] || staticChar?.spellSlots
+    if (!char?.spellSlots && staticChar?.spellSlots) {
+      warnFallback('Spell slots read from static player sheet', {
+        system: 'playerCombat',
+        id: characterId,
+        source: 'static',
+      })
+    }
     if (!slotsSource) return false
     const slots = slotsSource ?? {}
     const slot = slots[slotLevel]

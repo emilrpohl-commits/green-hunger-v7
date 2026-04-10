@@ -1,8 +1,11 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useCombatStore } from '../../stores/combatStore'
+import { useCampaignStore } from '../../stores/campaignStore'
 import StatBlockView from '../statblocks/StatBlockView'
 import RevealPanel from '../reveals/RevealPanel'
+import { featureFlags } from '@shared/lib/featureFlags.js'
+import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
 
 const CONDITIONS = ['Blinded', 'Charmed', 'Frightened', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious']
 
@@ -243,10 +246,26 @@ function EncountersPanel() {
   const launchDarcy = useCombatStore(s => s.launchDarcy)
   const launchRottingBlooms = useCombatStore(s => s.launchRottingBlooms)
   const launchDamir = useCombatStore(s => s.launchDamir)
+  const launchEncounterFromDbRow = useCombatStore(s => s.launchEncounterFromDbRow)
+  const encountersFromDb = useCampaignStore(s => s.encounters)
+  const statBlocks = useCampaignStore(s => s.statBlocks)
+  const saveEncounter = useCampaignStore(s => s.saveEncounter)
   const sessions = useSessionStore(s => s.sessions)
   const activeSessionId = useSessionStore(s => s.activeSessionId)
   const switchSession = useSessionStore(s => s.switchSession)
   const [expandedStatBlock, setExpandedStatBlock] = useState(null)
+  const [newEncTitle, setNewEncTitle] = useState('')
+  const [newEncStatId, setNewEncStatId] = useState('')
+  const [newEncCount, setNewEncCount] = useState(1)
+  const [saveEncBusy, setSaveEncBusy] = useState(false)
+
+  const statBlockById = useMemo(
+    () => Object.fromEntries(statBlocks.map((sb) => [sb.id, sb])),
+    [statBlocks],
+  )
+
+  const useDbEncounters =
+    featureFlags.encountersDbOnly && !featureFlags.encountersDbOnlyKillSwitch && encountersFromDb.length > 0
 
   const encounters = {
     'session-1': [
@@ -260,10 +279,52 @@ function EncountersPanel() {
   }
   const activeSession = sessions.find(s => s.id === activeSessionId)
   const fallbackSessionKey = activeSession?.session_number ? `session-${activeSession.session_number}` : null
+  const usedSessionNumberFallback =
+    !!fallbackSessionKey &&
+    !encounters[activeSessionId] &&
+    !!encounters[fallbackSessionKey]
+
+  const warnedRef = useRef(false)
+  useEffect(() => {
+    if (useDbEncounters || warnedRef.current) return
+    if (usedSessionNumberFallback && activeSessionId) {
+      warnedRef.current = true
+      warnFallback('Encounters panel keyed by session_number (UUID did not match static keys)', {
+        system: 'dmEncountersPanel',
+        activeSessionId,
+        fallbackSessionKey,
+      })
+    }
+  }, [useDbEncounters, usedSessionNumberFallback, activeSessionId, fallbackSessionKey])
+
   const activeEncounters =
     encounters[activeSessionId] ||
     (fallbackSessionKey ? encounters[fallbackSessionKey] : null) ||
     []
+
+  const dbOnlyEmptyWarned = useRef(false)
+  useEffect(() => {
+    if (dbOnlyEmptyWarned.current) return
+    if (featureFlags.encountersDbOnly && !featureFlags.encountersDbOnlyKillSwitch && encountersFromDb.length === 0) {
+      dbOnlyEmptyWarned.current = true
+      warnFallback('VITE_ENCOUNTERS_DB_ONLY is on but no encounters rows; legacy static list is used until you seed or add rows', {
+        system: 'dmEncountersPanel',
+      })
+    }
+  }, [encountersFromDb.length])
+
+  const handleSaveNewEncounter = async () => {
+    if (!newEncTitle.trim() || !newEncStatId) return
+    setSaveEncBusy(true)
+    await saveEncounter({
+      title: newEncTitle.trim(),
+      type: 'combat',
+      participants: [{ stat_block_id: newEncStatId, count: Math.max(1, parseInt(String(newEncCount), 10) || 1) }],
+    })
+    setSaveEncBusy(false)
+    setNewEncTitle('')
+    setNewEncCount(1)
+  }
 
   return (
     <div style={{ padding: '12px 14px' }}>
@@ -293,7 +354,68 @@ function EncountersPanel() {
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
         Encounters
       </div>
-      {activeEncounters.map((enc, i) => (
+      {useDbEncounters && encountersFromDb.map((enc) => {
+        const firstPart = Array.isArray(enc.participants) ? enc.participants[0] : null
+        const sb = firstPart?.stat_block_id ? statBlockById[firstPart.stat_block_id] : null
+        const statBlockId = sb?.slug || sb?.id || null
+        const sub = enc.type ? `${enc.type}${enc.difficulty ? ` · ${enc.difficulty}` : ''}` : 'Combat'
+        return (
+          <div key={enc.id} style={{ marginBottom: 8 }}>
+            <div style={{
+              display: 'flex', gap: 6, alignItems: 'stretch',
+              background: 'rgba(196,64,64,0.07)',
+              border: '1px solid rgba(196,64,64,0.25)',
+              borderRadius: 'var(--radius-lg)',
+              overflow: 'hidden'
+            }}>
+              <button
+                type="button"
+                onClick={() => launchEncounterFromDbRow(enc, statBlockById)}
+                style={{
+                  flex: 1, padding: '10px 12px',
+                  color: '#d48060', textAlign: 'left', cursor: 'pointer',
+                  background: 'transparent', border: 'none'
+                }}
+              >
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 13, letterSpacing: '0.04em', marginBottom: 3 }}>
+                  ⚔ {enc.title}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{sub}</div>
+              </button>
+              {statBlockId && (
+                <button
+                  type="button"
+                  onClick={() => setExpandedStatBlock(expandedStatBlock === statBlockId ? null : statBlockId)}
+                  style={{
+                    padding: '0 12px',
+                    background: expandedStatBlock === statBlockId ? 'rgba(196,64,64,0.15)' : 'transparent',
+                    border: 'none', borderLeft: '1px solid rgba(196,64,64,0.2)',
+                    color: '#d48060', cursor: 'pointer',
+                    fontFamily: 'var(--font-mono)', fontSize: 10,
+                    textTransform: 'uppercase', letterSpacing: '0.06em'
+                  }}
+                  title="View stat block"
+                >
+                  {expandedStatBlock === statBlockId ? '▲' : '▼'}
+                </button>
+              )}
+            </div>
+            {expandedStatBlock === statBlockId && statBlockId && (
+              <div style={{
+                background: 'var(--bg-card)',
+                border: '1px solid rgba(196,64,64,0.2)',
+                borderTop: 'none',
+                borderRadius: '0 0 var(--radius-lg) var(--radius-lg)',
+                maxHeight: 420,
+                overflow: 'auto'
+              }}>
+                <StatBlockView statBlockId={statBlockId} />
+              </div>
+            )}
+          </div>
+        )
+      })}
+      {!useDbEncounters && activeEncounters.map((enc, i) => (
         <div key={i} style={{ marginBottom: 8 }}>
           <div style={{
             display: 'flex', gap: 6, alignItems: 'stretch',
@@ -343,7 +465,7 @@ function EncountersPanel() {
           )}
         </div>
       ))}
-      {activeEncounters.length === 0 && (
+      {!useDbEncounters && activeEncounters.length === 0 && (
         <div style={{
           padding: '10px 12px',
           background: 'var(--bg-card)',
@@ -356,6 +478,72 @@ function EncountersPanel() {
           No configured encounters for this session yet.
         </div>
       )}
+      {useDbEncounters && encountersFromDb.length === 0 && (
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
+          No rows in <code style={{ fontSize: 10 }}>encounters</code>. Add one below or run the Phase 2 migration seed.
+        </div>
+      )}
+      <div style={{
+        marginTop: 12,
+        padding: 10,
+        background: 'var(--bg-raised)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)',
+      }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>
+          Add encounter (library)
+        </div>
+        <input
+          placeholder="Title"
+          value={newEncTitle}
+          onChange={(e) => setNewEncTitle(e.target.value)}
+          style={{
+            width: '100%', marginBottom: 6, padding: '6px 8px', boxSizing: 'border-box',
+            background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+            color: 'var(--text-primary)', fontSize: 12,
+          }}
+        />
+        <select
+          value={newEncStatId}
+          onChange={(e) => setNewEncStatId(e.target.value)}
+          style={{
+            width: '100%', marginBottom: 6, padding: '6px 8px',
+            background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+            color: 'var(--text-primary)', fontSize: 11,
+          }}
+        >
+          <option value="">Stat block…</option>
+          {statBlocks.map((sb) => (
+            <option key={sb.id} value={sb.id}>{sb.name} ({sb.slug || sb.id.slice(0, 8)})</option>
+          ))}
+        </select>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Count</span>
+          <input
+            type="number"
+            min={1}
+            value={newEncCount}
+            onChange={(e) => setNewEncCount(parseInt(e.target.value, 10) || 1)}
+            style={{
+              width: 56, padding: '4px 6px',
+              background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+              color: 'var(--text-primary)', fontSize: 12,
+            }}
+          />
+        </div>
+        <button
+          type="button"
+          disabled={saveEncBusy || !newEncTitle.trim() || !newEncStatId}
+          onClick={handleSaveNewEncounter}
+          style={{
+            width: '100%', padding: '8px', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+            background: 'var(--green-dim)', border: '1px solid var(--green-mid)', borderRadius: 'var(--radius)',
+            color: 'var(--green-bright)', cursor: saveEncBusy ? 'wait' : 'pointer',
+          }}
+        >
+          Save to DB
+        </button>
+      </div>
     </div>
   )
 }
