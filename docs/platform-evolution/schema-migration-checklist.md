@@ -39,7 +39,7 @@ Use this as a living checklist when authoring `supabase/migrations/*.sql`. Do no
 
 ## Stage 5 — Manual character creator
 
-- [ ] Usually **no** new tables if editor writes existing `characters` + `character_spells`.
+- [x] Usually **no** new tables if editor writes existing `characters` + `character_spells` (DM Builder **Characters** + `shared/lib/characterSheetShape.js` + store CRUD).
 - [ ] Optional: `character_drafts` for autosave.
 
 ---

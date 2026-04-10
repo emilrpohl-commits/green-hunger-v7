@@ -2,17 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@shared/lib/supabase.js'
 import { useCampaignStore } from '../../stores/campaignStore'
 import { makeCampaignSpellId, referenceSpellRowToCampaignPayload } from '@shared/lib/reference/referenceSpellToCampaign.js'
-
-const ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
-const CLASS_NAMES = ['Artificer', 'Barbarian', 'Bard', 'Cleric', 'Druid', 'Fighter', 'Monk', 'Paladin', 'Ranger', 'Rogue', 'Sorcerer', 'Warlock', 'Wizard']
-
-function slugify(value = '') {
-  return String(value || '')
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
+import { ABILITIES, PHB_CLASSES as CLASS_NAMES, slugify, toAbilityBlock } from '@shared/lib/characterSheetShape.js'
 
 function normalizeSpellName(value = '') {
   return String(value || '')
@@ -20,13 +10,6 @@ function normalizeSpellName(value = '') {
     .trim()
     .replace(/[^\w\s-]/g, ' ')
     .replace(/\s+/g, ' ')
-}
-
-function toAbilityBlock(score) {
-  const n = Number(score) || 10
-  const modNum = Math.floor((n - 10) / 2)
-  const mod = `${modNum >= 0 ? '+' : ''}${modNum}`
-  return { score: n, mod }
 }
 
 function parseAbilityScore(text, ability) {

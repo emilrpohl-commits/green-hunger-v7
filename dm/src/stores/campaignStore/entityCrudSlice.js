@@ -39,6 +39,54 @@ const SPELL_DB_COLUMNS = [
   'updated_at',
 ]
 
+const CHARACTER_DB_COLUMNS = [
+  'id',
+  'campaign_id',
+  'name',
+  'password',
+  'class',
+  'subclass',
+  'level',
+  'species',
+  'background',
+  'player',
+  'image',
+  'colour',
+  'is_npc',
+  'is_active',
+  'notes',
+  'stats',
+  'ability_scores',
+  'saving_throws',
+  'skills',
+  'spell_slots',
+  'sorcery_points',
+  'features',
+  'weapons',
+  'healing_actions',
+  'buff_actions',
+  'equipment',
+  'magic_items',
+  'passive_scores',
+  'senses',
+  'languages',
+  'backstory',
+  'srd_refs',
+  'homebrew_json',
+  'updated_at',
+]
+
+function sanitizeCharacterPayload(character, campaignId) {
+  const withManaged = {
+    ...character,
+    campaign_id: campaignId,
+    updated_at: new Date().toISOString(),
+  }
+  return Object.fromEntries(
+    Object.entries(withManaged).filter(([key]) => CHARACTER_DB_COLUMNS.includes(key))
+  )
+}
+
 function sanitizeSpellPayload(spell, campaignId) {
   const normalizedSpellId = spell.spell_id || String(spell.name || '')
     .toLowerCase()
@@ -165,6 +213,36 @@ export function createEntityCrudSlice(set, get) {
       const updated = spell.id ? spells.map(s => s.id === result.data.id ? result.data : s) : [...spells, result.data]
       set({ spells: updated.sort((a, b) => (a.level - b.level) || String(a.name || '').localeCompare(String(b.name || ''))) })
       return { data: result.data }
+    },
+
+    saveCharacter: async (character) => {
+      const { campaign, characters } = get()
+      if (!campaign?.id) return { error: 'No campaign loaded' }
+      if (!String(character?.name || '').trim()) return { error: 'Character name is required' }
+      const payload = sanitizeCharacterPayload(character, campaign.id)
+      const id = payload.id || `pc-${Date.now()}`
+      const existsInStore = (characters || []).some((c) => c.id === id)
+      let result
+      if (existsInStore) {
+        result = await supabase.from('characters').update({ ...payload, id }).eq('id', id).select().single()
+      } else {
+        result = await supabase.from('characters').insert({ ...payload, id }).select().single()
+      }
+      if (result.error) return { error: result.error.message }
+      const list = get().characters || []
+      const saved = result.data
+      const updated = existsInStore
+        ? list.map((c) => (c.id === saved.id ? saved : c))
+        : [...list, saved]
+      set({ characters: updated.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''))) })
+      return { data: saved }
+    },
+
+    deleteCharacter: async (id) => {
+      const { error } = await supabase.from('characters').delete().eq('id', id)
+      if (error) return { error: error.message }
+      set({ characters: get().characters.filter((c) => c.id !== id) })
+      return { success: true }
     },
 
     deleteSpell: async (id) => {
