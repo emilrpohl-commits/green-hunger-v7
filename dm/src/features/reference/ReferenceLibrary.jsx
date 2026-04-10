@@ -92,7 +92,11 @@ export default function ReferenceLibrary() {
       return
     }
     const draft = srdMonsterToStatBlockDraft(raw)
-    const r = await saveStatBlock({ ...draft, id: undefined })
+    const r = await saveStatBlock({
+      ...draft,
+      id: undefined,
+      cloned_from_reference_id: selected.id,
+    })
     setBusy(false)
     if (r.error) setError(r.error)
     else setNotice(`Stat block created: ${r.data?.name}`)

@@ -192,6 +192,7 @@ create table if not exists stat_blocks (
   loot_ids uuid[],
   portrait_url text,
   token_url text,
+  cloned_from_reference_id uuid,
   tags text[],
   archived_at timestamptz,
   created_at timestamptz default now(),
@@ -436,6 +437,15 @@ create table if not exists reference_monsters (
 create index if not exists reference_monsters_ruleset_name_idx on reference_monsters (ruleset, lower(name));
 create index if not exists reference_monsters_search_idx
   on reference_monsters using gin (to_tsvector('english', coalesce(name, '') || ' ' || coalesce(creature_type, '')));
+
+-- stat_blocks.cloned_from_reference_id: column created with stat_blocks; FK after reference_monsters exists
+alter table stat_blocks drop constraint if exists stat_blocks_cloned_from_reference_id_fkey;
+alter table stat_blocks
+  add constraint stat_blocks_cloned_from_reference_id_fkey
+  foreign key (cloned_from_reference_id) references reference_monsters(id) on delete set null;
+create index if not exists stat_blocks_cloned_from_reference_id_idx
+  on stat_blocks (cloned_from_reference_id)
+  where cloned_from_reference_id is not null;
 
 create table if not exists items (
   id uuid primary key default gen_random_uuid(),
