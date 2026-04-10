@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react'
 import { STAT_BLOCKS } from '@shared/content/statblocks.js'
 import { useCampaignStore } from '../../stores/campaignStore'
 import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
+import { getPortraitPublicUrl } from '@shared/lib/portraitStorage.js'
 
 // Normalise DB stat block field names → the shape StatBlockView expects
 function normaliseDbSb(sb) {
@@ -23,7 +24,9 @@ function normaliseDbSb(sb) {
     traits: sb.traits || [],
     actions: sb.actions || [],
     reactions: sb.reactions || [],
-    portraitUrl: sb.portrait_url || sb.portraitUrl,
+    portraitUrl: sb.portrait_url
+      || getPortraitPublicUrl(sb.portrait_thumb_storage_path || sb.portrait_original_storage_path)
+      || sb.portraitUrl,
   }
 }
 

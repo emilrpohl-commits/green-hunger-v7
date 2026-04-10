@@ -53,6 +53,10 @@ const DEFAULT_STATS = {
   proficiencyBonus: '+2',
 }
 
+function defaultPortraitCrop() {
+  return { unit: 'relative', x: 0.12, y: 0.08, width: 0.76, height: 0.84, zoom: 1.0 }
+}
+
 /**
  * @param {string|null} campaignId
  * @param {Record<string, unknown>} [partial]
@@ -71,6 +75,11 @@ export function blankDbCharacter(campaignId, partial = {}) {
     background: partial.background ?? '',
     player: partial.player ?? '',
     image: partial.image ?? null,
+    portrait_original_storage_path: partial.portrait_original_storage_path ?? null,
+    portrait_crop: partial.portrait_crop && typeof partial.portrait_crop === 'object'
+      ? { ...partial.portrait_crop }
+      : defaultPortraitCrop(),
+    portrait_thumb_storage_path: partial.portrait_thumb_storage_path ?? null,
     colour: partial.colour || '#6f9b7a',
     is_npc: !!partial.is_npc,
     is_active: partial.is_active !== false,

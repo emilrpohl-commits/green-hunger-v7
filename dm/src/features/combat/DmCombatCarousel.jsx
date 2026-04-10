@@ -18,6 +18,7 @@ const GAP        = 14    // px — gap between tiles
 
 function portraitSrc(combatant) {
   if (!combatant.image) return null
+  if (/^https?:\/\//i.test(String(combatant.image)) || String(combatant.image).startsWith('data:')) return combatant.image
   if (combatant.type === 'enemy') return combatant.image
   return `https://emilrpohl-commits.github.io/greenhunger-players/characters/${combatant.image}`
 }

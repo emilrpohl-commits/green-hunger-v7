@@ -1,11 +1,29 @@
 import React, { useState } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
+import PortraitUploadField from '../../components/PortraitUploadField.jsx'
 
 function blankNpc() {
-  return { name: '', role: '', affiliation: '', description: '', personality: '', motivation: '', secret: '', stat_block_id: null, portrait_url: '', faction_id: null, tags: [], notes: '' }
+  return {
+    name: '',
+    role: '',
+    affiliation: '',
+    description: '',
+    personality: '',
+    motivation: '',
+    secret: '',
+    stat_block_id: null,
+    portrait_url: '',
+    portrait_original_storage_path: null,
+    portrait_crop: { unit: 'relative', x: 0.12, y: 0.08, width: 0.76, height: 0.84, zoom: 1.0 },
+    portrait_thumb_storage_path: null,
+    faction_id: null,
+    tags: [],
+    notes: '',
+  }
 }
 
 export default function NpcLibrary() {
+  const campaign = useCampaignStore(s => s.campaign)
   const npcs = useCampaignStore(s => s.npcs)
   const statBlocks = useCampaignStore(s => s.statBlocks)
   const saveNpc = useCampaignStore(s => s.saveNpc)
@@ -70,6 +88,24 @@ export default function NpcLibrary() {
               <option value="">None</option>
               {statBlocks.map(sb => <option key={sb.id} value={sb.id}>{sb.name} (CR {sb.cr})</option>)}
             </select>
+          </div>
+          <div style={{ marginBottom: 14, gridColumn: '1/-1' }}>
+            <PortraitUploadField
+              label="Portrait (Stage 7)"
+              campaignId={campaign?.id}
+              entityType="npcs"
+              entityId={editing === '__new__' ? (form.name || '__new__') : editing}
+              storagePath={form.portrait_original_storage_path}
+              crop={form.portrait_crop}
+              legacyUrl={form.portrait_url || null}
+              onChange={({ storagePath, crop, publicUrl }) => setForm((f) => ({
+                ...f,
+                portrait_original_storage_path: storagePath,
+                portrait_crop: crop,
+                portrait_thumb_storage_path: null,
+                portrait_url: publicUrl || f.portrait_url || '',
+              }))}
+            />
           </div>
         </div>
 

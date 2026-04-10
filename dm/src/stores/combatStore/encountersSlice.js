@@ -7,6 +7,7 @@ import { featureFlags } from '@shared/lib/featureFlags.js'
 import { getMonsterCombatant } from '@shared/lib/engine/rulesService.js'
 import { getSessionRunId } from '@shared/lib/runtimeContext.js'
 import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
+import { getPortraitPublicUrl } from '@shared/lib/portraitStorage.js'
 import {
   expandEncounterParticipantsToEnemies,
   findEncounterByStatBlockSlug,
@@ -35,7 +36,7 @@ async function fetchRunCampaignId() {
 async function fetchStatBlockMapByCampaign(campaignId) {
   const { data, error } = await supabase
     .from('stat_blocks')
-    .select('id, slug, name, ac, max_hp, portrait_url, actions, bonus_actions, reactions, ability_scores, saving_throws')
+    .select('id, slug, name, ac, max_hp, portrait_url, portrait_original_storage_path, portrait_thumb_storage_path, actions, bonus_actions, reactions, ability_scores, saving_throws')
     .eq('campaign_id', campaignId)
   if (error) {
     console.warn('fetchStatBlockMapByCampaign:', error.message)
@@ -53,7 +54,7 @@ export const createEncountersSlice = (set, get) => ({
     try {
       const { data, error } = await supabase
         .from('stat_blocks')
-        .select('slug, ac, max_hp, portrait_url, actions, bonus_actions, reactions, ability_scores, saving_throws')
+        .select('slug, ac, max_hp, portrait_url, portrait_original_storage_path, portrait_thumb_storage_path, actions, bonus_actions, reactions, ability_scores, saving_throws')
         .in('slug', slugs)
       if (error) {
         console.warn('startEncounter stat_blocks lookup failed:', error)
@@ -159,7 +160,10 @@ export const createEncountersSlice = (set, get) => ({
         conditions: [],
         effects: [],
         concentration: false,
-        image: sb?.portrait_url || e.portrait_url || null,
+        image: sb?.portrait_url
+          || getPortraitPublicUrl(sb?.portrait_thumb_storage_path || sb?.portrait_original_storage_path)
+          || e.portrait_url
+          || null,
         actionEconomy: makeActionEconomy(),
         abilityScores: sb?.ability_scores || {},
         savingThrows: sb?.saving_throws || [],
