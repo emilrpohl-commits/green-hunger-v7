@@ -432,6 +432,20 @@ export default function MainPanel() {
               </div>
             )}
           </div>
+        ) : beat.inlineStatBlock ? (
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid rgba(196,64,64,0.3)',
+            borderLeft: '3px solid var(--danger)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '18px 22px',
+            marginBottom: beat.dmNote ? 16 : 0
+          }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--danger)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>
+              ⚔ Encounter Stat Block
+            </div>
+            <StatBlockView data={beat.inlineStatBlock} />
+          </div>
         ) : null}
         {beat.dmNote ? (
           <div style={{

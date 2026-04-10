@@ -12,6 +12,7 @@ export function normalizeSceneForRuntime(scene) {
       ...b,
       dmNote: b.dm_notes || b.dmNote,
       statBlockId: b.stat_block_id || b.statBlockId,
+      inlineStatBlock: b.inline_stat_block || b.inlineStatBlock || null,
       type: b.type === 'combat trigger' ? 'combat' : (b.type || 'narrative'),
     })).sort((a, b) => (a.order || 0) - (b.order || 0)),
     branches: (scene.branches || []).map(br => ({

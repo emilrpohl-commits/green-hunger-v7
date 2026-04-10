@@ -216,6 +216,254 @@ function extractDmNoteText(line) {
   return clean(line.replace(/dm note[s]?\s*[:\-]?\s*/i, ''))
 }
 
+// ─── Inline stat block extraction (within [combat] beat bodies) ──────────────
+
+const SIZES_PATTERN = 'Tiny|Small|Medium|Large|Huge|Gargantuan'
+const INLINE_SIZE_CHALLENGE_RE = new RegExp(
+  `^(${SIZES_PATTERN})\\b.+[—–\\-].+Challenge`, 'i'
+)
+
+/**
+ * Detect a stat block embedded in combat beat body text.
+ * The boundary is a creature-name line immediately followed by a
+ * size/type/alignment line containing "— Challenge".
+ * Returns { prose, statBlockLines } or null.
+ */
+function extractInlineStatBlock(bodyText) {
+  const rawLines = bodyText.split('\n')
+  const cleanLines = rawLines.map(l => clean(l))
+
+  let statBlockStart = -1
+  for (let i = 0; i < cleanLines.length - 1; i++) {
+    const thisLine = cleanLines[i]
+    const nextLine = cleanLines[i + 1]
+    if (!thisLine || !nextLine) continue
+    if (/^(AC|HP|Speed|STR|DEX|Saving|Skills|Damage|Condition|Senses|ACTIONS|Combat)/i.test(thisLine)) continue
+    if (/^#{1,3}\s/.test(rawLines[i].trim())) continue
+    if (INLINE_SIZE_CHALLENGE_RE.test(nextLine)) {
+      statBlockStart = i
+      break
+    }
+  }
+
+  if (statBlockStart === -1) return null
+
+  const proseLines = cleanLines.slice(0, statBlockStart).filter(Boolean)
+  const statBlockCleanLines = cleanLines.slice(statBlockStart).filter(Boolean)
+
+  return {
+    prose: proseLines.join('\n\n'),
+    statBlockLines: statBlockCleanLines,
+  }
+}
+
+/**
+ * Parse ALL-CAPS-named entries: "TRAIT NAME. Description text"
+ * Used for traits and actions in inline stat blocks.
+ */
+function parseAllCapsEntries(text) {
+  const entries = []
+  const entryRe = /^([A-Z][A-Z\s]*(?:\([^)]*\))?)\.\s*(.+)/
+  let current = null
+
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+    const m = trimmed.match(entryRe)
+    if (m) {
+      if (current) entries.push(current)
+      current = { name: clean(m[1]), desc: clean(m[2]) }
+    } else if (current) {
+      current.desc += ' ' + clean(trimmed)
+    }
+  }
+  if (current) entries.push(current)
+  return entries.filter(e => e.name && e.desc)
+}
+
+/**
+ * Parse an inline stat block (array of cleaned lines) into a structured
+ * object compatible with StatBlockView / the stat_blocks table.
+ */
+function parseInlineStatBlock(sbLines) {
+  const ABILITY_KEYS = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
+  const text = sbLines.join('\n')
+
+  const result = {
+    name: '',
+    size: 'Medium',
+    creature_type: '',
+    alignment: '',
+    cr: '1',
+    xp: 0,
+    proficiency_bonus: 2,
+    ability_scores: { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
+    modifiers: {},
+    ac: 10,
+    ac_note: '',
+    max_hp: 10,
+    hit_dice: '',
+    speed: '30 ft.',
+    saving_throws: [],
+    skills: [],
+    resistances: [],
+    vulnerabilities: [],
+    immunities: { damage: [], condition: [] },
+    senses: '',
+    languages: '',
+    traits: [],
+    actions: [],
+    bonus_actions: [],
+    reactions: [],
+    legendary_actions: [],
+    combat_prompts: [],
+    dm_notes: [],
+    tags: [],
+    source: 'Imported',
+    slug: '',
+  }
+
+  // Line 0: creature name
+  result.name = sbLines[0] || ''
+
+  // Line 1: Size type, alignment — Challenge CR (XP xp)
+  const typeRe = new RegExp(
+    `^(${SIZES_PATTERN})\\s+(.+?)\\s*[—–\\-]\\s*Challenge\\s+([\\d/]+)\\s*(?:\\(([\\d,]+)\\s*XP\\))?`,
+    'i'
+  )
+  const typeMatch = sbLines[1]?.match(typeRe)
+  if (typeMatch) {
+    result.size = typeMatch[1]
+    const typeAlign = typeMatch[2].trim()
+    const parts = typeAlign.split(',').map(s => s.trim())
+    if (parts.length >= 2) {
+      result.creature_type = parts.slice(0, -1).join(', ')
+      result.alignment = parts[parts.length - 1]
+    } else {
+      result.creature_type = typeAlign
+    }
+    result.cr = typeMatch[3]
+    result.xp = typeMatch[4] ? parseInt(typeMatch[4].replace(/,/g, '')) : 0
+  }
+
+  // Proficiency bonus from CR
+  const crParts = String(result.cr).split('/')
+  const crNum = crParts.length === 2
+    ? parseInt(crParts[0]) / parseInt(crParts[1])
+    : (parseFloat(result.cr) || 1)
+  result.proficiency_bonus = Math.max(2, Math.ceil(1 + crNum / 4))
+
+  // Ability scores: "STR DEX CON INT WIS CHA" header then values
+  const abIdx = sbLines.findIndex(l => /\bSTR\b.*\bDEX\b.*\bCON\b.*\bINT\b.*\bWIS\b.*\bCHA\b/i.test(l))
+  if (abIdx >= 0 && abIdx + 1 < sbLines.length) {
+    const scoreLine = sbLines[abIdx + 1]
+    const withMods = [...scoreLine.matchAll(/(\d+)\s*\([+\-−]?\d+\)/g)].map(m => parseInt(m[1]))
+    if (withMods.length === 6) {
+      ABILITY_KEYS.forEach((k, i) => { result.ability_scores[k] = withMods[i] })
+    } else {
+      const plain = scoreLine.split(/\s+/).map(Number).filter(n => !isNaN(n) && n > 0 && n <= 30)
+      if (plain.length === 6) {
+        ABILITY_KEYS.forEach((k, i) => { result.ability_scores[k] = plain[i] })
+      }
+    }
+  }
+
+  ABILITY_KEYS.forEach(k => {
+    result.modifiers[k] = Math.floor((result.ability_scores[k] - 10) / 2)
+  })
+
+  // AC:, HP:, Speed: (abbreviated inline format)
+  const acMatch = text.match(/AC:\s*(\d+)\s*(?:\(([^)]*)\))?/i)
+  if (acMatch) {
+    result.ac = parseInt(acMatch[1])
+    result.ac_note = acMatch[2] ? clean(acMatch[2]) : ''
+  }
+
+  const hpMatch = text.match(/HP:\s*(\d+)\s*(?:\(([^)]*)\))?/i)
+  if (hpMatch) {
+    result.max_hp = parseInt(hpMatch[1])
+    result.hit_dice = hpMatch[2] ? clean(hpMatch[2]) : ''
+  }
+
+  const speedMatch = text.match(/Speed:\s*(.+?)(?:\n|$)/i)
+  if (speedMatch) result.speed = clean(speedMatch[1])
+
+  // Optional fields (period-terminated labels)
+  const savesMatch = text.match(/Saving Throws?\.?\s+(.+?)(?:\n|$)/i)
+  if (savesMatch) {
+    result.saving_throws = savesMatch[1].split(',').map(s => {
+      const m = s.trim().match(/([A-Za-z]+)\s*([+-]\d+)/)
+      return m ? { name: m[1].trim(), mod: parseInt(m[2]) } : null
+    }).filter(Boolean)
+  }
+
+  const skillsMatch = text.match(/Skills?\.?\s+(.+?)(?:\n|$)/i)
+  if (skillsMatch) {
+    result.skills = skillsMatch[1].split(',').map(s => {
+      const m = s.trim().match(/([A-Za-z\s]+?)\s*([+-]\d+)/)
+      return m ? { name: m[1].trim(), mod: parseInt(m[2]) } : null
+    }).filter(Boolean)
+  }
+
+  const resistMatch = text.match(/Damage Resistances?\.?\s+(.+?)(?:\n|$)/i)
+  if (resistMatch) result.resistances = resistMatch[1].split(',').map(s => clean(s)).filter(Boolean)
+
+  const condImmMatch = text.match(/Condition Immunities?\.?\s+(.+?)(?:\n|$)/i)
+  if (condImmMatch) result.immunities.condition = condImmMatch[1].split(',').map(s => clean(s)).filter(Boolean)
+
+  const dmgImmMatch = text.match(/Damage Immunities?\.?\s+(.+?)(?:\n|$)/i)
+  if (dmgImmMatch) result.immunities.damage = dmgImmMatch[1].split(',').map(s => clean(s)).filter(Boolean)
+
+  const sensesMatch = text.match(/Senses?\.?\s+(.+?)(?:\n|$)/i)
+  if (sensesMatch) result.senses = clean(sensesMatch[1])
+
+  // Section boundaries
+  const actionsIdx = sbLines.findIndex(l => /^ACTIONS$/i.test(l))
+  const promptsIdx = sbLines.findIndex(l => /^Combat Description Prompts$/i.test(l))
+
+  // Find last known-field line to locate trait start
+  const fieldPatterns = [
+    /^AC:/i, /^HP:/i, /^Speed:/i,
+    /^Saving Throws?\.?/i, /^Skills?\.?/i,
+    /^Damage Resistances?\.?/i, /^Condition Immunities?\.?/i,
+    /^Damage Immunities?\.?/i, /^Senses?\.?/i,
+  ]
+  let lastFieldIdx = abIdx >= 0 ? abIdx + 1 : 1
+  for (let i = 0; i < sbLines.length; i++) {
+    if (fieldPatterns.some(re => re.test(sbLines[i]))) lastFieldIdx = i
+  }
+
+  // Traits: ALL CAPS entries between last field and ACTIONS (or prompts / end)
+  const traitsEnd = actionsIdx >= 0 ? actionsIdx : (promptsIdx >= 0 ? promptsIdx : sbLines.length)
+  if (lastFieldIdx + 1 < traitsEnd) {
+    result.traits = parseAllCapsEntries(sbLines.slice(lastFieldIdx + 1, traitsEnd).join('\n'))
+  }
+
+  // Actions: ALL CAPS entries between ACTIONS header and prompts (or end)
+  if (actionsIdx >= 0) {
+    const actEnd = promptsIdx >= 0 ? promptsIdx : sbLines.length
+    result.actions = parseAllCapsEntries(sbLines.slice(actionsIdx + 1, actEnd).join('\n'))
+  }
+
+  // Combat Description Prompts: "On <trigger>: <text>"
+  if (promptsIdx >= 0) {
+    result.combat_prompts = sbLines.slice(promptsIdx + 1)
+      .filter(l => /^On\s+/i.test(l))
+      .map(l => {
+        const m = l.match(/^On\s+(.+?):\s*(.+)$/i)
+        if (!m) return null
+        return {
+          trigger: `On ${clean(m[1])}`,
+          text: clean(m[2]).replace(/^["\u201C]|["\u201D]$/g, ''),
+        }
+      })
+      .filter(Boolean)
+  }
+
+  result.slug = result.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  return result
+}
+
 // ─── Main parser ──────────────────────────────────────────────────────────────
 
 export function parseSessionMarkdown(markdown) {
@@ -523,6 +771,19 @@ export function parseSessionMarkdown(markdown) {
         }
       }
 
+      // For combat beats, extract inline stat blocks before paragraph processing
+      let inlineStatBlock = null
+      if (beatType === 'combat') {
+        const extracted = extractInlineStatBlock(bodyForText)
+        if (extracted) {
+          inlineStatBlock = parseInlineStatBlock(extracted.statBlockLines)
+          bodyForText = extracted.prose
+          if (inlineStatBlock.name && !result.statBlocks.find(s => s.name === inlineStatBlock.name)) {
+            result.statBlocks.push(inlineStatBlock)
+          }
+        }
+      }
+
       // Check for sub-beat headings (### level)
       const subBeatRe = /^###\s+(?:__)?(.+?)(?:__)?$/gm
       const subBeatMatches = [...bodyForText.matchAll(subBeatRe)]
@@ -586,20 +847,26 @@ export function parseSessionMarkdown(markdown) {
         mechanicalEffect,
         statBlockRef: null,
         statBlockSourceIndex: null,
+        inlineStatBlock,
       }
 
-      // Link beats to stat blocks: check heading and content against any known stat block name
-      const sbRef = result.statBlocks.find(sb => {
-        const sbLower = sb.name.toLowerCase()
-        const headingLower = beatTitle.toLowerCase()
-        return headingLower === sbLower ||
-          headingLower.includes(sbLower) ||
-          sbLower.includes(headingLower) ||
-          content.toLowerCase().includes(sbLower)
-      })
-      if (sbRef) {
-        beat.statBlockRef = sbRef.name
-        beat.statBlockSourceIndex = sbRef.slug || sbRef.index || null
+      // Link beats to stat blocks — inline extraction gets priority
+      if (inlineStatBlock?.name) {
+        beat.statBlockRef = inlineStatBlock.name
+        beat.statBlockSourceIndex = inlineStatBlock.slug || null
+      } else {
+        const sbRef = result.statBlocks.find(sb => {
+          const sbLower = sb.name.toLowerCase()
+          const headingLower = beatTitle.toLowerCase()
+          return headingLower === sbLower ||
+            headingLower.includes(sbLower) ||
+            sbLower.includes(headingLower) ||
+            content.toLowerCase().includes(sbLower)
+        })
+        if (sbRef) {
+          beat.statBlockRef = sbRef.name
+          beat.statBlockSourceIndex = sbRef.slug || sbRef.index || null
+        }
       }
 
       scene.beats.push(beat)

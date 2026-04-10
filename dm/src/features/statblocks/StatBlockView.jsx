@@ -35,17 +35,16 @@ function computeModifiers(scores) {
   return m
 }
 
-export default function StatBlockView({ statBlockId, compact = false }) {
+export default function StatBlockView({ statBlockId, data, compact = false }) {
   const statBlockMap = useCampaignStore(s => s.statBlockMap)
   const warnedRef = useRef(false)
 
-  // Prefer DB lookup (by UUID or slug), fall back to static data
-  const fromDb = !!statBlockMap[statBlockId]
-  const raw = statBlockMap[statBlockId] || STAT_BLOCKS[statBlockId]
+  const fromDb = statBlockId ? !!statBlockMap[statBlockId] : false
+  const raw = data || (statBlockId ? (statBlockMap[statBlockId] || STAT_BLOCKS[statBlockId]) : null)
   const sb = raw ? normaliseDbSb(raw) : null
 
   useEffect(() => {
-    if (!statBlockId || warnedRef.current) return
+    if (!statBlockId || data || warnedRef.current) return
     if (!fromDb && STAT_BLOCKS[statBlockId]) {
       warnedRef.current = true
       warnFallback('Stat block view using bundled static statblocks.js', {
@@ -54,9 +53,9 @@ export default function StatBlockView({ statBlockId, compact = false }) {
         source: 'static',
       })
     }
-  }, [statBlockId, fromDb])
+  }, [statBlockId, fromDb, data])
 
-  if (!sb) return <div style={{ padding: 12, fontSize: 12, color: 'var(--text-muted)' }}>No stat block found for "{statBlockId}".</div>
+  if (!sb) return <div style={{ padding: 12, fontSize: 12, color: 'var(--text-muted)' }}>No stat block found{statBlockId ? ` for "${statBlockId}"` : ''}.</div>
 
   const monoSm = { fontFamily: 'var(--font-mono)', fontSize: 10 }
   const label = { ...monoSm, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }
