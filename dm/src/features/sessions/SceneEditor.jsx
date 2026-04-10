@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
+import { BEAT_TYPES, BEAT_TYPE_COLOURS } from '@shared/lib/constants.js'
 
 const SCENE_TYPES = ['narrative', 'combat', 'exploration', 'social', 'puzzle', 'transition']
-const BEAT_TYPES = ['narrative', 'prompt', 'check', 'decision', 'combat', 'reveal', 'transition']
 const BRANCH_CONDITION_TYPES = ['explicit', 'implicit', 'conditional']
 
 export default function SceneEditor({ sceneId, sessionId, onClose }) {
@@ -355,15 +355,7 @@ function BeatsPanel({ scene, statBlocks, saveBeat, deleteBeat, reorderBeats, edi
 }
 
 function BeatTypeBadge({ type }) {
-  const colors = {
-    narrative: 'var(--text-muted)',
-    prompt: '#a0b0ff',
-    check: 'var(--warning)',
-    decision: '#c4a0e0',
-    combat: 'var(--danger)',
-    reveal: 'var(--green-bright)',
-    transition: 'var(--text-muted)',
-  }
+  const colors = BEAT_TYPE_COLOURS
   return (
     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors[type] || 'var(--text-muted)', minWidth: 64 }}>
       {type}

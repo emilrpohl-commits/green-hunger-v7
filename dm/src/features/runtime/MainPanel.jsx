@@ -4,24 +4,19 @@ import { useCombatStore } from '../../stores/combatStore'
 import { supabase } from '@shared/lib/supabase.js'
 import { getSessionRunId } from '@shared/lib/runtimeContext.js'
 import { rosterToDmTargetOptions } from '@shared/lib/partyRoster.js'
+import { BEAT_TYPE_LABELS, BEAT_TYPE_STYLES } from '@shared/lib/constants.js'
 import StatBlockView from '../statblocks/StatBlockView'
 
+// Run-mode maps 'combat trigger' (from sessionStore sync) alongside canonical types
 const BEAT_TYPE_LABEL = {
-  narrative: 'NARRATIVE',
-  prompt: 'PROMPT',
+  ...BEAT_TYPE_LABELS,
   check: 'SKILL CHECK',
-  decision: 'DECISION',
   'combat trigger': 'COMBAT',
-  reveal: 'REVEAL'
 }
 
 const BEAT_TYPE_STYLE = {
-  narrative: { color: 'var(--text-secondary)', bg: 'transparent' },
-  prompt: { color: 'var(--green-bright)', bg: 'rgba(122,184,106,0.08)' },
-  check: { color: 'var(--info)', bg: 'rgba(64,128,196,0.08)' },
-  decision: { color: 'var(--warning)', bg: 'rgba(196,160,64,0.08)' },
+  ...BEAT_TYPE_STYLES,
   'combat trigger': { color: 'var(--danger)', bg: 'rgba(196,64,64,0.08)' },
-  reveal: { color: 'var(--rot-bright)', bg: 'rgba(196,112,64,0.08)' }
 }
 
 const DICE = [4, 6, 8, 10, 12, 20]
