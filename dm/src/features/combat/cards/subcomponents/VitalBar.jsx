@@ -21,9 +21,14 @@ export default function VitalBar({
   large = false,       // true → larger HP number (focused card)
   combatant,           // if passed, used to derive bloodied highlight
 }) {
-  const hpPct   = maxHp > 0 ? Math.min(100, (curHp / maxHp) * 100) : 0
-  const hpColour = HP_COLOUR(hpPct, curHp)
-  const bloodied = combatant ? isBloodied(combatant) : hpPct <= 50 && curHp > 0
+  // Null-safe HP values so bar % always matches displayed number
+  const safeCur  = typeof curHp === 'number' && isFinite(curHp) ? curHp : 0
+  const safeMax  = typeof maxHp === 'number' && maxHp > 0       ? maxHp : 1
+  const safeTmp  = typeof tempHp === 'number' && isFinite(tempHp) ? tempHp : 0
+
+  const hpPct    = Math.min(100, (safeCur / safeMax) * 100)
+  const hpColour = HP_COLOUR(hpPct, safeCur)
+  const bloodied = combatant ? isBloodied(combatant) : hpPct <= 50 && safeCur > 0
 
   const hpFontSize = large ? 36 : 22
   const maxFontSize = large ? 13 : 10
@@ -41,16 +46,16 @@ export default function VitalBar({
             lineHeight: 1,
             transition: 'color 0.4s ease',
           }}>
-            {curHp}
+            {safeCur}
           </span>
-          {tempHp > 0 && (
+          {safeTmp > 0 && (
             <span style={{
               fontFamily: 'var(--font-mono)',
               fontSize: large ? 16 : 12,
               color: 'var(--info)',
               lineHeight: 1,
             }}>
-              +{tempHp}
+              ●+{safeTmp}
             </span>
           )}
           <span style={{
@@ -59,9 +64,9 @@ export default function VitalBar({
             color: 'var(--text-muted)',
             lineHeight: 1,
           }}>
-            / {maxHp} hp
+            / {safeMax} hp
           </span>
-          {bloodied && curHp > 0 && (
+          {bloodied && safeCur > 0 && (
             <span style={{
               fontFamily: 'var(--font-mono)',
               fontSize: 8,
@@ -87,6 +92,7 @@ export default function VitalBar({
 
       {/* HP bar */}
       <div className="hp-track" style={{ marginTop: 5, borderRadius: 3, overflow: 'hidden' }}>
+        {/* width driven by the same safeCur/safeMax values used for the displayed number */}
         <div
           className="hp-fill"
           style={{ width: `${hpPct}%`, background: hpColour, borderRadius: 3 }}
