@@ -3,6 +3,7 @@ import { supabase } from '@shared/lib/supabase.js'
 import { CHARACTERS } from '@shared/content/session1.js'
 import { fetchPartyRosterForCombat } from '@shared/lib/partyRoster.js'
 import { getSessionRunId, getRulesetContext } from '@shared/lib/runtimeContext.js'
+import { normalizeSessionsFromDb } from '@shared/lib/sessionContentNormalize.js'
 
 export const useSessionStore = create((set, get) => ({
   // Session state
@@ -115,35 +116,7 @@ export const useSessionStore = create((set, get) => ({
       return
     }
 
-    const normalizeScene = (scene) => ({
-      ...scene,
-      estimatedTime: scene.estimated_time || scene.estimatedTime,
-      dmNote: scene.dm_notes || scene.dmNote,
-      beats: (scene.beats || []).map(b => ({
-        ...b,
-        dmNote: b.dm_notes || b.dmNote,
-        statBlockId: b.stat_block_id || b.statBlockId,
-        // DB uses 'combat', run mode checks for 'combat trigger'
-        type: b.type === 'combat' ? 'combat trigger' : (b.type || 'narrative'),
-      })).sort((a, b) => (a.order || 0) - (b.order || 0)),
-      branches: (scene.branches || []).map(br => ({
-        ...br,
-        // LeftRail uses branch.targetId to call jumpToSceneById
-        targetId: br.target_slug || br.target_scene_id || br.targetId,
-      })).sort((a, b) => (a.order || 0) - (b.order || 0)),
-    })
-
-    const normalized = dbSessions
-      .map(dbSession => ({
-        id: dbSession.id,
-        title: dbSession.title,
-        subtitle: dbSession.subtitle,
-        session_number: dbSession.session_number || dbSession.order,
-        scenes: (dbSession.scenes || [])
-          .map(normalizeScene)
-          .sort((a, b) => (a.order || 0) - (b.order || 0)),
-      }))
-      .sort((a, b) => (a.session_number || 0) - (b.session_number || 0))
+    const normalized = normalizeSessionsFromDb(dbSessions)
 
     const { activeSessionId } = get()
     const activeSession =

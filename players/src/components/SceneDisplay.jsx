@@ -16,14 +16,16 @@ export default function SceneDisplay() {
   if (!scene) return null
 
   return (
-    <div style={{
+    <div
+      className="gh-scene-display w-full max-w-3xl mx-auto px-4 py-5 md:px-8 md:py-6"
+      style={{
       background: 'var(--bg-card)',
       border: '1px solid var(--border)',
       borderTop: '2px solid var(--green-dim)',
       borderRadius: 'var(--radius-lg)',
-      padding: '20px 24px',
       animation: changed ? 'fadeIn 0.4s ease' : 'none'
-    }}>
+    }}
+    >
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(4px); }
@@ -40,7 +42,7 @@ export default function SceneDisplay() {
         letterSpacing: '0.12em',
         marginBottom: 10
       }}>
-        Session One · Scene {currentSceneIndex + 1} of {session.scenes.length}
+        {session.title || 'Session'} · Scene {currentSceneIndex + 1} of {session.scenes.length}
       </div>
 
       {/* Scene title */}

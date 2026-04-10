@@ -2,6 +2,7 @@ import { supabase } from '@shared/lib/supabase.js'
 import { consumeActionEconomy, ensureActionEconomy, encodeSavePrompt, makeSavePromptEnvelope } from '@shared/lib/combatRules.js'
 import { getRulesetContext } from '@shared/lib/runtimeContext.js'
 import { logCombatResolutionEvent } from '@shared/lib/logCombatResolution.js'
+import { parseCombatantsArray } from '@shared/lib/validation/storeBoundaries.js'
 import { sanitizeCombatantForPlayer } from './helpers.js'
 
 export const createCombatSlice = (set, get) => ({
@@ -35,12 +36,7 @@ export const createCombatSlice = (set, get) => ({
     const lastApplied = get()._combatStateSyncedAt
     if (incomingTs != null && lastApplied != null && incomingTs < lastApplied) return
 
-    let combatants = row.combatants
-    if (typeof combatants === 'string') {
-      try { combatants = JSON.parse(combatants) } catch { combatants = [] }
-    }
-    if (!Array.isArray(combatants)) combatants = []
-    combatants = combatants
+    const combatants = parseCombatantsArray(row.combatants, 'applyCombatStateRow.combatants')
       .map(c => ({ ...c, actionEconomy: ensureActionEconomy(c) }))
       .map(sanitizeCombatantForPlayer)
 
@@ -70,11 +66,7 @@ export const createCombatSlice = (set, get) => ({
         .maybeSingle()
       let list = get().combatCombatants
       if (data?.combatants != null) {
-        let parsed = data.combatants
-        if (typeof parsed === 'string') {
-          try { parsed = JSON.parse(parsed) } catch { parsed = [] }
-        }
-        if (Array.isArray(parsed)) list = parsed
+        list = parseCombatantsArray(data.combatants, 'fetchCombatantsForWrite')
       }
       return list
     } catch {

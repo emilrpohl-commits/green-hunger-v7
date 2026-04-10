@@ -80,8 +80,7 @@ export const createRealtimeSlice = (set, get) => ({
       }, (payload) => {
         if (!payload.new) return
         const rowSession = payload.new.session_run_id || payload.new.session_id
-        const isSameRun = rowSession === sessionRunId || payload.new.session_id === 'session-1'
-        if (!isSameRun) return
+        if (rowSession !== sessionRunId) return
         if (payload.new.type === 'dm-roll') {
           if (!shouldAcceptDmTargetForClient(payload.new.target_id, null, get().ilyaAssignedTo)) return
           set({
@@ -121,7 +120,7 @@ export const createRealtimeSlice = (set, get) => ({
         const { data } = await supabase
           .from('combat_feed')
           .select('id,session_id,session_run_id,type,text,target_id,timestamp')
-          .in('session_id', [sessionRunId, 'session-1'])
+          .or(`session_id.eq.${sessionRunId},session_run_id.eq.${sessionRunId}`)
           .eq('type', 'player-save-prompt')
           .order('timestamp', { ascending: false })
           .limit(1)

@@ -5,6 +5,13 @@ import { getRulesetContext, getSessionRunId } from '@shared/lib/runtimeContext.j
 import { buildPlayerRuntimeCharacters } from '@shared/lib/partyRoster.js'
 import { applyHomebrewPlayerSheet, shouldSkipLegacyPlayerSanitize } from '@shared/lib/homebrewPlayerSheet.js'
 import { applySpellHomebrewOverlays } from '@shared/lib/mergeSpellHomebrew.js'
+import { fetchActiveSessionsWithContent } from '@shared/lib/sessionTreeLoader.js'
+import { normalizeSessionsFromDb, toPlayerNarrativeSession } from '@shared/lib/sessionContentNormalize.js'
+import {
+  filterValidCharacterRows,
+  filterValidCharacterStateRows,
+  filterValidSpellRows,
+} from '@shared/lib/validation/storeBoundaries.js'
 import { CHARACTERS } from '@shared/content/session1.js'
 import {
   normalizeSpellId, mergeSpellWithOverride, toEngineCompendiumSpell,
@@ -52,10 +59,11 @@ export const createDataSlice = (set, get) => ({
           .eq('is_active', true)
         spellOverlays = ho || []
       }
-      if (!charRows || charRows.length === 0) return
+      const validChars = filterValidCharacterRows(charRows || [])
+      if (validChars.length === 0) return
 
       const spellCompendium = {}
-      ;(compendiumRows || []).forEach((row) => {
+      ;(filterValidSpellRows(compendiumRows || [])).forEach((row) => {
         const spellId = normalizeSpellId(row.spell_id || row.name)
         if (!spellId) return
         const castingMeta = parseCastingTimeMeta(row.casting_time)
@@ -137,7 +145,7 @@ export const createDataSlice = (set, get) => ({
       }
 
       const playerCharacters = {}
-      for (const row of charRows) {
+      for (const row of validChars) {
         let sheet = {
           id: row.id, name: row.name, password: row.password,
           class: row.class, subclass: row.subclass, level: row.level,
@@ -165,7 +173,7 @@ export const createDataSlice = (set, get) => ({
         name: row.name,
         desc: Array.isArray(row.payload?.desc) ? row.payload.desc.join('\n\n') : (row.payload?.desc || ''),
       }))
-      const runtimeCharacters = buildPlayerRuntimeCharacters(charRows, [], PLAYER_RUNTIME_CHARACTERS)
+      const runtimeCharacters = buildPlayerRuntimeCharacters(validChars, [], PLAYER_RUNTIME_CHARACTERS)
       set({
         playerCharacters: withSpellIds(playerCharacters),
         spellCompendium,
@@ -182,18 +190,33 @@ export const createDataSlice = (set, get) => ({
     await get().loadCharacters()
     try {
       const { data: sessionData } = await supabase
-        .from('session_state').select('*').eq('id', sessionRunId).single()
+        .from('session_state').select('*').eq('id', sessionRunId).maybeSingle()
       if (sessionData) {
         set({
           currentSceneIndex: sessionData.current_scene_index || 0,
           currentBeatIndex: sessionData.current_beat_index || 0
         })
       }
+
+      try {
+        const rawSessions = await fetchActiveSessionsWithContent(supabase)
+        const normalized = normalizeSessionsFromDb(rawSessions)
+        const activeId = sessionData?.active_session_uuid || normalized[0]?.id
+        const active = normalized.find(s => s.id === activeId) || normalized[0]
+        const narrative = toPlayerNarrativeSession(active)
+        if (narrative?.scenes?.length) {
+          set({ session: narrative })
+        }
+      } catch (e) {
+        console.warn('Player session hydrate from DB skipped:', e?.message || e)
+      }
+
       const { data: charData } = await supabase.from('character_states').select('*')
-      if (charData && charData.length > 0) {
+      const validStates = filterValidCharacterStateRows(charData || [])
+      if (validStates.length > 0) {
         const { characters } = get()
         const updated = characters.map(c => {
-          const saved = charData.find(d => d.id === c.id)
+          const saved = validStates.find(d => d.id === c.id)
           if (!saved) return c
           return {
             ...c,

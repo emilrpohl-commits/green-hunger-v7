@@ -2,11 +2,6 @@ import React, { useState } from 'react'
 import { useSessionStore } from '../../stores/sessionStore'
 import { BEAT_TYPE_COLOURS } from '@shared/lib/constants.js'
 
-const BEAT_TYPE_COLOUR = {
-  ...BEAT_TYPE_COLOURS,
-  'combat trigger': 'var(--danger)',
-}
-
 export default function LeftRail() {
   const session = useSessionStore(s => s.session)
   const sessions = useSessionStore(s => s.sessions)
@@ -132,7 +127,7 @@ export default function LeftRail() {
             }}>
               <span style={{
                 width: 6, height: 6, borderRadius: '50%',
-                background: BEAT_TYPE_COLOUR[beat.type] || 'var(--text-muted)',
+                background: BEAT_TYPE_COLOURS[beat.type] || 'var(--text-muted)',
                 flexShrink: 0, marginTop: 5
               }} />
               {beat.title}
