@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { usePlayerStore } from '../stores/playerStore'
 
 const SESSION_ERROR_COPY = {
@@ -8,44 +8,53 @@ const SESSION_ERROR_COPY = {
   load_failed: 'Could not load session content from the server. Check your connection and try again.',
 }
 
+const BEAT_TONE = {
+  combat:      { label: 'Combat',      accent: 'var(--danger)',      bg: 'rgba(176,48,48,0.08)',  border: 'rgba(176,48,48,0.25)' },
+  encounter:   { label: 'Encounter',   accent: 'var(--danger)',      bg: 'rgba(176,48,48,0.08)',  border: 'rgba(176,48,48,0.25)' },
+  exploration: { label: 'Exploration', accent: '#60906a',            bg: 'rgba(96,144,106,0.07)', border: 'rgba(96,144,106,0.20)' },
+  narrative:   { label: 'Narrative',   accent: 'var(--text-secondary)', bg: 'rgba(122,128,112,0.06)', border: 'var(--border)' },
+  social:      { label: 'Social',      accent: '#6090b0',            bg: 'rgba(96,144,176,0.07)', border: 'rgba(96,144,176,0.20)' },
+  puzzle:      { label: 'Puzzle',      accent: '#9a7ab0',            bg: 'rgba(154,122,176,0.08)', border: 'rgba(154,122,176,0.22)' },
+  rest:        { label: 'Rest',        accent: 'var(--warning)',     bg: 'rgba(176,144,48,0.06)', border: 'rgba(176,144,48,0.18)' },
+}
+
+function getBeatTone(type) {
+  if (!type) return BEAT_TONE.narrative
+  return BEAT_TONE[type.toLowerCase()] || BEAT_TONE.narrative
+}
+
 export default function SceneDisplay() {
   const session = usePlayerStore(s => s.session)
   const sessionHydrationError = usePlayerStore(s => s.sessionHydrationError)
   const sessionHydrationDetail = usePlayerStore(s => s.sessionHydrationDetail)
   const currentSceneIndex = usePlayerStore(s => s.currentSceneIndex)
   const currentBeatIndex = usePlayerStore(s => s.currentBeatIndex)
-  const prevIndexRef = useRef(currentSceneIndex)
+  const prevSceneRef = useRef(currentSceneIndex)
+  const [transitioning, setTransitioning] = useState(false)
 
   const scene = session?.scenes?.[currentSceneIndex]
   const beats = scene?.beats || []
   const currentBeat = beats[currentBeatIndex]
-  const changed = prevIndexRef.current !== currentSceneIndex
+  const sceneChanged = prevSceneRef.current !== currentSceneIndex
 
   useEffect(() => {
-    prevIndexRef.current = currentSceneIndex
-  }, [currentSceneIndex])
+    if (sceneChanged) {
+      setTransitioning(true)
+      const t = setTimeout(() => setTransitioning(false), 500)
+      prevSceneRef.current = currentSceneIndex
+      return () => clearTimeout(t)
+    }
+  }, [currentSceneIndex, sceneChanged])
 
   if (sessionHydrationError && !session) {
     return (
-      <div
-        className="gh-scene-display w-full max-w-3xl mx-auto px-4 py-5 md:px-8 md:py-6"
-        style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border)',
-          borderTop: '2px solid rgba(196,160,64,0.5)',
-          borderRadius: 'var(--radius-lg)',
-        }}
-      >
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--warning)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
-          Session unavailable
-        </div>
-        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
+      <div className="scene-card scene-card--error">
+        <div className="scene-label scene-label--warning">Session unavailable</div>
+        <p className="scene-error-text">
           {SESSION_ERROR_COPY[sessionHydrationError] || SESSION_ERROR_COPY.load_failed}
         </p>
         {import.meta.env.DEV && sessionHydrationDetail && (
-          <pre style={{ marginTop: 12, fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'pre-wrap' }}>
-            {String(sessionHydrationDetail)}
-          </pre>
+          <pre className="scene-debug">{String(sessionHydrationDetail)}</pre>
         )}
       </div>
     )
@@ -53,101 +62,72 @@ export default function SceneDisplay() {
 
   if (!scene) return null
 
-  return (
-    <div
-      className="gh-scene-display w-full max-w-3xl mx-auto px-4 py-5 md:px-8 md:py-6"
-      style={{
-      background: 'var(--bg-card)',
-      border: '1px solid var(--border)',
-      borderTop: '2px solid var(--green-dim)',
-      borderRadius: 'var(--radius-lg)',
-      animation: changed ? 'fadeIn 0.4s ease' : 'none'
-    }}
-    >
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(4px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+  const totalScenes = session.scenes.length
+  const progressPct = ((currentSceneIndex + 1) / totalScenes) * 100
+  const tone = getBeatTone(currentBeat?.type)
 
-      {/* Session label */}
-      <div style={{
-        fontFamily: 'var(--font-mono)',
-        fontSize: 10,
-        color: 'var(--text-muted)',
-        textTransform: 'uppercase',
-        letterSpacing: '0.12em',
-        marginBottom: 10
-      }}>
-        {session.title || 'Session'} · Scene {currentSceneIndex + 1} of {session.scenes.length}
+  return (
+    <div className={`scene-card ${transitioning ? 'scene-card--entering' : ''}`}>
+      {/* Decorative top glow */}
+      <div className="scene-glow" />
+
+      {/* Session + scene header */}
+      <div className="scene-header">
+        <span className="scene-label">
+          {session.title || 'Session'}
+        </span>
+        <span className="scene-label">
+          Scene {currentSceneIndex + 1} of {totalScenes}
+        </span>
       </div>
 
       {/* Scene title */}
-      <h2 style={{
-        fontSize: 22,
-        color: 'var(--text-primary)',
-        letterSpacing: '0.06em',
-        marginBottom: 6
-      }}>
-        {scene.title}
-      </h2>
+      <h2 className="scene-title">{scene.title}</h2>
 
-      {/* Scene subtitle / player-safe description */}
-      <div style={{
-        fontSize: 15,
-        color: 'var(--text-secondary)',
-        fontStyle: 'italic',
-        lineHeight: 1.5
-      }}>
-        {scene.subtitle}
-      </div>
+      {/* Scene description (player-safe subtitle) */}
+      {scene.subtitle && (
+        <div className="scene-description">{scene.subtitle}</div>
+      )}
 
-      {/* Current beat (Phase 2F): title + player_text only */}
+      {/* Current beat */}
       {currentBeat && (currentBeat.title || currentBeat.playerText) && (
-        <div style={{
-          marginTop: 18,
-          paddingTop: 14,
-          borderTop: '1px solid var(--border)',
-        }}>
-          <div style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 9,
-            color: 'var(--text-muted)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            marginBottom: 6,
-          }}>
-            Current beat{currentBeat.type ? ` · ${currentBeat.type}` : ''}
+        <div
+          className="scene-beat"
+          style={{ background: tone.bg, borderColor: tone.border }}
+        >
+          <div className="scene-beat__header">
+            <span
+              className="scene-beat__type"
+              style={{ color: tone.accent }}
+            >
+              {tone.label}
+            </span>
+            {currentBeat.title && (
+              <span className="scene-beat__title">{currentBeat.title}</span>
+            )}
           </div>
-          {currentBeat.title && (
-            <div style={{ fontSize: 16, color: 'var(--text-primary)', marginBottom: 6, fontWeight: 600 }}>
-              {currentBeat.title}
-            </div>
+          {currentBeat.playerText && (
+            <div className="scene-beat__text">{currentBeat.playerText}</div>
           )}
-          {currentBeat.playerText ? (
-            <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
-              {currentBeat.playerText}
-            </div>
-          ) : null}
         </div>
       )}
 
-      {/* Scene progress bar */}
-      <div style={{
-        marginTop: 16,
-        height: 2,
-        background: 'var(--border)',
-        borderRadius: 1,
-        overflow: 'hidden'
-      }}>
-        <div style={{
-          height: '100%',
-          width: `${((currentSceneIndex + 1) / session.scenes.length) * 100}%`,
-          background: 'var(--green-mid)',
-          borderRadius: 1,
-          transition: 'width 0.6s ease'
-        }} />
+      {/* Scene progress */}
+      <div className="scene-progress">
+        <div className="scene-progress__track">
+          <div
+            className="scene-progress__fill"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+        <div className="scene-progress__markers">
+          {session.scenes.map((_, i) => (
+            <div
+              key={i}
+              className={`scene-progress__dot ${i <= currentSceneIndex ? 'scene-progress__dot--reached' : ''} ${i === currentSceneIndex ? 'scene-progress__dot--active' : ''}`}
+            />
+          ))}
+        </div>
       </div>
     </div>
   )
