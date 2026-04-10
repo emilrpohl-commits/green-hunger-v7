@@ -1,13 +1,16 @@
 import { create } from 'zustand'
 import { CHARACTERS } from '@shared/content/session1.js'
 import { PLAYER_CHARACTERS } from '@shared/content/playerCharacters.js'
+import { featureFlags } from '@shared/lib/featureFlags.js'
 import { getSessionRunId } from '@shared/lib/runtimeContext.js'
 import { withSpellIds } from './helpers.js'
 import { createCombatSlice } from './combatSlice.js'
 import { createDataSlice } from './dataSlice.js'
 import { createRealtimeSlice } from './realtimeSlice.js'
 
-const PLAYER_RUNTIME_CHARACTERS = CHARACTERS.filter(c => !c.isNPC)
+const useBundledPlayers = !featureFlags.seedlessPlatform || featureFlags.demoCampaign
+const INITIAL_RUNTIME = useBundledPlayers ? CHARACTERS.filter(c => !c.isNPC) : []
+const INITIAL_SHEETS = withSpellIds(useBundledPlayers ? PLAYER_CHARACTERS : {})
 
 export const usePlayerStore = create((set, get) => ({
   sessionRunId: getSessionRunId(),
@@ -17,8 +20,8 @@ export const usePlayerStore = create((set, get) => ({
   currentSceneIndex: 0,
   currentBeatIndex: 0,
 
-  characters: PLAYER_RUNTIME_CHARACTERS,
-  playerCharacters: withSpellIds(PLAYER_CHARACTERS),
+  characters: INITIAL_RUNTIME,
+  playerCharacters: INITIAL_SHEETS,
 
   getCurrentScene: () => {
     const { session, currentSceneIndex } = get()

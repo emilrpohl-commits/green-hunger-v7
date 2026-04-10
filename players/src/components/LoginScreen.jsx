@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { featureFlags } from '@shared/lib/featureFlags.js'
 import { usePlayerStore } from '../stores/playerStore'
 
 const PARTY_PASSWORD = 'weald' // anyone can join as party observer
@@ -76,7 +77,7 @@ export default function LoginScreen({ onLogin }) {
           letterSpacing: '0.12em',
           marginBottom: 6
         }}>
-          The Green Hunger
+          {featureFlags.appTitle}
         </div>
         <div style={{
           fontFamily: 'var(--font-body)',
@@ -84,7 +85,7 @@ export default function LoginScreen({ onLogin }) {
           color: 'var(--text-muted)',
           fontStyle: 'italic'
         }}>
-          The Weald of Sharp Teeth
+          Player sign-in
         </div>
       </div>
 
@@ -105,7 +106,59 @@ export default function LoginScreen({ onLogin }) {
           Who are you?
         </div>
 
+        {CHARACTERS.length === 0 && (
+          <div style={{
+            padding: '12px 14px',
+            marginBottom: 16,
+            borderRadius: 'var(--radius-lg)',
+            border: '1px solid var(--border)',
+            background: 'rgba(96,144,106,0.06)',
+            fontSize: 13,
+            color: 'var(--text-secondary)',
+            lineHeight: 1.5,
+            textAlign: 'left',
+          }}
+          >
+            No character sheets were returned from the database. Ask the DM to create or import characters, or enable{' '}
+            <code style={{ fontSize: 11, color: 'var(--text-muted)' }}>VITE_DEMO_CAMPAIGN=1</code>
+            {' '}for bundled demo PCs. You can still join as a party observer below.
+          </div>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+          <button
+            type="button"
+            onClick={() => { setSelected('party'); setPassword(''); setError('') }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              padding: '12px 16px',
+              background: selected === 'party' ? 'rgba(96,144,106,0.12)' : 'var(--bg-card)',
+              border: `1px solid ${selected === 'party' ? 'rgba(96,144,106,0.45)' : 'var(--border)'}`,
+              borderLeft: `3px solid ${selected === 'party' ? '#60906a' : 'transparent'}`,
+              borderRadius: 'var(--radius-lg)',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <div>
+              <div style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 14,
+                color: selected === 'party' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                letterSpacing: '0.04em',
+              }}
+              >
+                Party observer
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>
+                Read-only party view · password: weald
+              </div>
+            </div>
+          </button>
+
           {CHARACTERS.map(char => (
             <button
               key={char.id}

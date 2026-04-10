@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '@shared/lib/supabase.js'
+import { featureFlags } from '@shared/lib/featureFlags.js'
 import { usePlayerStore } from './stores/playerStore'
 import LoginScreen from './components/LoginScreen'
 import PartyView from './components/PartyView'
@@ -78,7 +79,7 @@ export default function App() {
           color: 'var(--green-bright)',
           letterSpacing: '0.1em',
         }}>
-          The Green Hunger
+          {featureFlags.appTitle}
         </div>
 
         <div style={{ display: 'flex', gap: 4 }}>
@@ -130,10 +131,14 @@ export default function App() {
         <Routes>
           <Route path="/party" element={<PartyView />} />
           <Route path="/profile" element={
-            isPartyOnly ? <Navigate to="/party" replace /> : <CharacterProfile characterId={loggedInAs} />
+            isPartyOnly ? <Navigate to="/party" replace /> : (
+              <CharacterProfile characterId={loggedInAs} onBackToLogin={handleLogout} />
+            )
           } />
           <Route path="/companion" element={
-            showCompanionTab ? <CharacterProfile characterId="ilya" /> : <Navigate to="/profile" replace />
+            showCompanionTab ? (
+              <CharacterProfile characterId="ilya" onBackToLogin={handleLogout} />
+            ) : <Navigate to="/profile" replace />
           } />
           <Route path="*" element={<Navigate to={isPartyOnly ? '/party' : '/profile'} replace />} />
         </Routes>

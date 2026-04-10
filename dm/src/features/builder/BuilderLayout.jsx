@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { featureFlags } from '@shared/lib/featureFlags.js'
 import { useCampaignStore } from '../../stores/campaignStore'
 import { runMigration } from '@supabase-root/migrate.js'
 import StatBlockLibrary from '../statblocks/StatBlockLibrary'
@@ -7,6 +8,8 @@ import SessionOutliner from '../sessions/SessionOutliner'
 import SessionImportModal from './SessionImportModal'
 import SpellLibrary from '../spells/SpellLibrary'
 import NpcLibrary from '../npcs/NpcLibrary'
+import ReferenceLibrary from '../reference/ReferenceLibrary'
+import CharacterPdfImport from '../characters/CharacterPdfImport'
 
 // Keep the syncContentFromDb call available in Build mode too
 import { useSessionStore } from '../../stores/sessionStore'
@@ -16,6 +19,8 @@ const NAV_ITEMS = [
   { id: 'stat-blocks', label: 'Stat Blocks', icon: '⚔️' },
   { id: 'spells', label: 'Spells', icon: '✨' },
   { id: 'npcs', label: 'NPCs', icon: '🧙' },
+  { id: 'reference', label: 'SRD Reference', icon: '📚' },
+  { id: 'character-import', label: 'Character Import', icon: '🧾' },
 ]
 
 export default function BuilderLayout() {
@@ -28,6 +33,7 @@ export default function BuilderLayout() {
   const loading = useCampaignStore(s => s.loading)
   const error = useCampaignStore(s => s.error)
   const campaign = useCampaignStore(s => s.campaign)
+  const campaignChoices = useCampaignStore(s => s.campaignChoices)
   const sessions = useCampaignStore(s => s.sessions)
   const loadCampaign = useCampaignStore(s => s.loadCampaign)
 
@@ -63,12 +69,52 @@ export default function BuilderLayout() {
       )
     }
 
+    if (activeSection === 'reference') {
+      return <ReferenceLibrary />
+    }
+
     if (!campaign && !loading) {
+      if (campaignChoices.length > 0) {
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: 16, padding: 24 }}>
+            <div style={{ fontSize: 14, color: 'var(--text-secondary)', textAlign: 'center', maxWidth: 440, lineHeight: 1.7 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, color: 'var(--text-primary)', marginBottom: 12 }}>Choose a campaign</div>
+              Several campaigns exist in the database. Pick one to load builder data, or run migration if you still need to import bundled content.
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 360 }}>
+              {campaignChoices.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => loadCampaign(c.slug)}
+                  style={{
+                    padding: '12px 16px',
+                    textAlign: 'left',
+                    borderRadius: 'var(--radius)',
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 14,
+                  }}
+                >
+                  <div style={{ fontFamily: 'var(--font-display)', color: 'var(--green-bright)' }}>{c.title || c.slug}</div>
+                  {c.subtitle && <div style={{ ...mono, fontSize: 11, marginTop: 4 }}>{c.subtitle}</div>}
+                  <div style={{ ...mono, fontSize: 10, marginTop: 6, opacity: 0.8 }}>{c.slug}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      }
       return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: 20 }}>
           <div style={{ fontSize: 14, color: 'var(--text-secondary)', textAlign: 'center', maxWidth: 400, lineHeight: 1.7 }}>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, color: 'var(--text-primary)', marginBottom: 12 }}>No Campaign Found</div>
-            Run the migration to import your existing campaign content into Supabase, or check that the schema has been applied.
+            {featureFlags.seedlessPlatform && !featureFlags.demoCampaign
+              ? 'Seedless mode does not assume a default campaign slug. Add a row to campaigns or run the migration to import bundled demo data.'
+              : 'Run the migration to import your existing campaign content into Supabase, or check that the schema has been applied.'}
           </div>
           <button
             onClick={handleMigrate}
@@ -122,6 +168,8 @@ export default function BuilderLayout() {
         return <SpellLibrary />
       case 'npcs':
         return <NpcLibrary />
+      case 'character-import':
+        return <CharacterPdfImport />
       default:
         return null
     }

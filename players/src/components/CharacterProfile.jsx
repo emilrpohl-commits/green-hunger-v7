@@ -12,11 +12,59 @@ import ActionsTab from './tabs/ActionsTab'
 import FeaturesTab from './tabs/FeaturesTab'
 import EquipmentTab from './tabs/EquipmentTab'
 
-export default function CharacterProfile({ characterId }) {
+export default function CharacterProfile({ characterId, onBackToLogin }) {
   const actions = useCharacterActions(characterId)
   const [tab, setTab] = useState('stats')
 
-  if (!actions.char) return null
+  if (!actions.char) {
+    return (
+      <div style={{
+        maxWidth: 480,
+        margin: '32px auto',
+        padding: '24px 28px',
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--border)',
+        background: 'var(--bg-card)',
+        color: 'var(--text-secondary)',
+        lineHeight: 1.6,
+      }}
+      >
+        <div style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: 18,
+          color: 'var(--warning)',
+          marginBottom: 10,
+          letterSpacing: '0.06em',
+        }}
+        >
+          No character assigned
+        </div>
+        <p style={{ margin: '0 0 16px', fontSize: 14 }}>
+          There is no sheet in the database for this login. Pick another character, ask the DM to assign you in Supabase, or return to the login screen.
+        </p>
+        {onBackToLogin && (
+          <button
+            type="button"
+            onClick={onBackToLogin}
+            style={{
+              padding: '10px 18px',
+              borderRadius: 'var(--radius)',
+              border: '1px solid var(--green-mid)',
+              background: 'var(--green-dim)',
+              color: 'var(--green-bright)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              cursor: 'pointer',
+            }}
+          >
+            Back to login
+          </button>
+        )}
+      </div>
+    )
+  }
 
   const {
     char, curHp, tempHp, concentration, myCombatant,

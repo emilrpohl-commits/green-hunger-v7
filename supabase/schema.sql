@@ -373,6 +373,70 @@ create table if not exists lore_cards (
   updated_at timestamptz default now()
 );
 
+-- Stage 3: SRD reference library (import via dm: npm run reference:import)
+create table if not exists reference_conditions (
+  id uuid primary key default gen_random_uuid(),
+  ruleset text not null,
+  source_index text not null,
+  name text not null,
+  description text not null default '',
+  raw_json jsonb not null default '{}',
+  imported_at timestamptz default now(),
+  unique (ruleset, source_index)
+);
+create index if not exists reference_conditions_ruleset_name_idx on reference_conditions (ruleset, lower(name));
+
+create table if not exists reference_spells (
+  id uuid primary key default gen_random_uuid(),
+  ruleset text not null,
+  source_index text not null,
+  name text not null,
+  level int not null default 0,
+  school text,
+  casting_time text,
+  range text,
+  components jsonb default '{"V":false,"S":false,"M":null}',
+  duration text,
+  ritual boolean default false,
+  concentration boolean default false,
+  description text,
+  higher_level text,
+  attack_type text,
+  damage_dice text,
+  damage_type text,
+  save_ability text,
+  classes text[],
+  raw_json jsonb not null default '{}',
+  source_url text,
+  imported_at timestamptz default now(),
+  unique (ruleset, source_index)
+);
+create index if not exists reference_spells_ruleset_level_name_idx on reference_spells (ruleset, level, lower(name));
+create index if not exists reference_spells_search_idx
+  on reference_spells using gin (to_tsvector('english', coalesce(name, '') || ' ' || coalesce(description, '')));
+
+create table if not exists reference_monsters (
+  id uuid primary key default gen_random_uuid(),
+  ruleset text not null,
+  source_index text not null,
+  name text not null,
+  size text,
+  creature_type text,
+  alignment text,
+  challenge_rating text,
+  xp int,
+  ac int,
+  max_hp int,
+  hit_dice text,
+  speed text,
+  raw_json jsonb not null default '{}',
+  imported_at timestamptz default now(),
+  unique (ruleset, source_index)
+);
+create index if not exists reference_monsters_ruleset_name_idx on reference_monsters (ruleset, lower(name));
+create index if not exists reference_monsters_search_idx
+  on reference_monsters using gin (to_tsvector('english', coalesce(name, '') || ' ' || coalesce(creature_type, '')));
+
 create table if not exists items (
   id uuid primary key default gen_random_uuid(),
   campaign_id uuid references campaigns(id) on delete set null,
@@ -690,6 +754,9 @@ alter table rules_sources enable row level security;
 alter table rules_entities enable row level security;
 alter table rules_sync_runs enable row level security;
 alter table homebrew_overlays enable row level security;
+alter table reference_conditions enable row level security;
+alter table reference_spells enable row level security;
+alter table reference_monsters enable row level security;
 
 -- Allow all while running without auth (remove when adding auth)
 -- Uses DO block because CREATE POLICY does not support IF NOT EXISTS
@@ -729,7 +796,10 @@ begin
     ('rules_sources',   'allow_all_rules_sources'),
     ('rules_entities',  'allow_all_rules_entities'),
     ('rules_sync_runs', 'allow_all_rules_sync_runs'),
-    ('homebrew_overlays','allow_all_homebrew_overlays')
+    ('homebrew_overlays','allow_all_homebrew_overlays'),
+    ('reference_conditions','allow_all_reference_conditions'),
+    ('reference_spells',    'allow_all_reference_spells'),
+    ('reference_monsters',  'allow_all_reference_monsters')
   loop
     if not exists (
       select 1 from pg_policies
