@@ -125,28 +125,58 @@ export const useRevealStore = create((set, get) => ({
   loreCatalog: LORE_CARDS,
   sessionRunId: getSessionRunId(),
 
-  loadLoreCatalog: async () => {
+  /**
+   * Load lore catalog from DB. When campaignId is set, include that campaign’s rows plus global (campaign_id null).
+   * When omitted, load all rows (legacy behaviour).
+   */
+  loadLoreCatalog: async (campaignId) => {
     try {
-      const { data, error } = await supabase
-        .from('lore_cards')
-        .select('*')
-        .order('sort_order', { ascending: true })
-      if (error) throw error
-      if (data?.length) {
-        set({
-          loreCatalog: data.map((row) => ({
-            id: row.id,
-            category: row.category,
-            title: row.title,
-            content: row.content,
-            tone: row.tone,
-          })),
-        })
+      let query = supabase.from('lore_cards').select('*').order('sort_order', { ascending: true })
+      if (campaignId) {
+        query = query.or(`campaign_id.eq.${campaignId},campaign_id.is.null`)
       }
+      const { data, error } = await query
+      if (error) throw error
+      set({
+        loreCatalog: (data || []).map((row) => ({
+          id: row.id,
+          category: row.category,
+          title: row.title,
+          content: row.content,
+          tone: row.tone,
+          sort_order: row.sort_order,
+          campaign_id: row.campaign_id,
+        })),
+      })
     } catch (e) {
       console.warn('lore_cards load failed, using bundled LORE_CARDS:', e?.message || e)
       set({ loreCatalog: LORE_CARDS })
     }
+  },
+
+  /** Upsert a lore_cards row and reload catalog (pass campaignId for same filter as loadLoreCatalog). */
+  saveLoreCard: async (card, refetchCampaignId) => {
+    const payload = {
+      id: card.id,
+      category: card.category ?? null,
+      title: card.title,
+      content: card.content,
+      tone: card.tone || 'lore',
+      sort_order: typeof card.sort_order === 'number' ? card.sort_order : 0,
+      campaign_id: card.campaign_id ?? null,
+      updated_at: new Date().toISOString(),
+    }
+    const { error } = await supabase.from('lore_cards').upsert(payload, { onConflict: 'id' })
+    if (error) return { error: error.message }
+    await get().loadLoreCatalog(refetchCampaignId)
+    return { success: true }
+  },
+
+  deleteLoreCard: async (id, refetchCampaignId) => {
+    const { error } = await supabase.from('lore_cards').delete().eq('id', id)
+    if (error) return { error: error.message }
+    await get().loadLoreCatalog(refetchCampaignId)
+    return { success: true }
   },
 
   // Push a beat's narrative text as a reveal
@@ -262,5 +292,12 @@ export const useRevealStore = create((set, get) => ({
     } catch (e) {
       console.log('No reveals found.')
     }
-  }
+  },
 }))
+
+/** True if this catalog lore id was pushed via revealLoreCard (card_id is `${id}-${timestamp}`). */
+export function isLoreCardRevealedInSession(loreId, reveals) {
+  if (!loreId || !Array.isArray(reveals)) return false
+  const prefix = `${loreId}-`
+  return reveals.some((r) => String(r.id).startsWith(prefix))
+}
