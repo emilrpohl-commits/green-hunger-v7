@@ -3,6 +3,7 @@ import { useCampaignStore } from '../../stores/campaignStore'
 import ImportModal from '../builder/ImportModal'
 import { PLAYER_CHARACTERS } from '@shared/content/playerCharacters.js'
 import { parseCastingTimeMeta } from '@shared/lib/combatRules.js'
+import { hydrateSpellByIndex } from '@shared/lib/engine/rulesService.js'
 
 const SCHOOLS = ['Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation']
 
@@ -35,6 +36,8 @@ export default function SpellLibrary() {
   const [bulkSpellIds, setBulkSpellIds] = useState([])
   const [bulkCharacterIds, setBulkCharacterIds] = useState([])
   const [assigning, setAssigning] = useState(false)
+  const [spellEngineIndex, setSpellEngineIndex] = useState('')
+  const [spellPrefillBusy, setSpellPrefillBusy] = useState(false)
 
   const mono = { fontFamily: 'var(--font-mono)' }
   const inputStyle = { width: '100%', padding: '8px 12px', background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }
@@ -55,6 +58,37 @@ export default function SpellLibrary() {
     setForm(base)
     setEditing(asOverride ? '__new__' : (spell?.id || '__new__'))
     setSaveMsg(null)
+  }
+
+  const prefillSpellFromEngine = async () => {
+    const idx = spellEngineIndex.trim()
+    if (!idx) return
+    setSpellPrefillBusy(true)
+    setSaveMsg(null)
+    try {
+      const s = await hydrateSpellByIndex(idx, {}, {})
+      setForm((f) => ({
+        ...f,
+        spell_id: s.spellId || normalizeSpellId(s.name),
+        name: s.name || f.name,
+        level: Number(s.level) || f.level,
+        school: s.school || f.school,
+        casting_time: s.castingTime || f.casting_time,
+        range: s.range || f.range,
+        duration: s.duration || f.duration,
+        concentration: !!s.concentration,
+        ritual: !!s.ritual,
+        description: s.description || f.description,
+        save_type: s.saveType || f.save_type,
+        resolution_type: s.mechanic || f.resolution_type,
+        target_mode: s.targetMode || f.target_mode,
+        attack_type: s.mechanic === 'attack' ? (f.attack_type || 'ranged') : f.attack_type,
+        source: s.source || '5e Engine',
+      }))
+    } catch (e) {
+      setSaveMsg({ type: 'error', text: String(e?.message || e) })
+    }
+    setSpellPrefillBusy(false)
   }
 
   const handleSave = async () => {
@@ -102,6 +136,30 @@ export default function SpellLibrary() {
           <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', background: 'var(--green-bright)', color: '#0a0f0a', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', ...mono, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', opacity: saving ? 0.6 : 1 }}>
             {saving ? 'Saving…' : 'Save'}
           </button>
+        </div>
+
+        <div style={{ marginBottom: 16, padding: 12, background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
+          <label style={labelStyle}>Prefill from 5e engine (spell index)</label>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              style={{ ...inputStyle, flex: 1, minWidth: 160 }}
+              value={spellEngineIndex}
+              onChange={(e) => setSpellEngineIndex(e.target.value)}
+              placeholder="e.g. fireball"
+            />
+            <button
+              type="button"
+              disabled={spellPrefillBusy}
+              onClick={prefillSpellFromEngine}
+              style={{
+                padding: '8px 14px', ...mono, fontSize: 10, textTransform: 'uppercase',
+                background: 'var(--green-dim)', border: '1px solid var(--green-mid)', borderRadius: 'var(--radius)',
+                color: 'var(--green-bright)', cursor: spellPrefillBusy ? 'wait' : 'pointer',
+              }}
+            >
+              {spellPrefillBusy ? 'Loading…' : 'Merge into form'}
+            </button>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>

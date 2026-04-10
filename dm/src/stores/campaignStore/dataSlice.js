@@ -13,6 +13,8 @@ export function createDataSlice(set, get) {
     compendiumSpells: [],
     npcs: [],
     assets: [],
+    /** Phase 2C/F: campaign encounters (DB-backed quick launch) */
+    encounters: [],
     archivedSessions: [],
     archivedStatBlocks: [],
 
@@ -65,6 +67,15 @@ export function createDataSlice(set, get) {
           .eq('campaign_id', campaign.id)
           .order('title')
 
+        const { data: encountersRaw, error: encErr } = await supabase
+          .from('encounters')
+          .select('*')
+          .eq('campaign_id', campaign.id)
+          .order('title')
+        if (encErr) {
+          console.warn('encounters load:', encErr.message)
+        }
+
         const { data: adventures } = await supabase
           .from('adventures')
           .select('id')
@@ -109,6 +120,7 @@ export function createDataSlice(set, get) {
           compendiumSpells,
           npcs: npcs || [],
           assets: assets || [],
+          encounters: encountersRaw || [],
           archivedSessions,
           loading: false,
           lastLoaded: new Date(),

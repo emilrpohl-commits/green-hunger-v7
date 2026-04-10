@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useRevealStore, LORE_CARDS } from '../../stores/revealStore'
+import { useRevealStore } from '../../stores/revealStore'
 import { useSessionStore } from '../../stores/sessionStore'
 
 const TONE_STYLE = {
@@ -12,16 +12,16 @@ const TONE_STYLE = {
   location:  { color: '#80b090', border: '#203028' }
 }
 
-const CATEGORIES = [...new Set(LORE_CARDS.map(c => c.category))]
-
 export default function RevealPanel() {
   const reveals = useRevealStore(s => s.reveals)
+  const loreCatalog = useRevealStore(s => s.loreCatalog)
   const revealBeat = useRevealStore(s => s.revealBeat)
   const revealLoreCard = useRevealStore(s => s.revealLoreCard)
   const revealCustom = useRevealStore(s => s.revealCustom)
   const hideReveal = useRevealStore(s => s.hideReveal)
   const clearAllReveals = useRevealStore(s => s.clearAllReveals)
   const loadReveals = useRevealStore(s => s.loadReveals)
+  const loadLoreCatalog = useRevealStore(s => s.loadLoreCatalog)
 
   const session = useSessionStore(s => s.session)
   const currentSceneIndex = useSessionStore(s => s.currentSceneIndex)
@@ -36,11 +36,16 @@ export default function RevealPanel() {
   const [customContent, setCustomContent] = useState('')
   const [customCategory, setCustomCategory] = useState('Note')
 
-  useEffect(() => { loadReveals() }, [])
+  const CATEGORIES = [...new Set((loreCatalog || []).map(c => c.category))]
+
+  useEffect(() => {
+    loadReveals()
+    loadLoreCatalog()
+  }, [])
 
   const filteredLore = filterCategory === 'All'
-    ? LORE_CARDS
-    : LORE_CARDS.filter(c => c.category === filterCategory)
+    ? (loreCatalog || [])
+    : (loreCatalog || []).filter(c => c.category === filterCategory)
 
   const handleRevealBeat = () => {
     if (beat && scene) revealBeat(beat, scene.title)

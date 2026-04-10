@@ -243,13 +243,24 @@ export default function App() {
 
   useEffect(() => {
     if (!dmUnlocked) return
-    loadFromSupabase()
+    let cancelled = false
+    ;(async () => {
+      // Phase 2B: load session_state (active_session_uuid) before syncing run-mode sessions from campaign
+      await loadFromSupabase()
+      if (cancelled) return
+      await loadCampaign()
+      if (cancelled) return
+      const sessions = useCampaignStore.getState().sessions
+      if (sessions.length > 0) {
+        syncContentFromDb(sessions)
+      }
+    })()
     loadPlayerRolls()
     subscribeToRolls()
     subscribeToFeed()
     loadCombatStateFromDb()
     subscribeToCombatStateRemote()
-    loadCampaign()
+    return () => { cancelled = true }
   }, [dmUnlocked])
 
   useEffect(() => {

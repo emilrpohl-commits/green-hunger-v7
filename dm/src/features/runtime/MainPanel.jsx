@@ -211,6 +211,8 @@ function DmDiceRoller({ supabaseClient }) {
 
 export default function MainPanel() {
   const session = useSessionStore(s => s.session)
+  const activeSessionResolveError = useSessionStore(s => s.activeSessionResolveError)
+  const sessions = useSessionStore(s => s.sessions)
   const currentSceneIndex = useSessionStore(s => s.currentSceneIndex)
   const currentBeatIndex = useSessionStore(s => s.currentBeatIndex)
   const nextBeat = useSessionStore(s => s.nextBeat)
@@ -246,8 +248,14 @@ export default function MainPanel() {
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
           No session loaded
         </div>
-        <div style={{ fontSize: 13, color: 'var(--text-muted)', opacity: 0.6 }}>
-          Create a session in the Builder to get started.
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', opacity: 0.6, textAlign: 'center', maxWidth: 420 }}>
+          {sessions.length === 0
+            ? 'Create a session in the Builder to get started.'
+            : activeSessionResolveError === 'no_active_session'
+              ? 'No live session is set. Select a session in the left rail — this updates active_session_uuid for players.'
+              : activeSessionResolveError === 'active_session_not_found'
+                ? 'session_state.active_session_uuid does not match any loaded session. Pick a session in the left rail to fix.'
+                : 'Select a session in the left rail to continue.'}
         </div>
       </div>
     )

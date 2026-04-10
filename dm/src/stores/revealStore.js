@@ -121,7 +121,33 @@ export const LORE_CARDS = [
 
 export const useRevealStore = create((set, get) => ({
   reveals: [], // list of revealed cards
+  /** Phase 2F: DB-backed lore catalog; starts as static until loadLoreCatalog runs */
+  loreCatalog: LORE_CARDS,
   sessionRunId: getSessionRunId(),
+
+  loadLoreCatalog: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('lore_cards')
+        .select('*')
+        .order('sort_order', { ascending: true })
+      if (error) throw error
+      if (data?.length) {
+        set({
+          loreCatalog: data.map((row) => ({
+            id: row.id,
+            category: row.category,
+            title: row.title,
+            content: row.content,
+            tone: row.tone,
+          })),
+        })
+      }
+    } catch (e) {
+      console.warn('lore_cards load failed, using bundled LORE_CARDS:', e?.message || e)
+      set({ loreCatalog: LORE_CARDS })
+    }
+  },
 
   // Push a beat's narrative text as a reveal
   revealBeat: async (beat, sceneName) => {

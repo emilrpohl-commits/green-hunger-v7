@@ -1,5 +1,6 @@
 import { supabase } from '@shared/lib/supabase.js'
 import { decodeSavePrompt } from '@shared/lib/combatRules.js'
+import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
 
 export const createFeedSlice = (set, get) => ({
   feed: [],
@@ -54,7 +55,7 @@ export const createFeedSlice = (set, get) => ({
         set({ feed, savePrompts })
       }
     } catch (e) {
-      console.log('No combat feed found.')
+      warnFallback('loadFeed failed', { system: 'combatFeed', reason: String(e?.message || e) })
     }
   },
 
@@ -63,7 +64,9 @@ export const createFeedSlice = (set, get) => ({
     set({ feed: [] })
     try {
       await supabase.from('combat_feed').delete().eq('session_id', sessionRunId)
-    } catch (e) {}
+    } catch (e) {
+      warnFallback('clearFeed delete failed', { system: 'combatFeed', reason: String(e?.message || e) })
+    }
   },
 
   subscribeToRolls: () => {

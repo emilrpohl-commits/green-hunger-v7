@@ -54,6 +54,8 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
   const [saved, setSaved] = useState(false)
   const [validationWarnings, setValidationWarnings] = useState([])
   const [activeTab, setActiveTab] = useState('core')
+  const [monsterEngineIndex, setMonsterEngineIndex] = useState('')
+  const [monsterPrefillBusy, setMonsterPrefillBusy] = useState(false)
 
   useEffect(() => {
     if (statBlockId) {
@@ -89,6 +91,55 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
   const updateAbility = (stat, value) => {
     setForm(f => ({ ...f, ability_scores: { ...f.ability_scores, [stat]: parseInt(value) || 10 } }))
     setSaved(false)
+  }
+
+  /** Phase 2F: pull SRD-style monster from configured 5e engine into this form (review before save). */
+  const prefillMonsterFromEngine = async () => {
+    const idx = monsterEngineIndex.trim()
+    if (!idx) return
+    setMonsterPrefillBusy(true)
+    setSaveError(null)
+    try {
+      const { getResource } = await import('@shared/lib/engine/dnd5eClient.js')
+      const { engineConfig } = await import('@shared/lib/engine/config.js')
+      const m = await getResource('monsters', idx, { ruleset: engineConfig.primaryRuleset })
+      if (!m) throw new Error('Empty response')
+      const scores = m.ability_scores || {}
+      const nextScores = { ...blankStatBlock().ability_scores }
+      for (const k of ABILITY_SCORES) {
+        if (scores[k] != null) nextScores[k] = scores[k]
+      }
+      let speedStr = form.speed
+      if (typeof m.speed === 'string') speedStr = m.speed
+      else if (m.speed && typeof m.speed === 'object') {
+        speedStr = Object.entries(m.speed).map(([k, v]) => `${k} ${v}`).join(', ')
+      }
+      const acVal = m.armor_class?.[0]?.value ?? m.ac ?? form.ac
+      const hpVal = m.hit_points ?? m.max_hp ?? form.max_hp
+      const act = Array.isArray(m.actions) ? m.actions.map((a) => ({ name: a.name, desc: Array.isArray(a.desc) ? a.desc.join('\n') : (a.desc || '') })) : form.actions
+      setForm((f) => ({
+        ...f,
+        name: m.name || f.name,
+        creature_type: m.type || m.creature_type || f.creature_type,
+        size: m.size || f.size,
+        alignment: m.alignment || f.alignment,
+        cr: m.challenge_rating != null ? String(m.challenge_rating) : f.cr,
+        ac: Number(acVal) || f.ac,
+        max_hp: Number(hpVal) || f.max_hp,
+        hit_dice: m.hit_dice || f.hit_dice,
+        speed: speedStr || f.speed,
+        ability_scores: nextScores,
+        senses: m.senses || f.senses,
+        languages: typeof m.languages === 'string' ? m.languages : f.languages,
+        actions: act,
+        slug: f.slug || (m.index || m.slug || '').replace(/\s+/g, '-'),
+        source: f.source || m.source || '5e Engine',
+      }))
+      setSaved(false)
+    } catch (e) {
+      setSaveError(String(e?.message || e))
+    }
+    setMonsterPrefillBusy(false)
   }
 
   const handleSave = async () => {
@@ -213,6 +264,32 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
               </div>
               <div style={{ ...fieldStyle, gridColumn: '1/-1' }}>
                 <Field label="Slug (stable ID)" value={form.slug} onChange={v => update('slug', v)} placeholder="corrupted-wolf" style={inputStyle} labelStyle={labelStyle} />
+              </div>
+              <div style={{ ...fieldStyle, gridColumn: '1/-1', padding: 12, background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
+                <label style={labelStyle}>Prefill from 5e engine (monster index)</label>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input
+                    style={{ ...inputStyle, flex: 1, minWidth: 160 }}
+                    value={monsterEngineIndex}
+                    onChange={(e) => setMonsterEngineIndex(e.target.value)}
+                    placeholder="e.g. adult-black-dragon"
+                  />
+                  <button
+                    type="button"
+                    disabled={monsterPrefillBusy}
+                    onClick={prefillMonsterFromEngine}
+                    style={{
+                      padding: '8px 14px', ...mono, fontSize: 10, textTransform: 'uppercase',
+                      background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                      color: 'var(--green-bright)', cursor: monsterPrefillBusy ? 'wait' : 'pointer',
+                    }}
+                  >
+                    {monsterPrefillBusy ? 'Loading…' : 'Merge into form'}
+                  </button>
+                </div>
+                <div style={{ ...mono, fontSize: 9, color: 'var(--text-muted)', marginTop: 8 }}>
+                  Uses your VITE 5e API; merges into the current form — always review before Save.
+                </div>
               </div>
             </div>
 

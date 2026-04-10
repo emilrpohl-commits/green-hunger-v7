@@ -36,6 +36,23 @@ export async function loadSessionContentTree(client, session) {
  * All non-archived sessions (deduped by session_number), with nested content.
  * Mirrors campaignStore session loading without requiring a campaign row.
  */
+/**
+ * Load one session by UUID with scenes/beats (Phase 2B: player hydrates only active_session_uuid).
+ * @param {import('@supabase/supabase-js').SupabaseClient} client
+ * @param {string} sessionUuid
+ */
+export async function fetchSessionWithContentById(client, sessionUuid) {
+  if (!sessionUuid) return null
+  const { data: session, error } = await client
+    .from('sessions')
+    .select('*')
+    .eq('id', sessionUuid)
+    .maybeSingle()
+  if (error || !session) return null
+  if (session.archived_at) return null
+  return loadSessionContentTree(client, session)
+}
+
 export async function fetchActiveSessionsWithContent(client) {
   const { data: sessionsRaw, error: se } = await client
     .from('sessions')

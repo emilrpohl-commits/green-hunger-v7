@@ -4,6 +4,7 @@ import { CHARACTERS } from '@shared/content/session1.js'
 import { fetchPartyRosterForCombat } from '@shared/lib/partyRoster.js'
 import { getSessionRunId, getRulesetContext } from '@shared/lib/runtimeContext.js'
 import { normalizeSessionsFromDb } from '@shared/lib/sessionContentNormalize.js'
+import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
 
 export const useSessionStore = create((set, get) => ({
   // Session state
@@ -20,6 +21,9 @@ export const useSessionStore = create((set, get) => ({
 
   // Sync status
   syncStatus: 'idle', // idle | syncing | synced | error
+
+  /** Phase 2B: set when active_session_uuid does not resolve to a loaded session */
+  activeSessionResolveError: null, // null | 'no_active_session' | 'active_session_not_found'
 
   // Derived helpers
   getCurrentScene: () => {
@@ -45,7 +49,8 @@ export const useSessionStore = create((set, get) => ({
       session,
       currentSceneIndex: 0,
       currentBeatIndex: 0,
-      completedBeats: new Set()
+      completedBeats: new Set(),
+      activeSessionResolveError: null,
     })
     await get().syncSessionState()
   },
@@ -112,20 +117,27 @@ export const useSessionStore = create((set, get) => ({
   // Replaces sessions array entirely from DB — no static fallback.
   syncContentFromDb: (dbSessions) => {
     if (!dbSessions || dbSessions.length === 0) {
-      set({ sessions: [], session: null })
+      set({ sessions: [], session: null, activeSessionResolveError: 'no_active_session' })
       return
     }
 
     const normalized = normalizeSessionsFromDb(dbSessions)
 
     const { activeSessionId } = get()
-    const activeSession =
-      normalized.find(s => s.id === activeSessionId) || normalized[0] || null
+    let activeSession = null
+    let activeSessionResolveError = null
+    if (activeSessionId) {
+      activeSession = normalized.find(s => s.id === activeSessionId) || null
+      if (!activeSession) activeSessionResolveError = 'active_session_not_found'
+    } else {
+      activeSessionResolveError = 'no_active_session'
+    }
 
     set({
       sessions: normalized,
       session: activeSession,
-      activeSessionId: activeSession?.id || null,
+      activeSessionId,
+      activeSessionResolveError,
     })
   },
 
@@ -243,7 +255,13 @@ export const useSessionStore = create((set, get) => ({
   loadFromSupabase: async () => {
     const { sessionRunId } = get()
     try {
-      const { roster } = await fetchPartyRosterForCombat(supabase)
+      const { roster, source: rosterSource } = await fetchPartyRosterForCombat(supabase)
+      if (rosterSource === 'fallback') {
+        warnFallback('DM session store: character roster from static bundle', {
+          system: 'dmSessionStore',
+          source: 'static',
+        })
+      }
       set({ characters: roster })
 
       const { data: sessionData } = await supabase
@@ -255,7 +273,8 @@ export const useSessionStore = create((set, get) => ({
       if (sessionData) {
         set({
           currentSceneIndex: sessionData.current_scene_index || 0,
-          currentBeatIndex: sessionData.current_beat_index || 0
+          currentBeatIndex: sessionData.current_beat_index || 0,
+          activeSessionId: sessionData.active_session_uuid || null,
         })
       }
 
@@ -281,7 +300,10 @@ export const useSessionStore = create((set, get) => ({
         set({ characters: updated })
       }
     } catch (e) {
-      console.log('No saved state found, starting fresh.')
+      warnFallback('loadFromSupabase failed; roster/scene indices may be stale', {
+        system: 'dmSessionStore',
+        reason: String(e?.message || e),
+      })
     }
   }
 }))

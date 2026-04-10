@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import { STAT_BLOCKS } from '@shared/content/statblocks.js'
 import { useCampaignStore } from '../../stores/campaignStore'
+import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
 
 // Normalise DB stat block field names → the shape StatBlockView expects
 function normaliseDbSb(sb) {
@@ -36,10 +37,24 @@ function computeModifiers(scores) {
 
 export default function StatBlockView({ statBlockId, compact = false }) {
   const statBlockMap = useCampaignStore(s => s.statBlockMap)
+  const warnedRef = useRef(false)
 
   // Prefer DB lookup (by UUID or slug), fall back to static data
+  const fromDb = !!statBlockMap[statBlockId]
   const raw = statBlockMap[statBlockId] || STAT_BLOCKS[statBlockId]
   const sb = raw ? normaliseDbSb(raw) : null
+
+  useEffect(() => {
+    if (!statBlockId || warnedRef.current) return
+    if (!fromDb && STAT_BLOCKS[statBlockId]) {
+      warnedRef.current = true
+      warnFallback('Stat block view using bundled static statblocks.js', {
+        system: 'StatBlockView',
+        id: statBlockId,
+        source: 'static',
+      })
+    }
+  }, [statBlockId, fromDb])
 
   if (!sb) return <div style={{ padding: 12, fontSize: 12, color: 'var(--text-muted)' }}>No stat block found for "{statBlockId}".</div>
 

@@ -4,11 +4,13 @@
  */
 
 import { CHARACTERS } from '@shared/content/session1.js'
+import { warnFallback } from './fallbackTelemetry.js'
 
 /** @param {Record<string, unknown>} c session1.CHARACTERS entry */
 export function runtimeRowFromSessionCharacter(c) {
   return {
     id: c.id,
+    contentSource: 'static',
     name: c.name,
     player: c.player ?? null,
     class: c.class,
@@ -34,6 +36,18 @@ export function runtimeRowFromSessionCharacter(c) {
  */
 export function runtimeRowFromDbCharacter(row, fallback = {}) {
   const stats = row.stats || {}
+  const mergedFields = []
+  if (fallback.maxHp != null && stats.maxHp == null) mergedFields.push('maxHp')
+  if (fallback.ac != null && stats.ac == null) mergedFields.push('ac')
+  if (Object.keys(fallback).length && mergedFields.length) {
+    warnFallback('Merged static session bundle into DB character row', {
+      system: 'partyRoster',
+      id: row.id,
+      name: row.name,
+      source: 'merged',
+      fields: mergedFields,
+    })
+  }
   const maxHp = stats.maxHp ?? fallback.maxHp ?? 10
   const ac = stats.ac ?? fallback.ac ?? 10
   const initRaw = stats.initiative ?? fallback.initiative ?? 0
@@ -44,6 +58,7 @@ export function runtimeRowFromDbCharacter(row, fallback = {}) {
   return {
     id: row.id,
     name: row.name,
+    contentSource: mergedFields.length ? 'merged' : 'db',
     player: row.player ?? null,
     class: row.class,
     level: row.level,
@@ -72,12 +87,22 @@ export async function fetchPartyRosterForCombat(supabase, opts = {}) {
   try {
     const { data, error } = await supabase.from('characters').select('*').order('id')
     if (error || !data?.length) {
+      warnFallback('Using static bundled character roster (DB empty or error)', {
+        system: 'partyRoster',
+        reason: error?.message || 'no_rows',
+        source: 'static',
+      })
       return { roster: fallbackList, source: 'fallback' }
     }
     const fbMap = Object.fromEntries(fallbackCharacters.map(c => [c.id, c]))
     const roster = data.map(row => runtimeRowFromDbCharacter(row, fbMap[row.id] || {}))
     return { roster, source: 'database' }
-  } catch {
+  } catch (e) {
+    warnFallback('Using static bundled character roster (fetch threw)', {
+      system: 'partyRoster',
+      reason: String(e?.message || e),
+      source: 'static',
+    })
     return { roster: fallbackList, source: 'fallback' }
   }
 }
@@ -94,13 +119,27 @@ export function buildPlayerRuntimeCharacters(charRows, charStateRows = [], fallb
   const fallbackMap = Object.fromEntries(fallbackPcs.map(c => [c.id, c]))
 
   const pcs = (charRows || []).filter(r => !r.is_npc)
-  if (!pcs.length) return fallbackPcs
+  if (!pcs.length) {
+    warnFallback('No PC rows in DB; using bundled session player characters', {
+      system: 'partyRoster',
+      source: 'static',
+    })
+    return fallbackPcs.map((c) => ({ ...c, contentSource: 'static' }))
+  }
 
   return pcs.map((row) => {
     const stats = row.stats || {}
     const fb = fallbackMap[row.id] || {}
     const saved = stateMap[row.id]
     const maxHp = stats.maxHp ?? fb.maxHp
+    const merged = (stats.maxHp == null && fb.maxHp != null) || (stats.ac == null && fb.ac != null)
+    if (merged && Object.keys(fb).length) {
+      warnFallback('Player runtime character merged DB row with static bundle', {
+        system: 'partyRoster',
+        id: row.id,
+        source: 'merged',
+      })
+    }
     return {
       id: row.id,
       name: row.name,
@@ -118,6 +157,7 @@ export function buildPlayerRuntimeCharacters(charRows, charStateRows = [], fallb
       concentration: saved?.concentration ?? fb.concentration,
       conditions: saved?.conditions ?? fb.conditions,
       image: row.image || fb.image,
+      contentSource: merged ? 'merged' : 'db',
     }
   })
 }

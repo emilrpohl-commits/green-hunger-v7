@@ -29,6 +29,9 @@ export const featureFlags = {
   uiCombatClarity: asBool(env.VITE_UI_COMBAT_CLARITY, false),
   uiPromptStateBadges: asBool(env.VITE_UI_PROMPT_STATE_BADGES, false),
   shadowCompareMode: asBool(env.VITE_SHADOW_COMPARE_MODE, false),
+  /** Phase 2C: use encounters + stat_blocks from DB for quick-launch (see kill switch for rollback). */
+  encountersDbOnly: asBool(env.VITE_ENCOUNTERS_DB_ONLY, false),
+  encountersDbOnlyKillSwitch: asBool(env.VITE_ENCOUNTERS_DB_ONLY_KILL_SWITCH, false),
 }
 
 export function isFeatureEnabled(flagName) {

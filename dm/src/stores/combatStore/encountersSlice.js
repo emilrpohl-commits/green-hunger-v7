@@ -6,6 +6,11 @@ import { makeActionEconomy } from '@shared/lib/combatRules.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
 import { getMonsterCombatant } from '@shared/lib/engine/rulesService.js'
 import { getSessionRunId } from '@shared/lib/runtimeContext.js'
+import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
+import {
+  expandEncounterParticipantsToEnemies,
+  findEncounterByStatBlockSlug,
+} from '@shared/lib/encounterResolver.js'
 
 const CORRUPTED_WOLF = {
   id: 'corrupted-wolf',
@@ -14,6 +19,31 @@ const CORRUPTED_WOLF = {
   maxHp: 13,
   initiative: 20,
   type: 'enemy'
+}
+
+function useEncountersFromDatabase() {
+  return featureFlags.encountersDbOnly && !featureFlags.encountersDbOnlyKillSwitch
+}
+
+async function fetchRunCampaignId() {
+  const runId = getSessionRunId()
+  const { data } = await supabase.from('session_state').select('campaign_id').eq('id', runId).maybeSingle()
+  return data?.campaign_id || null
+}
+
+/** Load stat blocks for campaign as id -> row (for encounter participants). */
+async function fetchStatBlockMapByCampaign(campaignId) {
+  const { data, error } = await supabase
+    .from('stat_blocks')
+    .select('id, slug, name, ac, max_hp, portrait_url, actions, bonus_actions, reactions, ability_scores, saving_throws')
+    .eq('campaign_id', campaignId)
+  if (error) {
+    console.warn('fetchStatBlockMapByCampaign:', error.message)
+    return {}
+  }
+  const map = {}
+  ;(data || []).forEach((sb) => { map[sb.id] = sb })
+  return map
 }
 
 export const createEncountersSlice = (set, get) => ({
@@ -36,7 +66,14 @@ export const createEncountersSlice = (set, get) => ({
     const sbMap = {}
     if (statBlocks) statBlocks.forEach(sb => { sbMap[sb.slug] = sb })
 
-    const { roster: partyRoster } = await fetchPartyRosterForCombat(supabase)
+    const { roster: partyRoster, source: rosterSource } = await fetchPartyRosterForCombat(supabase)
+    if (rosterSource === 'fallback') {
+      warnFallback('Combat start: party roster from static bundle', {
+        system: 'encounters',
+        encounterName,
+        source: 'static',
+      })
+    }
     const pcIds = partyRoster.map(c => c.id).filter(Boolean)
     let charStates = null
     try {
@@ -73,6 +110,7 @@ export const createEncountersSlice = (set, get) => ({
         concentration: false,
         image: c.image || null,
         actionEconomy: makeActionEconomy(),
+        rosterContentSource: c.contentSource || rosterSource,
       }
     })
 
@@ -80,6 +118,14 @@ export const createEncountersSlice = (set, get) => ({
       const sb = sbMap[e.id]
       const ac = sb?.ac ?? e.ac
       const maxHp = sb?.max_hp ?? e.maxHp
+      if (!sb) {
+        warnFallback('Enemy has no matching stat_blocks row; using template AC/HP/actions', {
+          system: 'encounters',
+          slug: e.id,
+          encounterName,
+          source: 'static',
+        })
+      }
       let engineMonster = null
       if (featureFlags.use5eEngine && featureFlags.engineMonsters && !sb) {
         try {
@@ -131,6 +177,12 @@ export const createEncountersSlice = (set, get) => ({
 
     const withFallbackActions = enemyCombatants.map((c) => {
       if (Array.isArray(c.actionOptions) && c.actionOptions.length > 0) return c
+      warnFallback('Synthetic basic attack action (no structured monster actions)', {
+        system: 'encounters',
+        combatantId: c.id,
+        name: c.name,
+        source: 'static',
+      })
       return {
         ...c,
         actionOptions: [{
@@ -163,6 +215,22 @@ export const createEncountersSlice = (set, get) => ({
 
     await get().syncCombatState()
     await get().pushFeedEvent(`⚔️ ${encounterName} begins — rolling initiative.`, 'system', true)
+  },
+
+  /** Phase 2C/2F: start from DB `encounters` row (participants JSONB). */
+  launchEncounterFromDbRow: async (encounterRow, statBlockById) => {
+    if (!encounterRow?.title) return
+    const enemies = expandEncounterParticipantsToEnemies(encounterRow.participants, statBlockById)
+    if (!enemies.length) {
+      warnFallback('Encounter row has no resolvable participants', {
+        system: 'encounters',
+        id: encounterRow.id,
+        title: encounterRow.title,
+      })
+      return
+    }
+    await get().clearFeed()
+    await get().startEncounter(encounterRow.title, enemies)
   },
 
   launchCorruptedHunt: async () => {
@@ -198,9 +266,35 @@ export const createEncountersSlice = (set, get) => ({
 
   launchEncounterByStatBlockId: async (statBlockId) => {
     if (!statBlockId) return
+    if (useEncountersFromDatabase()) {
+      const campaignId = await fetchRunCampaignId()
+      if (campaignId) {
+        const { data: encList, error: encErr } = await supabase
+          .from('encounters')
+          .select('*')
+          .eq('campaign_id', campaignId)
+        if (!encErr && encList?.length) {
+          const statBlockById = await fetchStatBlockMapByCampaign(campaignId)
+          const match = findEncounterByStatBlockSlug(encList, statBlockId, statBlockById)
+          if (match) {
+            await get().launchEncounterFromDbRow(match, statBlockById)
+            return
+          }
+        }
+        warnFallback('No DB encounter matched stat block; using legacy launcher', {
+          system: 'encounters',
+          statBlockId,
+          source: 'static',
+        })
+      }
+    }
     if (statBlockId === 'corrupted-wolf') return get().launchCorruptedHunt()
     if (statBlockId === 'darcy-recombined') return get().launchDarcy()
     if (statBlockId === 'rotting-bloom') return get().launchRottingBlooms()
     if (statBlockId === 'damir-woven-grief') return get().launchDamir()
+    warnFallback('No encounter launcher registered for stat block slug', {
+      system: 'encounters',
+      statBlockId,
+    })
   }
 })
