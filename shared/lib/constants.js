@@ -1,7 +1,6 @@
 /**
- * Canonical beat type values as stored in the database.
- * The DM builder uses these directly. The run-mode sessionStore maps
- * 'combat' → 'combat trigger' for display, but the source-of-truth types are here.
+ * Canonical beat type values as stored in the database and used in run mode.
+ * Legacy bundled content may still use `combat trigger`; normalize to `combat` at sync boundaries.
  */
 export const BEAT_TYPES = [
   'narrative',

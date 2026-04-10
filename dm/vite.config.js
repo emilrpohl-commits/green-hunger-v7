@@ -19,6 +19,7 @@ export default defineConfig({
       '@supabase-root': path.join(root, 'supabase'),
       // shared/ lives outside this package; force deps to this app's node_modules
       '@supabase/supabase-js': path.join(__dirname, 'node_modules/@supabase/supabase-js'),
+      zod: path.join(__dirname, 'node_modules/zod'),
     },
   },
   server: {

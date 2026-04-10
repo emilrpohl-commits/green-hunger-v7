@@ -20,6 +20,7 @@ export default defineConfig({
     alias: {
       '@shared': path.join(root, 'shared'),
       '@supabase/supabase-js': path.join(__dirname, 'node_modules/@supabase/supabase-js'),
+      zod: path.join(__dirname, 'node_modules/zod'),
     },
   },
   server: {

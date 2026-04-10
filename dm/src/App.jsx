@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
+import { supabase } from '@shared/lib/supabase.js'
+import { getDmAuthSession, signInDmWithEmailPassword } from '@shared/lib/dmAuth.js'
 import { useSessionStore } from './stores/sessionStore'
 import { useCombatStore } from './stores/combatStore'
 import { useCampaignStore } from './stores/campaignStore'
@@ -14,10 +16,25 @@ const DM_PASSWORD = 'Sherlock*123'
 const DM_UNLOCK_KEY = 'gh_dm_unlocked'
 
 function DmGate({ onUnlock }) {
+  const [email, setEmail] = useState('')
+  const [pw, setPw] = useState('')
   const [dmPasswordInput, setDmPasswordInput] = useState('')
   const [dmGateError, setDmGateError] = useState('')
+  const [authBusy, setAuthBusy] = useState(false)
 
-  const tryUnlock = () => {
+  const trySupabase = async () => {
+    setDmGateError('')
+    setAuthBusy(true)
+    const { error } = await signInDmWithEmailPassword(email.trim(), pw)
+    setAuthBusy(false)
+    if (error) {
+      setDmGateError(error.message)
+      return
+    }
+    onUnlock()
+  }
+
+  const tryLegacyUnlock = () => {
     if (dmPasswordInput === DM_PASSWORD) {
       window.localStorage.setItem(DM_UNLOCK_KEY, 'ok')
       setDmGateError('')
@@ -33,7 +50,7 @@ function DmGate({ onUnlock }) {
       background: 'var(--bg-deep)', padding: 20
     }}>
       <div style={{
-        width: 'min(420px, 100%)', background: 'var(--bg-card)',
+        width: 'min(440px, 100%)', background: 'var(--bg-card)',
         border: '1px solid var(--border)', borderRadius: 12,
         padding: 24, boxShadow: '0 8px 40px rgba(0,0,0,0.45)'
       }}>
@@ -44,30 +61,74 @@ function DmGate({ onUnlock }) {
           DM Access Required
         </h1>
         <p style={{ margin: '0 0 14px', color: 'var(--text-muted)', fontSize: 13 }}>
-          Enter DM password to continue.
+          Sign in with Supabase (recommended), or use the legacy shared password.
         </p>
+
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Supabase</div>
         <input
-          type="password"
-          value={dmPasswordInput}
-          onChange={(e) => setDmPasswordInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') tryUnlock() }}
-          autoFocus
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="username"
           style={{
             width: '100%', padding: '10px 12px', background: 'var(--bg-raised)',
             border: '1px solid var(--border)', borderRadius: 8,
-            color: 'var(--text-primary)', marginBottom: 10
+            color: 'var(--text-primary)', marginBottom: 8, boxSizing: 'border-box'
+          }}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={pw}
+          onChange={(e) => setPw(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') trySupabase() }}
+          autoComplete="current-password"
+          style={{
+            width: '100%', padding: '10px 12px', background: 'var(--bg-raised)',
+            border: '1px solid var(--border)', borderRadius: 8,
+            color: 'var(--text-primary)', marginBottom: 10, boxSizing: 'border-box'
           }}
         />
         <button
-          onClick={tryUnlock}
+          type="button"
+          onClick={trySupabase}
+          disabled={authBusy || !email.trim() || !pw}
           style={{
             width: '100%', padding: '10px 12px', background: 'var(--green-dim)',
             border: '1px solid var(--green-mid)', borderRadius: 8, color: 'var(--green-bright)',
             fontFamily: 'var(--font-mono)', fontSize: 11, textTransform: 'uppercase',
+            letterSpacing: '0.08em', cursor: authBusy ? 'wait' : 'pointer', opacity: authBusy ? 0.7 : 1
+          }}
+        >
+          {authBusy ? 'Signing in…' : 'Sign in with Supabase'}
+        </button>
+
+        <div style={{ height: 1, background: 'var(--border)', margin: '18px 0' }} />
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Legacy gate</div>
+        <input
+          type="password"
+          value={dmPasswordInput}
+          onChange={(e) => setDmPasswordInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') tryLegacyUnlock() }}
+          placeholder="Shared DM password"
+          style={{
+            width: '100%', padding: '10px 12px', background: 'var(--bg-raised)',
+            border: '1px solid var(--border)', borderRadius: 8,
+            color: 'var(--text-primary)', marginBottom: 10, boxSizing: 'border-box'
+          }}
+        />
+        <button
+          type="button"
+          onClick={tryLegacyUnlock}
+          style={{
+            width: '100%', padding: '10px 12px', background: 'transparent',
+            border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-secondary)',
+            fontFamily: 'var(--font-mono)', fontSize: 11, textTransform: 'uppercase',
             letterSpacing: '0.08em', cursor: 'pointer'
           }}
         >
-          Unlock DM App
+          Unlock with legacy password
         </button>
         {dmGateError && (
           <div style={{ marginTop: 10, color: '#c87474', fontSize: 12 }}>{dmGateError}</div>
@@ -159,8 +220,25 @@ export default function App() {
       setDmUnlocked(true)
       return
     }
-    const unlocked = window.localStorage.getItem(DM_UNLOCK_KEY) === 'ok'
-    setDmUnlocked(unlocked)
+    let cancelled = false
+    ;(async () => {
+      const session = await getDmAuthSession()
+      if (cancelled) return
+      if (session?.user) {
+        setDmUnlocked(true)
+        return
+      }
+      const unlocked = window.localStorage.getItem(DM_UNLOCK_KEY) === 'ok'
+      setDmUnlocked(unlocked)
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) setDmUnlocked(true)
+    })
+    return () => subscription.unsubscribe()
   }, [])
 
   useEffect(() => {

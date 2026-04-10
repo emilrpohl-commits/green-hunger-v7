@@ -7,17 +7,12 @@ import { rosterToDmTargetOptions } from '@shared/lib/partyRoster.js'
 import { BEAT_TYPE_LABELS, BEAT_TYPE_STYLES } from '@shared/lib/constants.js'
 import StatBlockView from '../statblocks/StatBlockView'
 
-// Run-mode maps 'combat trigger' (from sessionStore sync) alongside canonical types
 const BEAT_TYPE_LABEL = {
   ...BEAT_TYPE_LABELS,
   check: 'SKILL CHECK',
-  'combat trigger': 'COMBAT',
 }
 
-const BEAT_TYPE_STYLE = {
-  ...BEAT_TYPE_STYLES,
-  'combat trigger': { color: 'var(--danger)', bg: 'rgba(196,64,64,0.08)' },
-}
+const BEAT_TYPE_STYLE = { ...BEAT_TYPE_STYLES }
 
 const DICE = [4, 6, 8, 10, 12, 20]
 
@@ -407,7 +402,7 @@ export default function MainPanel() {
               ⚔ Encounter Stat Block
             </div>
             <StatBlockView statBlockId={beat.statBlockId} />
-            {beat.type === 'combat trigger' && (
+            {beat.type === 'combat' && (
               <div style={{ marginTop: 14 }}>
                 <button
                   onClick={() => launchEncounterByStatBlockId(beat.statBlockId)}

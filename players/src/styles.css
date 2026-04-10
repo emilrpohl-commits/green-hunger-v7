@@ -1,3 +1,5 @@
+@tailwind utilities;
+
 :root {
   --bg-deep: rgba(8, 10, 8, 0.50);
   --bg-surface: rgba(14, 17, 14, 0.70);

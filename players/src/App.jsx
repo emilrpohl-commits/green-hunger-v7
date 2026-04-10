@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
+import { supabase } from '@shared/lib/supabase.js'
 import { usePlayerStore } from './stores/playerStore'
 import LoginScreen from './components/LoginScreen'
 import PartyView from './components/PartyView'
@@ -15,6 +16,13 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = subscribe()
     return unsubscribe
+  }, [])
+
+  useEffect(() => {
+    if (import.meta.env.VITE_SUPABASE_ANON_PLAYER !== 'true') return
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) supabase.auth.signInAnonymously().catch(() => {})
+    })
   }, [])
 
   useEffect(() => {

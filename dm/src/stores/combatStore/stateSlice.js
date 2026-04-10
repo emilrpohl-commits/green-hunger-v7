@@ -1,6 +1,7 @@
 import { supabase } from '@shared/lib/supabase.js'
 import { ensureActionEconomy } from '@shared/lib/combatRules.js'
 import { getRulesetContext, getSessionRunId } from '@shared/lib/runtimeContext.js'
+import { parseCombatantsArray } from '@shared/lib/validation/storeBoundaries.js'
 
 export const createStateSlice = (set, get) => ({
   active: false,
@@ -28,16 +29,8 @@ export const createStateSlice = (set, get) => ({
     const lastApplied = get()._combatStateSyncedAt
     if (incomingTs != null && lastApplied != null && incomingTs < lastApplied) return
 
-    let combatants = row.combatants
-    if (typeof combatants === 'string') {
-      try {
-        combatants = JSON.parse(combatants)
-      } catch {
-        combatants = []
-      }
-    }
-    if (!Array.isArray(combatants)) combatants = []
-    combatants = combatants.map(c => ({ ...c, actionEconomy: ensureActionEconomy(c) }))
+    const combatants = parseCombatantsArray(row.combatants, 'dm.applyCombatStateRow')
+      .map(c => ({ ...c, actionEconomy: ensureActionEconomy(c) }))
 
     let nextLast = lastApplied ?? null
     if (incomingTs != null) {

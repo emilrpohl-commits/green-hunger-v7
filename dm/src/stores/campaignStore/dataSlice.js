@@ -1,4 +1,6 @@
 import { supabase } from '@shared/lib/supabase.js'
+import { loadSessionContentTree } from '@shared/lib/sessionTreeLoader.js'
+import { filterValidSpellRows } from '@shared/lib/validation/storeBoundaries.js'
 
 export function createDataSlice(set, get) {
   return {
@@ -44,11 +46,12 @@ export function createDataSlice(set, get) {
           statBlockMap[sb.id] = sb
         })
 
-        const { data: spells } = await supabase
+        const { data: spellsRaw } = await supabase
           .from('spells')
           .select('*')
           .or(`campaign_id.eq.${campaign.id},campaign_id.is.null`)
           .order('level, name')
+        const spells = filterValidSpellRows(spellsRaw || [])
 
         const { data: npcs } = await supabase
           .from('npcs')
@@ -116,30 +119,7 @@ export function createDataSlice(set, get) {
       }
     },
 
-    loadSessionContent: async (session) => {
-      const { data: scenes, error: sce } = await supabase
-        .from('scenes')
-        .select('*')
-        .eq('session_id', session.id)
-        .order('order')
-      if (sce) { console.warn('scenes error:', sce.message); return { ...session, scenes: [] } }
-
-      const scenesWithContent = await Promise.all(
-        (scenes || []).map(async scene => {
-          const [beatsRes, branchesRes] = await Promise.all([
-            supabase.from('beats').select('*').eq('scene_id', scene.id).order('order'),
-            supabase.from('scene_branches').select('*').eq('scene_id', scene.id).order('order'),
-          ])
-          return {
-            ...scene,
-            beats: beatsRes.data || [],
-            branches: branchesRes.data || [],
-          }
-        })
-      )
-
-      return { ...session, scenes: scenesWithContent }
-    },
+    loadSessionContent: async (session) => loadSessionContentTree(supabase, session),
 
     refreshSession: async (sessionId) => {
       const { data: session } = await supabase.from('sessions').select('*').eq('id', sessionId).single()

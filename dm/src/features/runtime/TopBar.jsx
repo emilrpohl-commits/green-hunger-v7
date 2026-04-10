@@ -22,7 +22,9 @@ export default function TopBar({ onSwitchToBuilder }) {
   }[syncStatus]
 
   return (
-    <div style={{
+    <div
+      className="md:px-6 md:gap-5"
+      style={{
       gridArea: 'topbar',
       display: 'flex',
       alignItems: 'center',
@@ -31,7 +33,8 @@ export default function TopBar({ onSwitchToBuilder }) {
       background: 'var(--bg-surface)',
       borderBottom: '1px solid var(--border)',
       gap: 16
-    }}>
+    }}
+    >
       {/* Left: Campaign title */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
         <span style={{

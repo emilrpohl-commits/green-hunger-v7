@@ -11,8 +11,8 @@
  */
 
 import React, { useState, useCallback } from 'react'
-import { parseStatBlock } from '@tools/parseStatBlock.js'
-import { parseSpell } from '@tools/parseSpell.js'
+import { parseStatBlock } from '@shared/lib/parseStatBlock.js'
+import { parseSpell } from '@shared/lib/parseSpell.js'
 import { useCampaignStore } from '../../stores/campaignStore'
 
 // ---------------------------------------------------------------------------

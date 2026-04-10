@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useRef } from 'react'
-import { parseSessionMarkdown } from '@tools/parseDocxSession.js'
+import { parseSessionMarkdown } from '@shared/lib/parseSessionMarkdown.js'
 import { useCampaignStore } from '../../stores/campaignStore'
 import { useSessionStore } from '../../stores/sessionStore'
 import { supabase } from '@shared/lib/supabase.js'
