@@ -11,6 +11,7 @@ import NpcLibrary from '../npcs/NpcLibrary'
 import ReferenceLibrary from '../reference/ReferenceLibrary'
 import CharacterPdfImport from '../characters/CharacterPdfImport'
 import CharacterEditor from '../characters/CharacterEditor'
+import EncounterLibrary from '../encounters/EncounterLibrary'
 
 // Keep the syncContentFromDb call available in Build mode too
 import { useSessionStore } from '../../stores/sessionStore'
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { id: 'reference', label: 'SRD Reference', icon: '📚' },
   { id: 'character-import', label: 'Character Import', icon: '🧾' },
   { id: 'characters', label: 'Characters', icon: '🧝' },
+  { id: 'encounters', label: 'Encounters', icon: '🎯' },
 ]
 
 export default function BuilderLayout() {
@@ -174,6 +176,8 @@ export default function BuilderLayout() {
         return <CharacterPdfImport />
       case 'characters':
         return <CharacterEditor />
+      case 'encounters':
+        return <EncounterLibrary />
       default:
         return null
     }

@@ -188,6 +188,7 @@ export function createEntityCrudSlice(set, get) {
       const { id: _id, created_at: _c, updated_at: _u, ...rest } = original
       return get().saveStatBlock({
         ...rest,
+        cloned_from_reference_id: null,
         name: `${original.name} (Copy)`,
         slug: original.slug ? `${original.slug}-copy-${Date.now()}` : null,
       })

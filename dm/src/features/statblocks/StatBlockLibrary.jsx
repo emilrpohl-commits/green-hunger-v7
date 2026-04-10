@@ -120,6 +120,11 @@ export default function StatBlockLibrary({ onEdit, onCreate }) {
                 {sb.ac ? ` · AC ${sb.ac}` : ''}
                 {sb.max_hp ? ` · HP ${sb.max_hp}` : ''}
               </div>
+              {sb.cloned_from_reference_id && (
+                <div style={{ ...mono, fontSize: 9, color: 'var(--green-bright)', marginTop: 4 }}>
+                  Reference clone (SRD monster)
+                </div>
+              )}
             </div>
 
             {/* Tags */}

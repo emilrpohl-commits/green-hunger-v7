@@ -46,8 +46,8 @@ Use this as a living checklist when authoring `supabase/migrations/*.sql`. Do no
 
 ## Stage 6 — Encounters / stat blocks
 
-- [ ] **`stat_blocks`:** add `cloned_from_reference_id` uuid nullable FK to `reference_monsters.id` (or text `reference_index` + `ruleset`).
-- [ ] **`encounters`:** already supports `participants` jsonb; no change required for library UX beyond UI.
+- [x] **`stat_blocks`:** `cloned_from_reference_id` uuid nullable FK → `reference_monsters.id` (`20260412120000_stat_blocks_cloned_from_reference.sql` + `schema.sql`); clone from **SRD Reference → Monsters** sets it; duplicates clear it.
+- [x] **`encounters`:** Builder **Encounters** library (`EncounterLibrary.jsx`) for CRUD + stat block picker; `participants` jsonb unchanged.
 
 ---
 
