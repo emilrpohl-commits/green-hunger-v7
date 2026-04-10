@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { usePlayerStore } from './stores/playerStore'
 import LoginScreen from './components/LoginScreen'
 import PartyView from './components/PartyView'
@@ -8,7 +9,8 @@ export default function App() {
   const subscribe = usePlayerStore(s => s.subscribe)
   const ilyaAssignedTo = usePlayerStore(s => s.ilyaAssignedTo)
   const [loggedInAs, setLoggedInAs] = useState(null)
-  const [view, setView] = useState('party')
+  const navigate = useNavigate()
+  const location = useLocation()
 
   useEffect(() => {
     const unsubscribe = subscribe()
@@ -21,47 +23,38 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (view === 'companion' && ilyaAssignedTo !== loggedInAs) {
-      setView('profile')
+    if (location.pathname === '/companion' && ilyaAssignedTo !== loggedInAs) {
+      navigate('/profile', { replace: true })
     }
-  }, [ilyaAssignedTo])
+  }, [ilyaAssignedTo, loggedInAs, location.pathname, navigate])
 
   const handleLogin = (id) => {
     sessionStorage.setItem('gh_player', id)
     setLoggedInAs(id)
+    navigate(id === 'party' ? '/party' : '/profile')
   }
 
   const handleLogout = () => {
     sessionStorage.removeItem('gh_player')
     setLoggedInAs(null)
-    setView('party')
+    navigate('/')
   }
 
   if (!loggedInAs) {
     return <LoginScreen onLogin={handleLogin} />
   }
 
+  const showCompanionTab = loggedInAs !== 'party' && ilyaAssignedTo === loggedInAs
+  const isPartyOnly = loggedInAs === 'party'
+
   const navTabs = [
-    { id: 'party', label: 'Party' },
-    loggedInAs !== 'party' ? { id: 'profile', label: 'My Sheet' } : null,
-    loggedInAs !== 'party' && ilyaAssignedTo === loggedInAs ? { id: 'companion', label: 'Ilya' } : null,
+    { path: '/party', label: 'Party' },
+    !isPartyOnly ? { path: '/profile', label: 'My Sheet' } : null,
+    showCompanionTab ? { path: '/companion', label: 'Ilya' } : null,
   ].filter(Boolean)
-
-  const activeView = loggedInAs === 'party' ? 'party' : view
-
-  function renderView() {
-    if (activeView === 'companion') {
-      return <CharacterProfile characterId="ilya" />
-    }
-    if (activeView === 'profile' && loggedInAs !== 'party') {
-      return <CharacterProfile characterId={loggedInAs} />
-    }
-    return <PartyView />
-  }
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-deep)', display: 'flex', flexDirection: 'column' }}>
-      {/* ── Header ── */}
       <div style={{
         padding: '12px 20px',
         borderBottom: '1px solid var(--border)',
@@ -80,14 +73,13 @@ export default function App() {
           The Green Hunger
         </div>
 
-        {/* Nav tabs */}
         <div style={{ display: 'flex', gap: 4 }}>
           {navTabs.map(tab => {
-            const isActive = activeView === tab.id
+            const isActive = location.pathname === tab.path
             return (
               <button
-                key={tab.id}
-                onClick={() => setView(tab.id)}
+                key={tab.path}
+                onClick={() => navigate(tab.path)}
                 style={{
                   padding: '5px 14px',
                   fontFamily: 'var(--font-mono)',
@@ -126,9 +118,17 @@ export default function App() {
         </button>
       </div>
 
-      {/* ── Main content ── */}
       <div style={{ flex: 1, overflow: 'auto' }}>
-        {renderView()}
+        <Routes>
+          <Route path="/party" element={<PartyView />} />
+          <Route path="/profile" element={
+            isPartyOnly ? <Navigate to="/party" replace /> : <CharacterProfile characterId={loggedInAs} />
+          } />
+          <Route path="/companion" element={
+            showCompanionTab ? <CharacterProfile characterId="ilya" /> : <Navigate to="/profile" replace />
+          } />
+          <Route path="*" element={<Navigate to={isPartyOnly ? '/party' : '/profile'} replace />} />
+        </Routes>
       </div>
     </div>
   )

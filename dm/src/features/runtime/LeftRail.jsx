@@ -1,13 +1,10 @@
 import React, { useState } from 'react'
 import { useSessionStore } from '../../stores/sessionStore'
+import { BEAT_TYPE_COLOURS } from '@shared/lib/constants.js'
 
 const BEAT_TYPE_COLOUR = {
-  narrative: 'var(--text-muted)',
-  prompt: 'var(--green-mid)',
-  check: 'var(--info)',
-  decision: 'var(--warning)',
+  ...BEAT_TYPE_COLOURS,
   'combat trigger': 'var(--danger)',
-  reveal: 'var(--rot-bright)'
 }
 
 export default function LeftRail() {

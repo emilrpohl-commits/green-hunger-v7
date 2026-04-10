@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { supabase } from '@shared/lib/supabase.js'
 import { getSessionRunId } from '@shared/lib/runtimeContext.js'
 import { decodeSavePrompt, decodePlayerSavePrompt } from '@shared/lib/combatRules.js'
+import { usePlayerStore } from '../stores/playerStore'
 
-/** Player-visible combat log line; null omits internal / duplicate prompt payloads. */
 function formatPlayerFeedEvent(event) {
   if (!event) return null
   if (event.type === 'player-save-prompt') return null
@@ -23,22 +23,14 @@ function formatPlayerFeedEvent(event) {
 }
 
 export default function CombatFeed() {
+  const combatActive = usePlayerStore(s => s.combatActive)
   const [feed, setFeed] = useState([])
-  const [combatActive, setCombatActive] = useState(false)
 
   useEffect(() => {
     const sessionRunId = getSessionRunId()
-    // Load initial combat state
-    const loadInitial = async () => {
+
+    const loadFeed = async () => {
       try {
-        const { data: stateData } = await supabase
-          .from('combat_state')
-          .select('*')
-          .eq('id', sessionRunId)
-          .single()
-
-        if (stateData) setCombatActive(stateData.active)
-
         const { data: feedData } = await supabase
           .from('combat_feed')
           .select('*')
@@ -46,27 +38,12 @@ export default function CombatFeed() {
           .eq('shared', true)
           .order('timestamp', { ascending: false })
           .limit(20)
-
         if (feedData) setFeed(feedData)
-      } catch (e) {}
+      } catch (e) { /* non-critical */ }
     }
 
-    loadInitial()
+    loadFeed()
 
-    // Subscribe to combat state changes
-    const stateChannel = supabase
-      .channel('combat-state-player')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'combat_state',
-        filter: `id=eq.${sessionRunId}`
-      }, (payload) => {
-        if (payload.new) setCombatActive(payload.new.active)
-      })
-      .subscribe()
-
-    // Subscribe to new combat feed events
     const feedChannel = supabase
       .channel('combat-feed-player')
       .on('postgres_changes', {
@@ -93,7 +70,6 @@ export default function CombatFeed() {
       .subscribe()
 
     return () => {
-      supabase.removeChannel(stateChannel)
       supabase.removeChannel(feedChannel)
     }
   }, [])
@@ -108,7 +84,6 @@ export default function CombatFeed() {
       borderRadius: 'var(--radius-lg)',
       overflow: 'hidden'
     }}>
-      {/* Header */}
       <div style={{
         padding: '12px 18px',
         borderBottom: '1px solid var(--border)',
@@ -143,7 +118,6 @@ export default function CombatFeed() {
         `}</style>
       </div>
 
-      {/* Feed */}
       <div style={{ padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 4 }}>
         {feed.length === 0 ? (
           <div style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>
