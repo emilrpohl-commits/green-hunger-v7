@@ -5,7 +5,7 @@ import { supabase } from '@shared/lib/supabase.js'
 import { getSessionRunId } from '@shared/lib/runtimeContext.js'
 import { qaHoldSavePromptChannelName } from '@shared/lib/qaDevChannels.js'
 import DmCombatCarousel from './DmCombatCarousel.jsx'
-import CombatantCard from './CombatantCard.jsx'
+import CompactCard from './cards/CompactCard.jsx'
 
 
 export default function CombatPanel() {
@@ -254,7 +254,7 @@ export default function CombatPanel() {
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Players</div>
                 {players.map(c => (
                   <div key={c.id} style={{ position: 'relative' }}>
-                    <CombatantCard combatant={c} isActive={combatants.indexOf(c) === activeCombatantIndex} flashActive={combatants.indexOf(c) === flashActiveIndex} />
+                    <CompactCard combatant={c} isActive={combatants.indexOf(c) === activeCombatantIndex} flashActive={combatants.indexOf(c) === flashActiveIndex} players={players} />
                   </div>
                 ))}
               </div>
@@ -264,7 +264,7 @@ export default function CombatPanel() {
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#c48060', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Enemies</div>
                 {enemies.map(c => (
                   <div key={c.id} style={{ position: 'relative' }}>
-                    <CombatantCard combatant={c} isActive={combatants.indexOf(c) === activeCombatantIndex} flashActive={combatants.indexOf(c) === flashActiveIndex} players={players} />
+                    <CompactCard combatant={c} isActive={combatants.indexOf(c) === activeCombatantIndex} flashActive={combatants.indexOf(c) === flashActiveIndex} players={players} />
                   </div>
                 ))}
               </div>

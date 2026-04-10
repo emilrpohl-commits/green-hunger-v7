@@ -33,6 +33,21 @@
   --radius: 4px;
   --radius-lg: 8px;
   --transition: 0.15s ease;
+
+  /* ── Combat card system ─────────────────────────────── */
+  --card-transition: all 220ms ease;
+  --hp-bar-height: 6px;
+  --hp-bar-track: rgba(255,255,255,0.06);
+
+  /* State tints */
+  --active-bg:        rgba(122, 184, 106, 0.07);
+  --active-border:    #7ab86a;
+  --bloodied-bg:      rgba(180, 80, 40, 0.06);
+  --bloodied-border:  #7a4020;
+  --boss-bg:          rgba(180, 140, 30, 0.06);
+  --boss-border:      #c4a040;
+  --elite-border:     #c47040;
+  --conc-colour:      #c4a040;
 }
 
 * {
@@ -106,4 +121,191 @@ h1, h2, h3 {
   height: 1px;
   overflow: hidden;
   clip: rect(0,0,0,0);
+}
+
+/* ── Combat card state animations ──────────────────────────────────────── */
+
+@keyframes card-pulse-active {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(122,184,106,0), 0 2px 12px rgba(0,0,0,0.4); }
+  50%       { box-shadow: 0 0 0 2px rgba(122,184,106,0.3), 0 2px 18px rgba(0,0,0,0.5); }
+}
+
+@keyframes card-pulse-conc {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(196,160,64,0), 0 2px 12px rgba(0,0,0,0.4); }
+  50%       { box-shadow: 0 0 0 2px rgba(196,160,64,0.4), 0 2px 18px rgba(0,0,0,0.5); }
+}
+
+@keyframes hp-flash {
+  0%   { background: rgba(196, 64, 64, 0.55); }
+  100% { background: transparent; }
+}
+
+@keyframes hp-heal-flash {
+  0%   { background: rgba(122, 184, 106, 0.45); }
+  100% { background: transparent; }
+}
+
+@keyframes float-up {
+  0%   { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-28px); }
+}
+
+@keyframes fade-in-down {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes card-appear {
+  from { opacity: 0; transform: scale(0.98); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Combat card base ───────────────────────────────────────────────────── */
+
+.ccard {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: var(--card-transition);
+  position: relative;
+  animation: card-appear 200ms ease forwards;
+}
+
+.ccard--active {
+  background: var(--active-bg) !important;
+  border-color: var(--active-border) !important;
+  border-top-color: var(--active-border) !important;
+  animation: card-pulse-active 2.4s ease-in-out infinite;
+}
+
+.ccard--bloodied {
+  background: var(--bloodied-bg) !important;
+  border-top-color: var(--bloodied-border) !important;
+}
+
+.ccard--bloodied.ccard--active {
+  border-top-color: var(--active-border) !important;
+}
+
+.ccard--concentrating {
+  animation: card-pulse-conc 2s ease-in-out infinite;
+}
+
+.ccard--dead {
+  filter: grayscale(0.65);
+  opacity: 0.45;
+}
+
+.ccard--boss {
+  background: var(--boss-bg) !important;
+  border-top-color: var(--boss-border) !important;
+}
+
+.ccard--elite {
+  border-top-color: var(--elite-border) !important;
+}
+
+/* ── HP bar ─────────────────────────────────────────────────────────────── */
+
+.hp-track {
+  height: var(--hp-bar-height);
+  background: var(--hp-bar-track);
+  position: relative;
+  overflow: visible;
+}
+
+.hp-fill {
+  height: 100%;
+  transition: width 0.45s ease, background 0.45s ease;
+}
+
+/* Bloodied threshold tick at 50% */
+.hp-track::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  width: 1px;
+  height: calc(var(--hp-bar-height) + 4px);
+  background: rgba(180, 80, 40, 0.5);
+  pointer-events: none;
+}
+
+/* ── Condition chip ─────────────────────────────────────────────────────── */
+
+.cond-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 130ms ease, opacity 130ms ease;
+  animation: fade-in-down 180ms ease forwards;
+}
+
+.cond-chip:hover { opacity: 0.8; }
+
+/* ── Action economy pip ─────────────────────────────────────────────────── */
+
+.econ-pip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: var(--radius);
+  border: 1px solid;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 130ms ease, border-color 130ms ease, color 130ms ease;
+  user-select: none;
+}
+
+.econ-pip--ready {
+  border-color: var(--green-dim);
+  color: var(--green-bright);
+  background: rgba(74,122,66,0.15);
+}
+
+.econ-pip--used {
+  border-color: var(--border);
+  color: var(--danger);
+  background: transparent;
+}
+
+/* ── Focused card tabs ───────────────────────────────────────────────────── */
+
+.fc-tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+
+.fc-tab {
+  padding: 6px 16px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 130ms ease, border-color 130ms ease;
+}
+
+.fc-tab--active {
+  color: var(--text-primary);
+  border-bottom-color: var(--green-bright);
+}
+
+.fc-tab:hover:not(.fc-tab--active) {
+  color: var(--text-secondary);
 }

@@ -1,25 +1,15 @@
 import React, { useRef, useState, useEffect } from 'react'
 import { useCombatStore } from '../../stores/combatStore'
-import CombatantCard, { HP_COLOUR } from './CombatantCard.jsx'
+import { HP_COLOUR } from './cards/constants.js'
+import FocusedCard from './cards/FocusedCard.jsx'
 
 /**
  * DmCombatCarousel
  *
  * Horizontal portrait-first initiative carousel for the DM view.
  *
- * Layout:
- *   [ dim tile ]  [ dim tile ]  [ ═══ ACTIVE TILE ═══ ]  [ dim tile ]  [ dim tile ]
- *
- * The track slides horizontally (CSS translateX + transition) to keep the
- * active combatant centred whenever the active index changes.
- *
- * The active tile shows:
- *   - Large portrait with name / HP / AC overlay
- *   - Full CombatantCard (hidePortrait=true) — all HP controls, attack roller,
- *     conditions, spell effects
- *
- * Inactive tiles show:
- *   - Portrait thumbnail + name + HP bar
+ * Active tile → FocusedCard (full portrait + tabs: Overview / Actions)
+ * Inactive tiles → InactiveTile (portrait thumbnail + name + HP bar)
  */
 
 const INACTIVE_W = 136   // px — width of each dimmed tile slot
@@ -129,101 +119,7 @@ function InactiveTile({ combatant, distance, onClick }) {
   )
 }
 
-function ActivePortrait({ combatant }) {
-  const src      = portraitSrc(combatant)
-  const hpPct    = combatant.maxHp > 0 ? (combatant.curHp / combatant.maxHp) * 100 : 0
-  const hpCol    = HP_COLOUR(hpPct, combatant.curHp)
-  const isEnemy  = combatant.type === 'enemy'
-  const colourRaw = isEnemy ? '#c47040' : '#7ab86a'
-
-  return (
-    <div style={{ width: '100%' }}>
-      {/* Large portrait */}
-      <div style={{
-        width: '100%',
-        height: 220,
-        position: 'relative',
-        overflow: 'hidden',
-        borderRadius: '10px 10px 0 0',
-        border: `2px solid ${colourRaw}70`,
-        borderBottom: 'none',
-        boxShadow: `0 0 40px ${colourRaw}35, 0 4px 24px rgba(0,0,0,0.7)`,
-      }}>
-        {src ? (
-          <img
-            src={src}
-            alt={combatant.name}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }}
-            onError={e => { e.target.style.display = 'none' }}
-          />
-        ) : (
-          <div style={{
-            width: '100%', height: '100%',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: 'var(--font-display)', fontSize: 52,
-            color: colourRaw, background: `${colourRaw}15`,
-          }}>
-            {combatant.name[0]}
-          </div>
-        )}
-
-        {/* Gradient */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'linear-gradient(to bottom, transparent 35%, rgba(8,10,8,0.92) 100%)',
-          pointerEvents: 'none',
-        }} />
-
-        {/* Colour halo at bottom */}
-        <div style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0, height: 70,
-          background: `linear-gradient(to top, ${colourRaw}28, transparent)`,
-          pointerEvents: 'none',
-        }} />
-
-        {/* Name / identity */}
-        <div style={{ position: 'absolute', bottom: 10, left: 12 }}>
-          <div style={{
-            fontFamily: isEnemy ? 'var(--font-body)' : 'var(--font-display)',
-            fontSize: 18, color: 'var(--text-primary)',
-            textShadow: '0 2px 8px rgba(0,0,0,0.85)',
-          }}>
-            {combatant.name}
-          </div>
-          {combatant.concentration && (
-            <div style={{
-              fontFamily: 'var(--font-mono)', fontSize: 8,
-              color: 'var(--warning)', marginTop: 2,
-              textTransform: 'uppercase', letterSpacing: '0.08em',
-            }}>◈ Concentrating</div>
-          )}
-        </div>
-
-        {/* HP + AC */}
-        <div style={{ position: 'absolute', bottom: 10, right: 12, textAlign: 'right' }}>
-          <div style={{
-            fontFamily: 'var(--font-mono)', fontSize: 28, fontWeight: 700,
-            color: hpCol, lineHeight: 1,
-            textShadow: `0 2px 8px ${hpCol}80`,
-          }}>
-            {combatant.curHp}
-            {(combatant.tempHp ?? 0) > 0 && (
-              <span style={{ fontSize: 13, color: 'var(--info)' }}>+{combatant.tempHp}</span>
-            )}
-          </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', marginTop: 1 }}>
-            / {combatant.maxHp} hp · AC {combatant.ac}
-          </div>
-        </div>
-      </div>
-
-      {/* HP bar */}
-      <div style={{ height: 4, background: 'var(--bg-raised)', overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${hpPct}%`, background: hpCol, transition: 'width 0.4s ease' }} />
-      </div>
-    </div>
-  )
-}
+// ActivePortrait replaced by FocusedCard (imported above)
 
 export default function DmCombatCarousel({ feed, logOpen }) {
   const combatants          = useCombatStore(s => s.combatants)
@@ -307,28 +203,10 @@ export default function DmCombatCarousel({ feed, logOpen }) {
                   style={{
                     width: ACTIVE_W,
                     flexShrink: 0,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    // Animate in when a new combatant becomes active
-                    animation: 'portrait-appear 0.3s ease forwards',
+                    animation: 'card-appear 0.28s ease forwards',
                   }}
                 >
-                  <ActivePortrait combatant={combatant} />
-
-                  {/* Full controls card — portrait already shown above */}
-                  <div style={{
-                    border: `1px solid rgba(${combatant.type === 'enemy' ? '196,112,64' : '122,184,106'},0.35)`,
-                    borderTop: 'none',
-                    borderRadius: '0 0 10px 10px',
-                    overflow: 'hidden',
-                  }}>
-                    <CombatantCard
-                      combatant={combatant}
-                      isActive
-                      players={players}
-                      hidePortrait
-                    />
-                  </div>
+                  <FocusedCard combatant={combatant} players={players} />
                 </div>
               )
             }
