@@ -10,6 +10,7 @@ import SpellLibrary from '../spells/SpellLibrary'
 import NpcLibrary from '../npcs/NpcLibrary'
 import ReferenceLibrary from '../reference/ReferenceLibrary'
 import CharacterPdfImport from '../characters/CharacterPdfImport'
+import CharacterEditor from '../characters/CharacterEditor'
 
 // Keep the syncContentFromDb call available in Build mode too
 import { useSessionStore } from '../../stores/sessionStore'
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { id: 'npcs', label: 'NPCs', icon: '🧙' },
   { id: 'reference', label: 'SRD Reference', icon: '📚' },
   { id: 'character-import', label: 'Character Import', icon: '🧾' },
+  { id: 'characters', label: 'Characters', icon: '🧝' },
 ]
 
 export default function BuilderLayout() {
@@ -170,6 +172,8 @@ export default function BuilderLayout() {
         return <NpcLibrary />
       case 'character-import':
         return <CharacterPdfImport />
+      case 'characters':
+        return <CharacterEditor />
       default:
         return null
     }

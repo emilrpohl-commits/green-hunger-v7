@@ -18,6 +18,7 @@ function emptyCampaignState(campaignChoices = []) {
     archivedSessions: [],
     archivedStatBlocks: [],
     campaignChoices,
+    characters: [],
   }
 }
 
@@ -34,6 +35,8 @@ export function createDataSlice(set, get) {
     assets: [],
     /** Phase 2C/F: campaign encounters (DB-backed quick launch) */
     encounters: [],
+    /** Stage 5: PCs linked to campaign */
+    characters: [],
     archivedSessions: [],
     archivedStatBlocks: [],
     /** Seedless boot: multiple campaigns when no slug was passed — DM picks one to load */
@@ -147,6 +150,15 @@ export function createDataSlice(set, get) {
           console.warn('encounters load:', encErr.message)
         }
 
+        const { data: characterRows, error: chErr } = await supabase
+          .from('characters')
+          .select('*')
+          .eq('campaign_id', campaign.id)
+          .order('name')
+        if (chErr) {
+          console.warn('characters load:', chErr.message)
+        }
+
         const { data: adventures } = await supabase
           .from('adventures')
           .select('id')
@@ -192,6 +204,7 @@ export function createDataSlice(set, get) {
           npcs: npcs || [],
           assets: assets || [],
           encounters: encountersRaw || [],
+          characters: characterRows || [],
           archivedSessions,
           campaignChoices: [],
           loading: false,
