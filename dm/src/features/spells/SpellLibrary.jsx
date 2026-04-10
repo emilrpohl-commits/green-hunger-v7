@@ -4,6 +4,7 @@ import ImportModal from '../builder/ImportModal'
 import { PLAYER_CHARACTERS } from '@shared/content/playerCharacters.js'
 import { parseCastingTimeMeta } from '@shared/lib/combatRules.js'
 import { hydrateSpellByIndex } from '@shared/lib/engine/rulesService.js'
+import { featureFlags } from '@shared/lib/featureFlags.js'
 
 const SCHOOLS = ['Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation']
 
@@ -38,6 +39,7 @@ export default function SpellLibrary() {
   const [assigning, setAssigning] = useState(false)
   const [spellEngineIndex, setSpellEngineIndex] = useState('')
   const [spellPrefillBusy, setSpellPrefillBusy] = useState(false)
+  const canEngineSpellPrefill = featureFlags.use5eEngine && featureFlags.engineSpells
 
   const mono = { fontFamily: 'var(--font-mono)' }
   const inputStyle = { width: '100%', padding: '8px 12px', background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }
@@ -85,6 +87,10 @@ export default function SpellLibrary() {
         attack_type: s.mechanic === 'attack' ? (f.attack_type || 'ranged') : f.attack_type,
         source: s.source || '5e Engine',
       }))
+      setSaveMsg({
+        type: 'ok',
+        text: 'Form updated from the 5e reference — review and Save to store your campaign copy (DB is source of truth).',
+      })
     } catch (e) {
       setSaveMsg({ type: 'error', text: String(e?.message || e) })
     }
@@ -140,21 +146,27 @@ export default function SpellLibrary() {
 
         <div style={{ marginBottom: 16, padding: 12, background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
           <label style={labelStyle}>Prefill from 5e engine (spell index)</label>
+          <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.45 }}>
+            Fills the form from the external 5e dataset as a starting point. Your campaign spells in the database remain canonical — use Save here to persist an editable copy.
+          </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <input
               style={{ ...inputStyle, flex: 1, minWidth: 160 }}
               value={spellEngineIndex}
               onChange={(e) => setSpellEngineIndex(e.target.value)}
               placeholder="e.g. fireball"
+              disabled={!canEngineSpellPrefill}
             />
             <button
               type="button"
-              disabled={spellPrefillBusy}
+              disabled={spellPrefillBusy || !canEngineSpellPrefill}
+              title={!canEngineSpellPrefill ? 'Turn on VITE_USE_5E_ENGINE and VITE_ENGINE_SPELLS' : undefined}
               onClick={prefillSpellFromEngine}
               style={{
                 padding: '8px 14px', ...mono, fontSize: 10, textTransform: 'uppercase',
                 background: 'var(--green-dim)', border: '1px solid var(--green-mid)', borderRadius: 'var(--radius)',
-                color: 'var(--green-bright)', cursor: spellPrefillBusy ? 'wait' : 'pointer',
+                color: canEngineSpellPrefill ? 'var(--green-bright)' : 'var(--text-muted)',
+                cursor: spellPrefillBusy || !canEngineSpellPrefill ? 'not-allowed' : 'pointer',
               }}
             >
               {spellPrefillBusy ? 'Loading…' : 'Merge into form'}

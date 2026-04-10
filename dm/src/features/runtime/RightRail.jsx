@@ -241,6 +241,10 @@ function CharacterCard({ char }) {
   )
 }
 
+function emptyEncounterParticipant() {
+  return { stat_block_id: '', count: 1, initiative: '' }
+}
+
 function EncountersPanel() {
   const launchCorruptedHunt = useCombatStore(s => s.launchCorruptedHunt)
   const launchDarcy = useCombatStore(s => s.launchDarcy)
@@ -250,14 +254,19 @@ function EncountersPanel() {
   const encountersFromDb = useCampaignStore(s => s.encounters)
   const statBlocks = useCampaignStore(s => s.statBlocks)
   const saveEncounter = useCampaignStore(s => s.saveEncounter)
+  const deleteEncounter = useCampaignStore(s => s.deleteEncounter)
   const sessions = useSessionStore(s => s.sessions)
   const activeSessionId = useSessionStore(s => s.activeSessionId)
   const switchSession = useSessionStore(s => s.switchSession)
   const [expandedStatBlock, setExpandedStatBlock] = useState(null)
-  const [newEncTitle, setNewEncTitle] = useState('')
-  const [newEncStatId, setNewEncStatId] = useState('')
-  const [newEncCount, setNewEncCount] = useState(1)
+  const [detailEncId, setDetailEncId] = useState(null)
+  const [openStatKey, setOpenStatKey] = useState(null)
+  const [editingEncounterId, setEditingEncounterId] = useState(null)
+  const [formTitle, setFormTitle] = useState('')
+  const [formType, setFormType] = useState('combat')
+  const [formParticipants, setFormParticipants] = useState([emptyEncounterParticipant()])
   const [saveEncBusy, setSaveEncBusy] = useState(false)
+  const [encFormErr, setEncFormErr] = useState(null)
 
   const statBlockById = useMemo(
     () => Object.fromEntries(statBlocks.map((sb) => [sb.id, sb])),
@@ -313,17 +322,102 @@ function EncountersPanel() {
     }
   }, [encountersFromDb.length])
 
-  const handleSaveNewEncounter = async () => {
-    if (!newEncTitle.trim() || !newEncStatId) return
+  const resetEncounterForm = () => {
+    setEditingEncounterId(null)
+    setFormTitle('')
+    setFormType('combat')
+    setFormParticipants([emptyEncounterParticipant()])
+    setEncFormErr(null)
+  }
+
+  const startEditEncounter = (enc) => {
+    setEditingEncounterId(enc.id)
+    setFormTitle(enc.title || '')
+    setFormType(enc.type || 'combat')
+    const parts = Array.isArray(enc.participants) && enc.participants.length
+      ? enc.participants.map((p) => ({
+          stat_block_id: p.stat_block_id || '',
+          count: Math.max(1, Number(p.count) || 1),
+          initiative: p.initiative === 0 || p.initiative ? String(p.initiative) : '',
+        }))
+      : [emptyEncounterParticipant()]
+    setFormParticipants(parts)
+  }
+
+  const updateFormParticipant = (idx, field, value) => {
+    setFormParticipants((rows) =>
+      rows.map((r, i) => (i === idx ? { ...r, [field]: value } : r)),
+    )
+  }
+
+  const addFormParticipantRow = () => {
+    setFormParticipants((rows) => [...rows, emptyEncounterParticipant()])
+  }
+
+  const removeFormParticipantRow = (idx) => {
+    setFormParticipants((rows) => {
+      if (rows.length <= 1) return [emptyEncounterParticipant()]
+      return rows.filter((_, i) => i !== idx)
+    })
+  }
+
+  const handleSaveEncounterForm = async () => {
+    if (!formTitle.trim()) return
+    const participants = formParticipants
+      .filter((p) => p.stat_block_id)
+      .map((p) => {
+        const row = {
+          stat_block_id: p.stat_block_id,
+          count: Math.max(1, parseInt(String(p.count), 10) || 1),
+        }
+        const ini = String(p.initiative).trim()
+        if (ini !== '') {
+          const n = Number(ini)
+          if (!Number.isNaN(n)) row.initiative = n
+        }
+        return row
+      })
+    if (!participants.length) return
     setSaveEncBusy(true)
-    await saveEncounter({
-      title: newEncTitle.trim(),
-      type: 'combat',
-      participants: [{ stat_block_id: newEncStatId, count: Math.max(1, parseInt(String(newEncCount), 10) || 1) }],
+    setEncFormErr(null)
+    const result = await saveEncounter({
+      id: editingEncounterId || undefined,
+      title: formTitle.trim(),
+      type: formType,
+      participants,
     })
     setSaveEncBusy(false)
-    setNewEncTitle('')
-    setNewEncCount(1)
+    if (result.error) setEncFormErr(result.error)
+    else resetEncounterForm()
+  }
+
+  const handleDeleteEncounter = async (enc) => {
+    if (!window.confirm(`Delete encounter “${enc.title}”?`)) return
+    setSaveEncBusy(true)
+    setEncFormErr(null)
+    const del = await deleteEncounter(enc.id)
+    setSaveEncBusy(false)
+    if (del.error) {
+      setEncFormErr(del.error)
+      return
+    }
+    if (editingEncounterId === enc.id) resetEncounterForm()
+    if (detailEncId === enc.id) {
+      setDetailEncId(null)
+      setOpenStatKey(null)
+    }
+  }
+
+  const encounterParticipantSummary = (enc) => {
+    const parts = Array.isArray(enc.participants) ? enc.participants : []
+    return parts
+      .map((p) => {
+        const sb = p.stat_block_id ? statBlockById[p.stat_block_id] : null
+        const name = sb?.name || '?'
+        const c = Math.max(1, Number(p.count) || 1)
+        return c > 1 ? `${c}× ${name}` : name
+      })
+      .join(', ')
   }
 
   return (
@@ -355,10 +449,9 @@ function EncountersPanel() {
         Encounters
       </div>
       {useDbEncounters && encountersFromDb.map((enc) => {
-        const firstPart = Array.isArray(enc.participants) ? enc.participants[0] : null
-        const sb = firstPart?.stat_block_id ? statBlockById[firstPart.stat_block_id] : null
-        const statBlockId = sb?.slug || sb?.id || null
         const sub = enc.type ? `${enc.type}${enc.difficulty ? ` · ${enc.difficulty}` : ''}` : 'Combat'
+        const summary = encounterParticipantSummary(enc)
+        const showDetail = detailEncId === enc.id
         return (
           <div key={enc.id} style={{ marginBottom: 8 }}>
             <div style={{
@@ -381,35 +474,102 @@ function EncountersPanel() {
                   ⚔ {enc.title}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{sub}</div>
+                {summary && (
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>
+                    {summary}
+                  </div>
+                )}
               </button>
-              {statBlockId && (
-                <button
-                  type="button"
-                  onClick={() => setExpandedStatBlock(expandedStatBlock === statBlockId ? null : statBlockId)}
-                  style={{
-                    padding: '0 12px',
-                    background: expandedStatBlock === statBlockId ? 'rgba(196,64,64,0.15)' : 'transparent',
-                    border: 'none', borderLeft: '1px solid rgba(196,64,64,0.2)',
-                    color: '#d48060', cursor: 'pointer',
-                    fontFamily: 'var(--font-mono)', fontSize: 10,
-                    textTransform: 'uppercase', letterSpacing: '0.06em'
-                  }}
-                  title="View stat block"
-                >
-                  {expandedStatBlock === statBlockId ? '▲' : '▼'}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setDetailEncId(showDetail ? null : enc.id)
+                  setOpenStatKey(null)
+                }}
+                style={{
+                  padding: '0 10px',
+                  background: showDetail ? 'rgba(196,64,64,0.15)' : 'transparent',
+                  border: 'none', borderLeft: '1px solid rgba(196,64,64,0.2)',
+                  color: '#d48060', cursor: 'pointer',
+                  fontFamily: 'var(--font-mono)', fontSize: 9,
+                  textTransform: 'uppercase', letterSpacing: '0.06em'
+                }}
+                title="Preview stat blocks"
+              >
+                {showDetail ? '▲' : '▼'}
+              </button>
             </div>
-            {expandedStatBlock === statBlockId && statBlockId && (
+            <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                disabled={saveEncBusy}
+                onClick={() => startEditEncounter(enc)}
+                style={{
+                  padding: '3px 8px', fontSize: 10, fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+                  background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                  color: 'var(--text-secondary)', cursor: 'pointer',
+                }}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                disabled={saveEncBusy}
+                onClick={() => handleDeleteEncounter(enc)}
+                style={{
+                  padding: '3px 8px', fontSize: 10, fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+                  background: 'transparent', border: '1px solid rgba(196,64,64,0.35)', borderRadius: 'var(--radius)',
+                  color: 'var(--danger)', cursor: 'pointer',
+                }}
+              >
+                Delete
+              </button>
+            </div>
+            {showDetail && (
               <div style={{
                 background: 'var(--bg-card)',
                 border: '1px solid rgba(196,64,64,0.2)',
-                borderTop: 'none',
-                borderRadius: '0 0 var(--radius-lg) var(--radius-lg)',
-                maxHeight: 420,
+                borderRadius: 'var(--radius-lg)',
+                marginTop: 6,
+                padding: '8px 10px',
+                maxHeight: 480,
                 overflow: 'auto'
               }}>
-                <StatBlockView statBlockId={statBlockId} />
+                {(Array.isArray(enc.participants) ? enc.participants : []).map((p, i) => {
+                  const sb = p.stat_block_id ? statBlockById[p.stat_block_id] : null
+                  const slug = sb?.slug || sb?.id
+                  const key = `${enc.id}:${i}`
+                  const open = openStatKey === key
+                  const c = Math.max(1, Number(p.count) || 1)
+                  return (
+                    <div key={key} style={{ marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <span style={{ fontSize: 12, color: 'var(--text-primary)' }}>
+                          {c}× {sb?.name || 'Unknown stat block'}
+                        </span>
+                        {slug && (
+                          <button
+                            type="button"
+                            onClick={() => setOpenStatKey(open ? null : key)}
+                            style={{
+                              padding: '2px 8px', fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+                              background: open ? 'rgba(196,64,64,0.12)' : 'transparent',
+                              border: '1px solid rgba(196,64,64,0.25)', borderRadius: 'var(--radius)',
+                              color: '#d48060', cursor: 'pointer',
+                            }}
+                          >
+                            {open ? 'Hide' : 'View'}
+                          </button>
+                        )}
+                      </div>
+                      {open && slug && (
+                        <div style={{ marginTop: 6, maxHeight: 360, overflow: 'auto' }}>
+                          <StatBlockView statBlockId={slug} />
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -491,12 +651,25 @@ function EncountersPanel() {
         borderRadius: 'var(--radius)',
       }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>
-          Add encounter (library)
+          {editingEncounterId ? 'Edit encounter' : 'Add encounter (library)'}
         </div>
+        {editingEncounterId && (
+          <button
+            type="button"
+            onClick={resetEncounterForm}
+            style={{
+              marginBottom: 8, width: '100%', padding: '4px', fontSize: 10, fontFamily: 'var(--font-mono)',
+              background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+              color: 'var(--text-muted)', cursor: 'pointer',
+            }}
+          >
+            Cancel edit
+          </button>
+        )}
         <input
           placeholder="Title"
-          value={newEncTitle}
-          onChange={(e) => setNewEncTitle(e.target.value)}
+          value={formTitle}
+          onChange={(e) => setFormTitle(e.target.value)}
           style={{
             width: '100%', marginBottom: 6, padding: '6px 8px', boxSizing: 'border-box',
             background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
@@ -504,44 +677,115 @@ function EncountersPanel() {
           }}
         />
         <select
-          value={newEncStatId}
-          onChange={(e) => setNewEncStatId(e.target.value)}
+          value={formType}
+          onChange={(e) => setFormType(e.target.value)}
           style={{
-            width: '100%', marginBottom: 6, padding: '6px 8px',
+            width: '100%', marginBottom: 8, padding: '6px 8px',
             background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
             color: 'var(--text-primary)', fontSize: 11,
           }}
         >
-          <option value="">Stat block…</option>
-          {statBlocks.map((sb) => (
-            <option key={sb.id} value={sb.id}>{sb.name} ({sb.slug || sb.id.slice(0, 8)})</option>
-          ))}
+          <option value="combat">combat</option>
+          <option value="social">social</option>
+          <option value="skill">skill</option>
+          <option value="puzzle">puzzle</option>
         </select>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Count</span>
-          <input
-            type="number"
-            min={1}
-            value={newEncCount}
-            onChange={(e) => setNewEncCount(parseInt(e.target.value, 10) || 1)}
-            style={{
-              width: 56, padding: '4px 6px',
-              background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-              color: 'var(--text-primary)', fontSize: 12,
-            }}
-          />
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', marginBottom: 6 }}>
+          Participants (stat block × count; optional initiative)
         </div>
+        {formParticipants.map((row, idx) => (
+          <div
+            key={idx}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 52px 48px 28px',
+              gap: 6,
+              alignItems: 'center',
+              marginBottom: 6,
+            }}
+          >
+            <select
+              value={row.stat_block_id}
+              onChange={(e) => updateFormParticipant(idx, 'stat_block_id', e.target.value)}
+              style={{
+                minWidth: 0, padding: '5px 6px',
+                background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                color: 'var(--text-primary)', fontSize: 10,
+              }}
+            >
+              <option value="">Stat block…</option>
+              {statBlocks.map((sb) => (
+                <option key={sb.id} value={sb.id}>{sb.name}</option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min={1}
+              title="Count"
+              value={row.count}
+              onChange={(e) => updateFormParticipant(idx, 'count', parseInt(e.target.value, 10) || 1)}
+              style={{
+                width: '100%', padding: '4px 4px', boxSizing: 'border-box',
+                background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                color: 'var(--text-primary)', fontSize: 11,
+              }}
+            />
+            <input
+              type="number"
+              title="Initiative"
+              placeholder="Ini"
+              value={row.initiative}
+              onChange={(e) => updateFormParticipant(idx, 'initiative', e.target.value)}
+              style={{
+                width: '100%', padding: '4px 4px', boxSizing: 'border-box',
+                background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                color: 'var(--text-primary)', fontSize: 10,
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => removeFormParticipantRow(idx)}
+              title="Remove row"
+              style={{
+                padding: '2px 0', fontSize: 12, background: 'transparent', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)', color: 'var(--text-muted)', cursor: 'pointer', lineHeight: 1,
+              }}
+            >
+              −
+            </button>
+          </div>
+        ))}
         <button
           type="button"
-          disabled={saveEncBusy || !newEncTitle.trim() || !newEncStatId}
-          onClick={handleSaveNewEncounter}
+          onClick={addFormParticipantRow}
+          style={{
+            width: '100%', marginBottom: 8, padding: '4px', fontSize: 10, fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+            background: 'var(--bg-card)', border: '1px dashed var(--border)', borderRadius: 'var(--radius)',
+            color: 'var(--text-muted)', cursor: 'pointer',
+          }}
+        >
+          + Add creature row
+        </button>
+        {encFormErr && (
+          <div style={{ fontSize: 11, color: 'var(--danger)', marginBottom: 8, fontFamily: 'var(--font-mono)' }}>
+            {encFormErr}
+          </div>
+        )}
+        <button
+          type="button"
+          disabled={
+            saveEncBusy ||
+            !formTitle.trim() ||
+            !formParticipants.some((p) => p.stat_block_id)
+          }
+          onClick={handleSaveEncounterForm}
           style={{
             width: '100%', padding: '8px', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
             background: 'var(--green-dim)', border: '1px solid var(--green-mid)', borderRadius: 'var(--radius)',
             color: 'var(--green-bright)', cursor: saveEncBusy ? 'wait' : 'pointer',
           }}
         >
-          Save to DB
+          {editingEncounterId ? 'Update in DB' : 'Save to DB'}
         </button>
       </div>
     </div>

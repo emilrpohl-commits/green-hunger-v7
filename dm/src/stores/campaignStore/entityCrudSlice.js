@@ -321,5 +321,12 @@ export function createEntityCrudSlice(set, get) {
       })
       return { data: saved }
     },
+
+    deleteEncounter: async (id) => {
+      const { error } = await supabase.from('encounters').delete().eq('id', id)
+      if (error) return { error: error.message }
+      set({ encounters: get().encounters.filter((e) => e.id !== id) })
+      return { success: true }
+    },
   }
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
 import { validateStatBlock } from '@shared/lib/statBlockActions.js'
+import { featureFlags } from '@shared/lib/featureFlags.js'
 
 const ABILITY_SCORES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
 const SIZES = ['Tiny', 'Small', 'Medium', 'Large', 'Huge', 'Gargantuan']
@@ -56,6 +57,8 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
   const [activeTab, setActiveTab] = useState('core')
   const [monsterEngineIndex, setMonsterEngineIndex] = useState('')
   const [monsterPrefillBusy, setMonsterPrefillBusy] = useState(false)
+  const [prefillNotice, setPrefillNotice] = useState(null)
+  const canEngineMonsterPrefill = featureFlags.use5eEngine && featureFlags.engineMonsters
 
   useEffect(() => {
     if (statBlockId) {
@@ -99,6 +102,7 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
     if (!idx) return
     setMonsterPrefillBusy(true)
     setSaveError(null)
+    setPrefillNotice(null)
     try {
       const { getResource } = await import('@shared/lib/engine/dnd5eClient.js')
       const { engineConfig } = await import('@shared/lib/engine/config.js')
@@ -136,6 +140,7 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
         source: f.source || m.source || '5e Engine',
       }))
       setSaved(false)
+      setPrefillNotice('Form updated from the 5e reference — review and Save to store your campaign copy (DB is source of truth).')
     } catch (e) {
       setSaveError(String(e?.message || e))
     }
@@ -267,29 +272,37 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
               </div>
               <div style={{ ...fieldStyle, gridColumn: '1/-1', padding: 12, background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
                 <label style={labelStyle}>Prefill from 5e engine (monster index)</label>
+                <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.45 }}>
+                  Fills the form from the external 5e dataset as a starting point. Your campaign stat blocks in the database remain canonical — use Save here to persist an editable copy.
+                </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <input
                     style={{ ...inputStyle, flex: 1, minWidth: 160 }}
                     value={monsterEngineIndex}
                     onChange={(e) => setMonsterEngineIndex(e.target.value)}
                     placeholder="e.g. adult-black-dragon"
+                    disabled={!canEngineMonsterPrefill}
                   />
                   <button
                     type="button"
-                    disabled={monsterPrefillBusy}
+                    disabled={monsterPrefillBusy || !canEngineMonsterPrefill}
+                    title={!canEngineMonsterPrefill ? 'Turn on VITE_USE_5E_ENGINE and VITE_ENGINE_MONSTERS' : undefined}
                     onClick={prefillMonsterFromEngine}
                     style={{
                       padding: '8px 14px', ...mono, fontSize: 10, textTransform: 'uppercase',
                       background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-                      color: 'var(--green-bright)', cursor: monsterPrefillBusy ? 'wait' : 'pointer',
+                      color: canEngineMonsterPrefill ? 'var(--green-bright)' : 'var(--text-muted)',
+                      cursor: monsterPrefillBusy || !canEngineMonsterPrefill ? 'not-allowed' : 'pointer',
                     }}
                   >
                     {monsterPrefillBusy ? 'Loading…' : 'Merge into form'}
                   </button>
                 </div>
-                <div style={{ ...mono, fontSize: 9, color: 'var(--text-muted)', marginTop: 8 }}>
-                  Uses your VITE 5e API; merges into the current form — always review before Save.
-                </div>
+                {prefillNotice && (
+                  <div style={{ ...mono, fontSize: 10, color: 'var(--green-bright)', marginTop: 8 }}>
+                    {prefillNotice}
+                  </div>
+                )}
               </div>
             </div>
 
