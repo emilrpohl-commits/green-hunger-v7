@@ -27,6 +27,7 @@ export default function ConditionChips({ combatant, compact = false }) {
   const [showCondPicker, setShowCondPicker] = useState(false)
   const [showEffectPicker, setShowEffectPicker] = useState(false)
   const pickerRef = useRef(null)
+  const [overlayPos, setOverlayPos] = useState({ left: 0, top: 0, openUp: false })
 
   const conditions = combatant.conditions || []
   const effects    = combatant.effects    || []
@@ -45,6 +46,26 @@ export default function ConditionChips({ combatant, compact = false }) {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [showCondPicker, showEffectPicker])
+
+  function openPopover(kind) {
+    const rect = pickerRef.current?.getBoundingClientRect()
+    if (rect) {
+      const estimatedH = kind === 'effect' ? 260 : 220
+      const openUp = rect.bottom + estimatedH + 12 > window.innerHeight
+      setOverlayPos({
+        left: Math.max(10, Math.min(rect.left, window.innerWidth - 360)),
+        top: openUp ? Math.max(10, rect.top - estimatedH - 8) : rect.bottom + 6,
+        openUp,
+      })
+    }
+    if (kind === 'condition') {
+      setShowCondPicker(v => !v)
+      setShowEffectPicker(false)
+    } else {
+      setShowEffectPicker(v => !v)
+      setShowCondPicker(false)
+    }
+  }
 
   return (
     <div style={{ position: 'relative' }} ref={pickerRef}>
@@ -95,7 +116,7 @@ export default function ConditionChips({ combatant, compact = false }) {
         {!compact && (
           <>
             <button
-              onClick={() => { setShowCondPicker(v => !v); setShowEffectPicker(false) }}
+              onClick={() => openPopover('condition')}
               style={{
                 padding: '2px 8px', fontSize: 9, fontFamily: 'var(--font-mono)',
                 background: showCondPicker ? 'rgba(255,255,255,0.06)' : 'transparent',
@@ -107,7 +128,7 @@ export default function ConditionChips({ combatant, compact = false }) {
               + Cond
             </button>
             <button
-              onClick={() => { setShowEffectPicker(v => !v); setShowCondPicker(false) }}
+              onClick={() => openPopover('effect')}
               style={{
                 padding: '2px 8px', fontSize: 9, fontFamily: 'var(--font-mono)',
                 background: showEffectPicker ? 'rgba(160,96,192,0.1)' : 'transparent',
@@ -125,7 +146,7 @@ export default function ConditionChips({ combatant, compact = false }) {
       {/* Condition picker popover */}
       {showCondPicker && (
         <div style={{
-          position: 'absolute', zIndex: 30, top: 'calc(100% + 6px)', left: 0,
+          position: 'fixed', zIndex: 320, top: overlayPos.top, left: overlayPos.left,
           display: 'flex', gap: 4, flexWrap: 'wrap',
           padding: '10px 12px',
           background: 'var(--bg-raised)',
@@ -164,7 +185,7 @@ export default function ConditionChips({ combatant, compact = false }) {
       {/* Effect picker popover */}
       {showEffectPicker && (
         <div style={{
-          position: 'absolute', zIndex: 30, top: 'calc(100% + 6px)', left: 0,
+          position: 'fixed', zIndex: 320, top: overlayPos.top, left: overlayPos.left,
           padding: '10px 14px',
           background: 'var(--bg-raised)',
           border: '1px solid rgba(160,96,192,0.3)',

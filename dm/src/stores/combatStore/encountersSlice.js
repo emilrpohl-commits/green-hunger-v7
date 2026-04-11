@@ -75,7 +75,13 @@ export const createEncountersSlice = (set, get) => ({
         source: 'static',
       })
     }
-    const pcIds = partyRoster.map(c => c.id).filter(Boolean)
+    const rosterPlayers = partyRoster.filter(c => !c.isNPC)
+    const includedPlayerIds = get().includedPlayerIds || []
+    const selectedPlayers = includedPlayerIds.length > 0
+      ? rosterPlayers.filter(c => includedPlayerIds.includes(c.id))
+      : rosterPlayers
+    const effectivePlayers = selectedPlayers.length > 0 ? selectedPlayers : rosterPlayers
+    const pcIds = effectivePlayers.map(c => c.id).filter(Boolean)
     let charStates = null
     try {
       const { data, error } = await supabase
@@ -93,7 +99,7 @@ export const createEncountersSlice = (set, get) => ({
     const stateMap = {}
     if (charStates) charStates.forEach(s => { stateMap[s.id] = s })
 
-    const playerCombatants = partyRoster.map(c => {
+    const playerCombatants = effectivePlayers.map(c => {
       const saved = stateMap[c.id]
       return {
         id: c.id,
