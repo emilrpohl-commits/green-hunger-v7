@@ -9,6 +9,7 @@ export const createStateSlice = (set, get) => ({
   activeCombatantIndex: 0,
   combatants: [],
   initiativePhase: false,
+  includedPlayerIds: [],
 
   ilyaAssignedTo: null,
 
@@ -20,6 +21,18 @@ export const createStateSlice = (set, get) => ({
   setIlyaAssignment: async (charId) => {
     set({ ilyaAssignedTo: charId || null })
     await get().syncCombatState()
+  },
+
+  setIncludedPlayerIds: (ids) => {
+    set({ includedPlayerIds: Array.from(new Set((ids || []).filter(Boolean))) })
+  },
+
+  toggleIncludedPlayerId: (id) => {
+    set((s) => {
+      const cur = Array.isArray(s.includedPlayerIds) ? s.includedPlayerIds : []
+      if (cur.includes(id)) return { includedPlayerIds: cur.filter((x) => x !== id) }
+      return { includedPlayerIds: [...cur, id] }
+    })
   },
 
   applyCombatStateRow: (row) => {

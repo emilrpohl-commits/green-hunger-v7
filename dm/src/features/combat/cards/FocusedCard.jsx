@@ -61,6 +61,23 @@ function deriveSaveMap(combatant) {
   return saveMap
 }
 
+function abilityScoreParts(raw) {
+  if (raw && typeof raw === 'object') {
+    const score = Number(raw.score ?? raw.value ?? 10)
+    const modRaw = raw.mod
+    const mod = Number.isFinite(Number(modRaw))
+      ? Number(modRaw)
+      : (Number.isFinite(score) ? Math.floor((score - 10) / 2) : 0)
+    return {
+      score: Number.isFinite(score) ? score : 10,
+      mod,
+    }
+  }
+  const score = Number(raw)
+  const safe = Number.isFinite(score) ? score : 10
+  return { score: safe, mod: Math.floor((safe - 10) / 2) }
+}
+
 /**
  * FocusedCard
  *
@@ -115,8 +132,8 @@ export default function FocusedCard({ combatant, players = [] }) {
   const scores = combatant.abilityScores || combatant.stats?.abilityScores
   const SCORE_LABELS = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
 
-  function mod(score) {
-    const m = Math.floor((score - 10) / 2)
+  function mod(scoreOrObj) {
+    const m = abilityScoreParts(scoreOrObj).mod
     return m >= 0 ? `+${m}` : String(m)
   }
 
@@ -346,6 +363,7 @@ export default function FocusedCard({ combatant, players = [] }) {
                   {SCORE_LABELS.map(s => {
                     const val = scores[s]
                     if (val == null) return null
+                    const parts = abilityScoreParts(val)
                     return (
                       <div key={s} style={{
                         padding: '4px 8px', textAlign: 'center',
@@ -354,8 +372,8 @@ export default function FocusedCard({ combatant, players = [] }) {
                         borderRadius: 'var(--radius)',
                       }}>
                         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 7, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s}</div>
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-primary)', fontWeight: 700, lineHeight: 1.1 }}>{val}</div>
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-secondary)' }}>{mod(val)}</div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-primary)', fontWeight: 700, lineHeight: 1.1 }}>{parts.score}</div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-secondary)' }}>{mod(parts.score)}</div>
                       </div>
                     )
                   })}

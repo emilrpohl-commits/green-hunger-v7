@@ -25,6 +25,10 @@ function EncountersPanel() {
   const sessions = useSessionStore(s => s.sessions)
   const activeSessionId = useSessionStore(s => s.activeSessionId)
   const switchSession = useSessionStore(s => s.switchSession)
+  const rosterCharacters = useSessionStore(s => s.characters)
+  const includedPlayerIds = useCombatStore(s => s.includedPlayerIds)
+  const toggleIncludedPlayerId = useCombatStore(s => s.toggleIncludedPlayerId)
+  const setIncludedPlayerIds = useCombatStore(s => s.setIncludedPlayerIds)
   const [expandedStatBlock, setExpandedStatBlock] = useState(null)
   const [detailEncId, setDetailEncId] = useState(null)
   const [openStatKey, setOpenStatKey] = useState(null)
@@ -34,6 +38,12 @@ function EncountersPanel() {
   const [formParticipants, setFormParticipants] = useState([emptyEncounterParticipant()])
   const [saveEncBusy, setSaveEncBusy] = useState(false)
   const [encFormErr, setEncFormErr] = useState(null)
+  const rosterPlayers = useMemo(
+    () => (rosterCharacters || []).filter((c) => !c.isNPC),
+    [rosterCharacters]
+  )
+  const allPlayerIds = useMemo(() => rosterPlayers.map((c) => c.id), [rosterPlayers])
+  const selectedIds = includedPlayerIds?.length ? includedPlayerIds : allPlayerIds
 
   const statBlockById = useMemo(
     () => Object.fromEntries(statBlocks.map((sb) => [sb.id, sb])),
@@ -212,6 +222,56 @@ function EncountersPanel() {
       </div>
 
       {/* Encounter list for active session */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
+          Include Players In Combat
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+          <button
+            type="button"
+            onClick={() => setIncludedPlayerIds([])}
+            style={{
+              padding: '3px 8px',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 9,
+              borderRadius: 'var(--radius)',
+              border: '1px solid var(--border)',
+              background: includedPlayerIds?.length ? 'transparent' : 'var(--green-dim)',
+              color: includedPlayerIds?.length ? 'var(--text-muted)' : 'var(--green-bright)',
+              cursor: 'pointer',
+            }}
+          >
+            All
+          </button>
+          {rosterPlayers.map((pc) => {
+            const included = selectedIds.includes(pc.id)
+            return (
+              <button
+                key={pc.id}
+                type="button"
+                onClick={() => toggleIncludedPlayerId(pc.id)}
+                style={{
+                  padding: '3px 8px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 9,
+                  borderRadius: 'var(--radius)',
+                  border: `1px solid ${included ? 'var(--green-mid)' : 'var(--border)'}`,
+                  background: included ? 'var(--green-dim)' : 'transparent',
+                  color: included ? 'var(--green-bright)' : 'var(--text-muted)',
+                  opacity: included ? 1 : 0.6,
+                  cursor: 'pointer',
+                }}
+              >
+                {pc.name}
+              </button>
+            )
+          })}
+        </div>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)' }}>
+          {selectedIds.length}/{allPlayerIds.length} selected
+        </div>
+      </div>
+
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
         Encounters
       </div>
