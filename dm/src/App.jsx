@@ -13,6 +13,7 @@ import MainPanel from './features/runtime/MainPanel'
 import CombatPanel from './features/combat/CombatPanel'
 import RightRail from './features/runtime/RightRail'
 import BuilderLayout from './features/builder/BuilderLayout'
+import SoundToastHost from './components/SoundToastHost.jsx'
 
 const DM_PASSWORD = 'Sherlock*123'
 const DM_UNLOCK_KEY = 'gh_dm_unlocked'
@@ -326,10 +327,13 @@ export default function App() {
   }
 
   return (
-    <Routes>
-      <Route path="/run" element={<RunLayout />} />
-      <Route path="/build" element={<BuildLayout />} />
-      <Route path="*" element={<Navigate to="/run" replace />} />
-    </Routes>
+    <>
+      <SoundToastHost />
+      <Routes>
+        <Route path="/run" element={<RunLayout />} />
+        <Route path="/build" element={<BuildLayout />} />
+        <Route path="*" element={<Navigate to="/run" replace />} />
+      </Routes>
+    </>
   )
 }

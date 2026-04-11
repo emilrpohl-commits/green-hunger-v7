@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useSessionStore } from '../../stores/sessionStore'
 import { BEAT_TYPE_COLOURS } from '@shared/lib/constants.js'
+import SoundDock from './soundboard/SoundDock.jsx'
 
 export default function LeftRail() {
   const session = useSessionStore(s => s.session)
@@ -23,29 +24,30 @@ export default function LeftRail() {
         borderRight: '1px solid var(--border)',
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
         overflow: 'hidden',
-        padding: 16
+        padding: 8,
       }}>
-        {sessions.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
-            {sessions.map((s, i) => (
-              <button key={s.id} onClick={() => switchSession(s.id)} style={{
-                padding: '7px 10px', fontFamily: 'var(--font-mono)', fontSize: 11,
-                background: 'var(--bg-raised)', border: '1px solid var(--border)',
-                borderRadius: 'var(--radius)', color: 'var(--text-muted)', cursor: 'pointer',
-                textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.06em'
-              }}>
-                Session {i + 1}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            No sessions
-          </span>
-        )}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+          {sessions.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+              {sessions.map((s, i) => (
+                <button key={s.id} onClick={() => switchSession(s.id)} style={{
+                  padding: '7px 10px', fontFamily: 'var(--font-mono)', fontSize: 11,
+                  background: 'var(--bg-raised)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)', color: 'var(--text-muted)', cursor: 'pointer',
+                  textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.06em'
+                }}>
+                  Session {i + 1}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              No sessions
+            </span>
+          )}
+        </div>
+        <SoundDock compact />
       </div>
     )
   }
@@ -161,6 +163,7 @@ export default function LeftRail() {
           </div>
         )}
       </div>
+      <SoundDock compact />
     </div>
   )
 }

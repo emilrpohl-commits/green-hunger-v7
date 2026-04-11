@@ -33,6 +33,9 @@ function emptyCampaignState(campaignChoices = []) {
     compendiumSpells: [],
     npcs: [],
     assets: [],
+    audioAssets: [],
+    audioPlaylists: [],
+    audioPlaylistItems: [],
     encounters: [],
     archivedSessions: [],
     archivedStatBlocks: [],
@@ -52,6 +55,9 @@ export function createDataSlice(set, get) {
     compendiumSpells: [],
     npcs: [],
     assets: [],
+    audioAssets: [],
+    audioPlaylists: [],
+    audioPlaylistItems: [],
     /** Phase 2C/F: campaign encounters (DB-backed quick launch) */
     encounters: [],
     /** Stage 5: PCs linked to campaign */
@@ -162,6 +168,39 @@ export function createDataSlice(set, get) {
           .eq('campaign_id', campaign.id)
           .order('title')
 
+        const { data: audioAssetsRaw, error: audioAssetsErr } = await supabase
+          .from('audio_assets')
+          .select('*')
+          .eq('campaign_id', campaign.id)
+          .order('name')
+        if (audioAssetsErr) {
+          console.warn('audio_assets load:', audioAssetsErr.message)
+        }
+
+        const { data: audioPlaylistsRaw, error: audioPlaylistsErr } = await supabase
+          .from('audio_playlists')
+          .select('*')
+          .eq('campaign_id', campaign.id)
+          .order('name')
+        if (audioPlaylistsErr) {
+          console.warn('audio_playlists load:', audioPlaylistsErr.message)
+        }
+
+        let audioPlaylistItemsRaw = []
+        if ((audioPlaylistsRaw || []).length > 0) {
+          const playlistIds = (audioPlaylistsRaw || []).map((p) => p.id)
+          const { data: apItems, error: apItemsErr } = await supabase
+            .from('audio_playlist_items')
+            .select('*')
+            .in('playlist_id', playlistIds)
+            .order('position', { ascending: true })
+          if (apItemsErr) {
+            console.warn('audio_playlist_items load:', apItemsErr.message)
+          } else {
+            audioPlaylistItemsRaw = apItems || []
+          }
+        }
+
         const { data: encountersRaw, error: encErr } = await supabase
           .from('encounters')
           .select('*')
@@ -251,6 +290,9 @@ export function createDataSlice(set, get) {
           compendiumSpells,
           npcs: npcs || [],
           assets: assets || [],
+          audioAssets: audioAssetsRaw || [],
+          audioPlaylists: audioPlaylistsRaw || [],
+          audioPlaylistItems: audioPlaylistItemsRaw || [],
           encounters: encountersRaw || [],
           characters: characterRows || [],
           archivedSessions,
