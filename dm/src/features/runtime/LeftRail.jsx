@@ -3,7 +3,7 @@ import { useSessionStore } from '../../stores/sessionStore'
 import { BEAT_TYPE_COLOURS } from '@shared/lib/constants.js'
 import SoundDock from './soundboard/SoundDock.jsx'
 
-export default function LeftRail() {
+export default function LeftRail({ onCollapse = null }) {
   const session = useSessionStore(s => s.session)
   const sessions = useSessionStore(s => s.sessions)
   const activeSessionId = useSessionStore(s => s.activeSessionId)
@@ -27,6 +27,27 @@ export default function LeftRail() {
         overflow: 'hidden',
         padding: 8,
       }}>
+        {onCollapse && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+            <button
+              type="button"
+              onClick={onCollapse}
+              title="Collapse sidebar"
+              style={{
+                padding: '4px 6px',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)',
+                background: 'var(--bg-raised)',
+                color: 'var(--text-muted)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 10,
+                cursor: 'pointer',
+              }}
+            >
+              ◀
+            </button>
+          </div>
+        )}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
           {sessions.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
@@ -64,8 +85,29 @@ export default function LeftRail() {
 
       {/* Session switcher */}
       <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
-          Session
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            Session
+          </div>
+          {onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              title="Collapse sidebar"
+              style={{
+                padding: '3px 6px',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)',
+                background: 'var(--bg-raised)',
+                color: 'var(--text-muted)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 9,
+                cursor: 'pointer',
+              }}
+            >
+              ◀
+            </button>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 5 }}>
           {sessions.map((s, i) => (

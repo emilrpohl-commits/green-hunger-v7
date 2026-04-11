@@ -342,7 +342,7 @@ export function CompanionsAndNpcsSection({ characters }) {
                     >
                       <option value="">Unassigned</option>
                       {playerOptions.map((o) => (
-                        <option key={o.id} value={o.id}>{o.label}</option>
+                        <option key={o.id} value={o.id}>{o.name || o.label || o.id}</option>
                       ))}
                     </select>
                   )}
@@ -377,7 +377,7 @@ export function CompanionsAndNpcsSection({ characters }) {
                   >
                     <option value="">Unassigned</option>
                     {playerOptions.map((o) => (
-                      <option key={o.id} value={o.id}>{o.label}</option>
+                      <option key={o.id} value={o.id}>{o.name || o.label || o.id}</option>
                     ))}
                   </select>
                 )}

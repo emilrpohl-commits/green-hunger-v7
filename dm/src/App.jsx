@@ -166,6 +166,7 @@ function RunLayout() {
   const campaign = useCampaignStore(s => s.campaign)
   const loading = useCampaignStore(s => s.loading)
   const seedlessHome = featureFlags.seedlessPlatform && !featureFlags.demoCampaign
+  const [leftRailCollapsed, setLeftRailCollapsed] = useState(false)
   const [rightRailCollapsed, setRightRailCollapsed] = useState(false)
   const [toolboxOpen, setToolboxOpen] = useState(false)
   const [toolboxTab, setToolboxTab] = useState('wild')
@@ -204,9 +205,7 @@ function RunLayout() {
     <div style={{
       display: 'grid',
       gridTemplateRows: '48px 1fr',
-      gridTemplateColumns: rightRailCollapsed
-        ? '240px 1fr 0px'
-        : (combatActive ? '240px 1fr 320px' : '240px 1fr 280px'),
+      gridTemplateColumns: `${leftRailCollapsed ? '0px' : '240px'} 1fr ${rightRailCollapsed ? '0px' : (combatActive ? '320px' : '280px')}`,
       gridTemplateAreas: '"topbar topbar topbar" "left main right"',
       height: '100vh',
       background: 'var(--bg-deep)',
@@ -215,10 +214,37 @@ function RunLayout() {
       position: 'relative',
     }}>
       <TopBar onSwitchToBuilder={() => navigate('/build')} onOpenToolbox={openToolbox} />
-      <LeftRail />
+      {!leftRailCollapsed && (
+        <LeftRail onCollapse={() => setLeftRailCollapsed(true)} />
+      )}
       {combatActive ? <CombatPanel /> : <MainPanel />}
       {!rightRailCollapsed && (
         <RightRail onCollapse={() => setRightRailCollapsed(true)} />
+      )}
+      {leftRailCollapsed && (
+        <button
+          type="button"
+          onClick={() => setLeftRailCollapsed(false)}
+          title="Show sidebar"
+          style={{
+            position: 'absolute',
+            left: 6,
+            top: 62,
+            zIndex: 220,
+            padding: '6px 8px',
+            borderRadius: 'var(--radius)',
+            border: '1px solid var(--border)',
+            background: 'var(--bg-raised)',
+            color: 'var(--text-muted)',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10,
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            cursor: 'pointer',
+          }}
+        >
+          Rail ▶
+        </button>
       )}
       {rightRailCollapsed && (
         <button
