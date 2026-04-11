@@ -1,0 +1,696 @@
+{
+    "meta": {
+      "id": "rules-glossary",
+      "title": "Rules Glossary",
+      "source": "SRD 5.2.1",
+      "version": "5.2.1",
+      "license": "CC-BY-4.0",
+      "requiredAttribution": "This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode."
+    },
+    "families": [
+      {
+        "key": "action",
+        "label": "Action",
+        "description": "Tagged glossary entries that define standard combat and gameplay actions."
+      },
+      {
+        "key": "area_of_effect",
+        "label": "Area of Effect",
+        "description": "Tagged glossary entries that define shapes such as cones and cubes."
+      },
+      {
+        "key": "attitude",
+        "label": "Attitude",
+        "description": "Tagged glossary entries describing NPC disposition and social stance."
+      },
+      {
+        "key": "condition",
+        "label": "Condition",
+        "description": "Temporary game states with defined effects and endings."
+      },
+      {
+        "key": "hazard",
+        "label": "Hazard",
+        "description": "Environmental and situational dangers used during exploration and play."
+      }
+    ],
+    "abbreviations": {
+      "AC": "Armor Class",
+      "C": "Concentration",
+      "CR": "Challenge Rating",
+      "DC": "Difficulty Class",
+      "GM": "Game Master",
+      "HP": "Hit Points",
+      "PB": "Proficiency Bonus",
+      "R": "Ritual",
+      "V": "Verbal component",
+      "S": "Somatic component",
+      "M": "Material component",
+      "XP": "Experience Points",
+      "Str": "Strength",
+      "Dex": "Dexterity",
+      "Con": "Constitution",
+      "Int": "Intelligence",
+      "Wis": "Wisdom",
+      "Cha": "Charisma"
+    },
+    "entries": [
+      {
+        "key": "ability_check",
+        "label": "Ability Check",
+        "family": "core",
+        "summary": "A D20 Test representing the use of one of the six abilities, or a skill associated with one, to overcome a challenge.",
+        "mechanics": {
+          "testType": "d20_test",
+          "usesAbilityModifier": true,
+          "canUseProficiency": true,
+          "targetNumberType": "dc"
+        },
+        "tags": ["core", "checks", "d20"]
+      },
+      {
+        "key": "action",
+        "label": "Action",
+        "family": "action",
+        "summary": "On your turn, you can take one action, chosen from the standard list or from special actions granted by features.",
+        "mechanics": {
+          "maxPerTurn": 1,
+          "standardActions": [
+            "attack",
+            "dash",
+            "disengage",
+            "dodge",
+            "help",
+            "hide",
+            "influence",
+            "magic",
+            "ready",
+            "search",
+            "study",
+            "utilize"
+          ]
+        },
+        "tags": ["combat", "turn", "economy"]
+      },
+      {
+        "key": "advantage",
+        "label": "Advantage",
+        "family": "core",
+        "summary": "Roll two d20s and use the higher roll.",
+        "mechanics": {
+          "rollCount": 2,
+          "take": "highest",
+          "stacks": false,
+          "cancelsWith": "disadvantage"
+        },
+        "tags": ["d20", "core", "roll-modifier"]
+      },
+      {
+        "key": "disadvantage",
+        "label": "Disadvantage",
+        "family": "core",
+        "summary": "Roll two d20s and use the lower roll.",
+        "mechanics": {
+          "rollCount": 2,
+          "take": "lowest",
+          "stacks": false,
+          "cancelsWith": "advantage"
+        },
+        "tags": ["d20", "core", "roll-modifier"]
+      },
+      {
+        "key": "bonus_action",
+        "label": "Bonus Action",
+        "family": "action",
+        "summary": "An additional action on your turn that you can take only when a feature, spell, or rule specifically grants one.",
+        "mechanics": {
+          "maxPerTurn": 1,
+          "requiresSpecificSource": true
+        },
+        "tags": ["combat", "turn", "economy"]
+      },
+      {
+        "key": "reaction",
+        "label": "Reaction",
+        "family": "action",
+        "summary": "An instant response to a trigger. After taking a Reaction, you cannot take another until the start of your next turn.",
+        "mechanics": {
+          "maxActive": 1,
+          "refresh": "start_of_next_turn"
+        },
+        "tags": ["combat", "turn", "economy", "interrupt"]
+      },
+      {
+        "key": "concentration",
+        "label": "Concentration",
+        "family": "core",
+        "summary": "Some spells and effects require Concentration to remain active. If Concentration ends, the effect ends.",
+        "mechanics": {
+          "endsWhen": [
+            "start_another_concentration_effect",
+            "become_incapacitated",
+            "die",
+            "fail_concentration_save_after_damage"
+          ],
+          "damageSave": {
+            "ability": "con",
+            "dcFormula": "max(10, floor(damage/2))",
+            "dcCap": 30
+          },
+          "endVoluntarily": true
+        },
+        "tags": ["spellcasting", "conditions", "combat", "maintenance"]
+      },
+      {
+        "key": "condition",
+        "label": "Condition",
+        "family": "condition",
+        "summary": "A temporary game state. Conditions do not stack with themselves unless a rule says otherwise. Exhaustion is an exception.",
+        "mechanics": {
+          "stacking": "does_not_stack_with_itself",
+          "exception": "exhaustion"
+        },
+        "relatedEntries": [
+          "blinded",
+          "charmed",
+          "deafened",
+          "exhaustion",
+          "frightened",
+          "grappled",
+          "incapacitated",
+          "invisible",
+          "paralyzed",
+          "petrified",
+          "poisoned",
+          "prone",
+          "restrained",
+          "stunned",
+          "unconscious"
+        ],
+        "tags": ["state", "core"]
+      },
+      {
+        "key": "cover",
+        "label": "Cover",
+        "family": "core",
+        "summary": "Cover protects a target behind it. The strongest available degree of cover applies.",
+        "mechanics": {
+          "degrees": [
+            {
+              "key": "half_cover",
+              "label": "Half Cover",
+              "acBonus": 2,
+              "dexSaveBonus": 2
+            },
+            {
+              "key": "three_quarters_cover",
+              "label": "Three-Quarters Cover",
+              "acBonus": 5,
+              "dexSaveBonus": 5
+            },
+            {
+              "key": "total_cover",
+              "label": "Total Cover",
+              "directTargeting": "cannot_be_targeted_directly"
+            }
+          ],
+          "highestApplies": true
+        },
+        "tags": ["combat", "defense", "targeting"]
+      },
+      {
+        "key": "difficult_terrain",
+        "label": "Difficult Terrain",
+        "family": "movement",
+        "summary": "Difficult Terrain increases the movement cost to enter an affected space.",
+        "mechanics": {
+          "extraCostPerFoot": 1,
+          "effectivelyDoublesMovementCost": true
+        },
+        "tags": ["movement", "terrain"]
+      },
+      {
+        "key": "climbing",
+        "label": "Climbing",
+        "family": "movement",
+        "summary": "While climbing, each foot of movement costs 1 extra foot, or 2 extra feet in Difficult Terrain.",
+        "mechanics": {
+          "extraCostPerFoot": 1,
+          "extraCostInDifficultTerrain": 2,
+          "ignoredWithClimbSpeed": true,
+          "optionalCheck": {
+            "dc": 15,
+            "ability": "str",
+            "skill": "athletics",
+            "when": "slippery_surface_or_few_handholds"
+          }
+        },
+        "tags": ["movement", "terrain", "checks"]
+      },
+      {
+        "key": "climb_speed",
+        "label": "Climb Speed",
+        "family": "movement",
+        "summary": "A Climb Speed lets you traverse vertical surfaces without paying the extra movement cost normally associated with climbing.",
+        "tags": ["movement", "speed"]
+      },
+      {
+        "key": "crawling",
+        "label": "Crawling",
+        "family": "movement",
+        "summary": "While crawling, each foot of movement costs 1 extra foot, or 2 extra feet in Difficult Terrain.",
+        "mechanics": {
+          "extraCostPerFoot": 1,
+          "extraCostInDifficultTerrain": 2
+        },
+        "tags": ["movement", "terrain"]
+      },
+      {
+        "key": "speed",
+        "label": "Speed",
+        "family": "movement",
+        "summary": "A creature’s Speed determines how far it can move on its turn.",
+        "tags": ["movement", "turn"]
+      },
+      {
+        "key": "opportunity_attack",
+        "label": "Opportunity Attack",
+        "family": "action",
+        "summary": "A common Reaction triggered by specific enemy movement in combat.",
+        "mechanics": {
+          "actionEconomy": "reaction"
+        },
+        "tags": ["combat", "reaction", "attack"]
+      },
+      {
+        "key": "short_rest",
+        "label": "Short Rest",
+        "family": "recovery",
+        "summary": "A period of downtime used by many class features, recovery mechanics, and pacing systems.",
+        "tags": ["rest", "recovery", "downtime"]
+      },
+      {
+        "key": "long_rest",
+        "label": "Long Rest",
+        "family": "recovery",
+        "summary": "A major rest period used for full or substantial recovery, daily refreshes, and many campaign effects.",
+        "tags": ["rest", "recovery", "downtime"]
+      },
+      {
+        "key": "temporary_hit_points",
+        "label": "Temporary Hit Points",
+        "family": "combat",
+        "summary": "A buffer of extra Hit Points that absorbs damage before normal Hit Points are lost.",
+        "mechanics": {
+          "damageAbsorbedFirst": true,
+          "isHealing": false
+        },
+        "tags": ["hp", "combat", "defense"]
+      },
+      {
+        "key": "resistance",
+        "label": "Resistance",
+        "family": "damage",
+        "summary": "Resistance reduces damage of a specified type.",
+        "mechanics": {
+          "effect": "half_damage",
+          "rounding": "round_down"
+        },
+        "tags": ["damage", "defense"]
+      },
+      {
+        "key": "vulnerability",
+        "label": "Vulnerability",
+        "family": "damage",
+        "summary": "Vulnerability increases damage of a specified type.",
+        "mechanics": {
+          "effect": "double_damage"
+        },
+        "tags": ["damage", "risk"]
+      },
+      {
+        "key": "immunity",
+        "label": "Immunity",
+        "family": "damage",
+        "summary": "Immunity prevents the specified damage or effect from affecting the target.",
+        "tags": ["damage", "defense", "condition"]
+      },
+      {
+        "key": "blindsight",
+        "label": "Blindsight",
+        "family": "sense",
+        "summary": "A special sense defined in the rules glossary that allows perception without relying on normal sight.",
+        "tags": ["senses", "vision", "special-sense"]
+      },
+      {
+        "key": "darkvision",
+        "label": "Darkvision",
+        "family": "sense",
+        "summary": "A special sense defined in the rules glossary that improves perception in darkness.",
+        "tags": ["senses", "vision", "special-sense"]
+      },
+      {
+        "key": "tremorsense",
+        "label": "Tremorsense",
+        "family": "sense",
+        "summary": "A special sense defined in the rules glossary that detects through vibrations or ground contact.",
+        "tags": ["senses", "special-sense"]
+      },
+      {
+        "key": "truesight",
+        "label": "Truesight",
+        "family": "sense",
+        "summary": "A special sense defined in the rules glossary that pierces forms of visual deception or obstruction.",
+        "tags": ["senses", "vision", "special-sense"]
+      },
+      {
+        "key": "lightly_obscured",
+        "label": "Lightly Obscured",
+        "family": "vision",
+        "summary": "A lightly obscured area imposes Disadvantage on Wisdom (Perception) checks that rely on sight.",
+        "tags": ["vision", "environment", "perception"]
+      },
+      {
+        "key": "heavily_obscured",
+        "label": "Heavily Obscured",
+        "family": "vision",
+        "summary": "A heavily obscured area is opaque. Creatures are effectively Blinded when trying to see into it.",
+        "tags": ["vision", "environment", "perception", "blinded"]
+      },
+      {
+        "key": "travel_pace",
+        "label": "Travel Pace",
+        "family": "travel",
+        "summary": "Outside combat, a group can travel at Fast, Normal, or Slow pace, each with distance and skill effects.",
+        "mechanics": {
+          "paces": [
+            {
+              "pace": "fast",
+              "feetPerMinute": 400,
+              "milesPerHour": 4,
+              "milesPerDay": 30,
+              "effects": [
+                "disadvantage_on_wisdom_perception_checks",
+                "disadvantage_on_wisdom_survival_checks",
+                "disadvantage_on_dexterity_stealth_checks"
+              ]
+            },
+            {
+              "pace": "normal",
+              "feetPerMinute": 300,
+              "milesPerHour": 3,
+              "milesPerDay": 24,
+              "effects": [
+                "disadvantage_on_dexterity_stealth_checks"
+              ]
+            },
+            {
+              "pace": "slow",
+              "feetPerMinute": 200,
+              "milesPerHour": 2,
+              "milesPerDay": 18,
+              "effects": [
+                "advantage_on_wisdom_perception_checks",
+                "advantage_on_wisdom_survival_checks"
+              ]
+            }
+          ]
+        },
+        "tags": ["travel", "exploration", "movement"]
+      },
+  
+      {
+        "key": "blinded",
+        "label": "Blinded",
+        "family": "condition",
+        "summary": "You cannot see and suffer the usual combat and check penalties of blindness.",
+        "effects": [
+          "can't_see",
+          "auto_fail_sight_based_checks_or_checks_relying_on_sight",
+          "attack_rolls_against_you_have_advantage",
+          "your_attack_rolls_have_disadvantage"
+        ],
+        "ui": {
+          "severity": "high",
+          "showInCombat": true,
+          "showTooltip": true
+        },
+        "tags": ["condition", "vision", "combat"]
+      },
+      {
+        "key": "charmed",
+        "label": "Charmed",
+        "family": "condition",
+        "summary": "You cannot attack the charmer or target them with damaging abilities or magical effects, and the charmer has Advantage on social checks involving you.",
+        "effects": [
+          "can't_attack_charmer",
+          "can't_target_charmer_with_damaging_effects",
+          "charmer_has_advantage_on_social_checks_against_you"
+        ],
+        "ui": {
+          "severity": "medium",
+          "showInCombat": true,
+          "showTooltip": true
+        },
+        "tags": ["condition", "social", "control"]
+      },
+      {
+        "key": "deafened",
+        "label": "Deafened",
+        "family": "condition",
+        "summary": "You cannot hear and suffer the normal consequences of that loss of perception.",
+        "effects": [
+          "can't_hear"
+        ],
+        "ui": {
+          "severity": "low",
+          "showInCombat": true,
+          "showTooltip": true
+        },
+        "tags": ["condition", "senses"]
+      },
+      {
+        "key": "exhaustion",
+        "label": "Exhaustion",
+        "family": "condition",
+        "summary": "A special condition that can stack and worsen over time.",
+        "mechanics": {
+          "stacks": true
+        },
+        "ui": {
+          "severity": "variable",
+          "showInCombat": true,
+          "showTooltip": true
+        },
+        "tags": ["condition", "fatigue", "special"]
+      },
+      {
+        "key": "frightened",
+        "label": "Frightened",
+        "family": "condition",
+        "summary": "A fear state that impairs action and positioning according to the condition’s rules.",
+        "effects": [
+          "fear_based_limitations_apply"
+        ],
+        "ui": {
+          "severity": "medium",
+          "showInCombat": true,
+          "showTooltip": true
+        },
+        "tags": ["condition", "mental", "control"]
+      },
+      {
+        "key": "grappled",
+        "label": "Grappled",
+        "family": "condition",
+        "summary": "A creature held in place or physically restricted by another creature or effect.",
+        "effects": [
+          "speed_0"
+        ],
+        "ui": {
+          "severity": "medium",
+          "showInCombat": true,
+          "showTooltip": true
+        },
+        "tags": ["condition", "movement", "control"]
+      },
+      {
+        "key": "incapacitated",
+        "label": "Incapacitated",
+        "family": "condition",
+        "summary": "A creature that cannot take actions, bonus actions, or reactions.",
+        "effects": [
+          "can't_take_actions",
+          "can't_take_bonus_actions",
+          "can't_take_reactions"
+        ],
+        "ui": {
+          "severity": "high",
+          "showInCombat": true,
+          "showTooltip": true
+        },
+        "tags": ["condition", "action-economy", "control"]
+      },
+      {
+        "key": "invisible",
+        "label": "Invisible",
+        "family": "condition",
+        "summary": "A creature cannot be seen normally and gains the usual offensive and defensive implications of invisibility.",
+        "effects": [
+          "can't_be_seen_normally",
+          "visibility_rules_apply"
+        ],
+        "ui": {
+          "severity": "medium",
+          "showInCombat": true,
+          "showTooltip": true
+        },
+        "tags": ["condition", "vision", "stealth"]
+      },
+      {
+        "key": "paralyzed",
+        "label": "Paralyzed",
+        "family": "condition",
+        "summary": "A severe control state that prevents meaningful action or movement.",
+        "effects": [
+          "can't_move",
+          "can't_take_actions",
+          "can't_take_reactions",
+          "paralysis_rules_apply"
+        ],
+        "ui": {
+          "severity": "critical",
+          "showInCombat": true,
+          "showTooltip": true
+        },
+        "tags": ["condition", "control", "severe"]
+      },
+      {
+        "key": "petrified",
+        "label": "Petrified",
+        "family": "condition",
+        "summary": "A creature is transformed into inert matter and suffers the normal consequences of petrification.",
+        "effects": [
+          "transformed_into_inert_state",
+          "petrification_rules_apply"
+        ],
+        "ui": {
+          "severity": "critical",
+          "showInCombat": true,
+          "showTooltip": true
+        },
+        "tags": ["condition", "severe", "transform"]
+      },
+      {
+        "key": "poisoned",
+        "label": "Poisoned",
+        "family": "condition",
+        "summary": "A creature suffers impaired effectiveness due to poison.",
+        "effects": [
+          "disadvantage_on_attack_rolls",
+          "disadvantage_on_ability_checks"
+        ],
+        "ui": {
+          "severity": "medium",
+          "showInCombat": true,
+          "showTooltip": true
+        },
+        "tags": ["condition", "debuff", "combat"]
+      },
+      {
+        "key": "prone",
+        "label": "Prone",
+        "family": "condition",
+        "summary": "A creature is on the ground and subject to the normal movement and attack implications of being prone.",
+        "effects": [
+          "movement_options_restricted",
+          "prone_attack_rules_apply"
+        ],
+        "ui": {
+          "severity": "medium",
+          "showInCombat": true,
+          "showTooltip": true
+        },
+        "tags": ["condition", "movement", "combat"]
+      },
+      {
+        "key": "restrained",
+        "label": "Restrained",
+        "family": "condition",
+        "summary": "A creature is bound or held in place and suffers the usual penalties to movement and combat.",
+        "effects": [
+          "speed_0",
+          "restrained_attack_and_defense_rules_apply"
+        ],
+        "ui": {
+          "severity": "high",
+          "showInCombat": true,
+          "showTooltip": true
+        },
+        "tags": ["condition", "movement", "control"]
+      },
+      {
+        "key": "stunned",
+        "label": "Stunned",
+        "family": "condition",
+        "summary": "A severe disruption state that leaves a creature unable to act effectively.",
+        "effects": [
+          "can't_take_actions",
+          "can't_take_bonus_actions",
+          "can't_take_reactions",
+          "stunned_rules_apply"
+        ],
+        "ui": {
+          "severity": "critical",
+          "showInCombat": true,
+          "showTooltip": true
+        },
+        "tags": ["condition", "control", "severe"]
+      },
+      {
+        "key": "unconscious",
+        "label": "Unconscious",
+        "family": "condition",
+        "summary": "A creature is unaware and helpless, with the normal combat consequences of unconsciousness.",
+        "effects": [
+          "unaware_of_surroundings",
+          "can't_move",
+          "can't_take_actions",
+          "can't_take_bonus_actions",
+          "can't_take_reactions",
+          "unconscious_rules_apply"
+        ],
+        "ui": {
+          "severity": "critical",
+          "showInCombat": true,
+          "showTooltip": true
+        },
+        "tags": ["condition", "severe", "combat"]
+      },
+  
+      {
+        "key": "cone",
+        "label": "Cone",
+        "family": "area_of_effect",
+        "summary": "A Cone extends in straight lines from a point of origin in a chosen direction, and its width equals its distance from the origin at any point.",
+        "mechanics": {
+          "originIncludedByDefault": false
+        },
+        "tags": ["aoe", "geometry", "spellcasting"]
+      },
+      {
+        "key": "creature",
+        "label": "Creature",
+        "family": "core",
+        "summary": "Any being in the game, including a player character, is a creature.",
+        "tags": ["core", "entity"]
+      },
+      {
+        "key": "creature_type",
+        "label": "Creature Type",
+        "family": "core",
+        "summary": "Every creature has a rules tag identifying its type.",
+        "tags": ["core", "entity"]
+      }
+    ]
+  }
