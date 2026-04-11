@@ -12,6 +12,7 @@ import ReferenceLibrary from '../reference/ReferenceLibrary'
 import CharacterPdfImport from '../characters/CharacterPdfImport'
 import CharacterEditor from '../characters/CharacterEditor'
 import EncounterLibrary from '../encounters/EncounterLibrary'
+import SoundDock from '../runtime/soundboard/SoundDock.jsx'
 
 // Keep the syncContentFromDb call available in Build mode too
 import { useSessionStore } from '../../stores/sessionStore'
@@ -226,6 +227,7 @@ export default function BuilderLayout() {
         ))}
 
         <div style={{ flex: 1 }} />
+        <SoundDock compact showAssociations={false} />
 
         {/* Migration button (always accessible) */}
         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)' }}>

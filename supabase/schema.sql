@@ -515,6 +515,54 @@ create table if not exists assets (
   updated_at timestamptz default now()
 );
 
+create table if not exists audio_assets (
+  id uuid primary key default gen_random_uuid(),
+  campaign_id uuid references campaigns(id) on delete cascade not null,
+  name text not null,
+  type text not null default 'sfx',           -- 'background' | 'sfx'
+  storage_path text not null,
+  duration_seconds numeric(10,2),
+  tags text[] default '{}',
+  loop_default boolean default false,
+  volume_default numeric(5,4) default 1.0,
+  favorite boolean default false,
+  scene_id uuid references scenes(id) on delete set null,
+  encounter_id uuid references encounters(id) on delete set null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  constraint audio_assets_type_check check (type in ('background', 'sfx'))
+);
+
+create table if not exists audio_playlists (
+  id uuid primary key default gen_random_uuid(),
+  campaign_id uuid references campaigns(id) on delete cascade not null,
+  name text not null,
+  type text not null default 'sfx',           -- 'background' | 'sfx'
+  description text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  constraint audio_playlists_type_check check (type in ('background', 'sfx'))
+);
+
+create table if not exists audio_playlist_items (
+  id uuid primary key default gen_random_uuid(),
+  playlist_id uuid references audio_playlists(id) on delete cascade not null,
+  asset_id uuid references audio_assets(id) on delete cascade not null,
+  position int not null default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table scenes
+  add column if not exists default_background_playlist_id uuid references audio_playlists(id) on delete set null,
+  add column if not exists default_background_asset_id uuid references audio_assets(id) on delete set null,
+  add column if not exists default_sfx_playlist_id uuid references audio_playlists(id) on delete set null;
+
+alter table encounters
+  add column if not exists default_background_playlist_id uuid references audio_playlists(id) on delete set null,
+  add column if not exists default_background_asset_id uuid references audio_assets(id) on delete set null,
+  add column if not exists default_sfx_playlist_id uuid references audio_playlists(id) on delete set null;
+
 -- ---------------------------------------------------------------------------
 -- RUNTIME / LIVE SESSION STATE (extends existing tables)
 -- ---------------------------------------------------------------------------
@@ -738,6 +786,12 @@ create index if not exists stat_blocks_slug on stat_blocks(slug);
 create index if not exists stat_blocks_campaign on stat_blocks(campaign_id);
 create index if not exists npcs_campaign_id on npcs(campaign_id);
 create index if not exists assets_campaign_id on assets(campaign_id);
+create index if not exists audio_assets_campaign_type_name_idx on audio_assets(campaign_id, type, name);
+create index if not exists audio_assets_scene_idx on audio_assets(scene_id);
+create index if not exists audio_assets_encounter_idx on audio_assets(encounter_id);
+create index if not exists audio_playlists_campaign_type_name_idx on audio_playlists(campaign_id, type, name);
+create unique index if not exists audio_playlist_items_playlist_asset_uniq on audio_playlist_items(playlist_id, asset_id);
+create unique index if not exists audio_playlist_items_playlist_position_uniq on audio_playlist_items(playlist_id, position);
 create index if not exists rules_sync_runs_source_started_idx on rules_sync_runs(source_key, started_at desc);
 
 -- ---------------------------------------------------------------------------
@@ -762,6 +816,9 @@ alter table items enable row level security;
 alter table locations enable row level security;
 alter table factions enable row level security;
 alter table assets enable row level security;
+alter table audio_assets enable row level security;
+alter table audio_playlists enable row level security;
+alter table audio_playlist_items enable row level security;
 alter table session_state enable row level security;
 alter table character_states enable row level security;
 alter table combat_state enable row level security;
@@ -805,6 +862,9 @@ begin
     ('locations',       'allow_all_locations'),
     ('factions',        'allow_all_factions'),
     ('assets',          'allow_all_assets'),
+    ('audio_assets',    'allow_all_audio_assets'),
+    ('audio_playlists', 'allow_all_audio_playlists'),
+    ('audio_playlist_items', 'allow_all_audio_playlist_items'),
     ('session_state',   'allow_all_session_state'),
     ('character_states','allow_all_character_states'),
     ('combat_state',    'allow_all_combat_state'),

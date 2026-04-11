@@ -1,5 +1,6 @@
 import { supabase } from '@shared/lib/supabase.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
+import { deleteAudioFile } from '@shared/lib/audioStorage.js'
 
 const SPELL_DB_COLUMNS = [
   'id',
@@ -370,6 +371,139 @@ export function createEntityCrudSlice(set, get) {
       return { data: { inserted: rowsToInsert.length } }
     },
 
+    saveAudioAsset: async (asset) => {
+      const { campaign, audioAssets } = get()
+      if (!campaign?.id) return { error: 'No campaign loaded' }
+      const payload = {
+        campaign_id: campaign.id,
+        name: String(asset?.name || '').trim(),
+        type: asset?.type === 'background' ? 'background' : 'sfx',
+        storage_path: String(asset?.storage_path || '').trim(),
+        duration_seconds: asset?.duration_seconds ?? null,
+        tags: Array.isArray(asset?.tags) ? asset.tags : [],
+        loop_default: !!asset?.loop_default,
+        volume_default: asset?.volume_default != null ? Number(asset.volume_default) : 1,
+        favorite: !!asset?.favorite,
+        scene_id: asset?.scene_id || null,
+        encounter_id: asset?.encounter_id || null,
+        updated_at: new Date().toISOString(),
+      }
+      if (!payload.name) return { error: 'Audio name is required' }
+      if (!payload.storage_path) return { error: 'Audio storage path is required' }
+      let result
+      if (asset?.id) {
+        result = await supabase.from('audio_assets').update(payload).eq('id', asset.id).select().single()
+      } else {
+        result = await supabase.from('audio_assets').insert(payload).select().single()
+      }
+      if (result.error) return { error: result.error.message }
+      const saved = result.data
+      const updated = asset?.id
+        ? audioAssets.map((a) => (a.id === saved.id ? saved : a))
+        : [...audioAssets, saved]
+      set({
+        audioAssets: updated.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''))),
+      })
+      return { data: saved }
+    },
+
+    deleteAudioAsset: async (id) => {
+      const { audioAssets, audioPlaylistItems } = get()
+      const target = audioAssets.find((a) => a.id === id)
+      const { error } = await supabase.from('audio_assets').delete().eq('id', id)
+      if (error) return { error: error.message }
+      try {
+        if (target?.storage_path) await deleteAudioFile(target.storage_path)
+      } catch (e) {
+        console.warn('delete audio file:', e?.message || e)
+      }
+      set({
+        audioAssets: audioAssets.filter((a) => a.id !== id),
+        audioPlaylistItems: audioPlaylistItems.filter((i) => i.asset_id !== id),
+      })
+      return { success: true }
+    },
+
+    saveAudioPlaylist: async (playlist) => {
+      const { campaign, audioPlaylists } = get()
+      if (!campaign?.id) return { error: 'No campaign loaded' }
+      const payload = {
+        campaign_id: campaign.id,
+        name: String(playlist?.name || '').trim(),
+        type: playlist?.type === 'background' ? 'background' : 'sfx',
+        description: playlist?.description || null,
+        updated_at: new Date().toISOString(),
+      }
+      if (!payload.name) return { error: 'Playlist name is required' }
+      let result
+      if (playlist?.id) {
+        result = await supabase.from('audio_playlists').update(payload).eq('id', playlist.id).select().single()
+      } else {
+        result = await supabase.from('audio_playlists').insert(payload).select().single()
+      }
+      if (result.error) return { error: result.error.message }
+      const saved = result.data
+      const updated = playlist?.id
+        ? audioPlaylists.map((p) => (p.id === saved.id ? saved : p))
+        : [...audioPlaylists, saved]
+      set({
+        audioPlaylists: updated.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''))),
+      })
+      return { data: saved }
+    },
+
+    deleteAudioPlaylist: async (id) => {
+      const { error } = await supabase.from('audio_playlists').delete().eq('id', id)
+      if (error) return { error: error.message }
+      set({
+        audioPlaylists: get().audioPlaylists.filter((p) => p.id !== id),
+        audioPlaylistItems: get().audioPlaylistItems.filter((it) => it.playlist_id !== id),
+      })
+      return { success: true }
+    },
+
+    setAudioPlaylistItems: async ({ playlistId, assetIds }) => {
+      const ids = Array.from(new Set((assetIds || []).filter(Boolean)))
+      const { error: delErr } = await supabase.from('audio_playlist_items').delete().eq('playlist_id', playlistId)
+      if (delErr) return { error: delErr.message }
+      let inserted = []
+      if (ids.length > 0) {
+        const rows = ids.map((assetId, idx) => ({
+          playlist_id: playlistId,
+          asset_id: assetId,
+          position: idx,
+          updated_at: new Date().toISOString(),
+        }))
+        const { data, error } = await supabase.from('audio_playlist_items').insert(rows).select('*')
+        if (error) return { error: error.message }
+        inserted = data || []
+      }
+      const others = get().audioPlaylistItems.filter((it) => it.playlist_id !== playlistId)
+      set({ audioPlaylistItems: [...others, ...inserted] })
+      return { data: inserted }
+    },
+
+    duplicateAudioPlaylist: async (playlistId) => {
+      const { audioPlaylists, audioPlaylistItems } = get()
+      const src = audioPlaylists.find((p) => p.id === playlistId)
+      if (!src) return { error: 'Playlist not found' }
+      const create = await get().saveAudioPlaylist({
+        ...src,
+        id: null,
+        name: `${src.name} (Copy)`,
+      })
+      if (create.error) return create
+      const sourceItems = audioPlaylistItems
+        .filter((it) => it.playlist_id === src.id)
+        .sort((a, b) => (a.position || 0) - (b.position || 0))
+      const copyRes = await get().setAudioPlaylistItems({
+        playlistId: create.data.id,
+        assetIds: sourceItems.map((it) => it.asset_id),
+      })
+      if (copyRes.error) return copyRes
+      return { data: create.data }
+    },
+
     saveNpc: async (npc) => {
       const { campaign } = get()
       const payload = { ...npc, campaign_id: campaign?.id, updated_at: new Date().toISOString() }
@@ -403,6 +537,9 @@ export function createEntityCrudSlice(set, get) {
         difficulty: encounter.difficulty || null,
         participants: encounter.participants || [],
         notes: encounter.notes || null,
+        default_background_playlist_id: encounter.default_background_playlist_id || null,
+        default_background_asset_id: encounter.default_background_asset_id || null,
+        default_sfx_playlist_id: encounter.default_sfx_playlist_id || null,
         campaign_id: campaign.id,
         updated_at: new Date().toISOString(),
       }
