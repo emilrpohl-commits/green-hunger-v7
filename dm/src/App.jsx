@@ -14,6 +14,8 @@ import CombatPanel from './features/combat/CombatPanel'
 import RightRail from './features/runtime/RightRail'
 import BuilderLayout from './features/builder/BuilderLayout'
 import SoundToastHost from './components/SoundToastHost.jsx'
+import DmToolboxDrawer from './features/toolbox/DmToolboxDrawer.jsx'
+import QuickRulingsMiniDrawer from './features/toolbox/quickRulings/QuickRulingsMiniDrawer.jsx'
 
 const DM_PASSWORD = 'Sherlock*123'
 const DM_UNLOCK_KEY = 'gh_dm_unlocked'
@@ -165,6 +167,15 @@ function RunLayout() {
   const loading = useCampaignStore(s => s.loading)
   const seedlessHome = featureFlags.seedlessPlatform && !featureFlags.demoCampaign
   const [rightRailCollapsed, setRightRailCollapsed] = useState(false)
+  const [toolboxOpen, setToolboxOpen] = useState(false)
+  const [toolboxTab, setToolboxTab] = useState('wild')
+  const [toolboxKey, setToolboxKey] = useState(0)
+
+  const openToolbox = (tab = 'wild') => {
+    setToolboxTab(tab)
+    setToolboxKey((k) => k + 1)
+    setToolboxOpen(true)
+  }
 
   if (seedlessHome && !loading && !campaign) {
     return (
@@ -176,8 +187,15 @@ function RunLayout() {
         overflow: 'hidden',
       }}
       >
-        <TopBar onSwitchToBuilder={() => navigate('/build')} />
+        <TopBar onSwitchToBuilder={() => navigate('/build')} onOpenToolbox={openToolbox} />
         <SeedlessCampaignHome />
+        <QuickRulingsMiniDrawer />
+        <DmToolboxDrawer
+          open={toolboxOpen}
+          onClose={() => setToolboxOpen(false)}
+          initialTab={toolboxTab}
+          remountKey={toolboxKey}
+        />
       </div>
     )
   }
@@ -196,7 +214,7 @@ function RunLayout() {
       transition: 'grid-template-columns 0.3s ease',
       position: 'relative',
     }}>
-      <TopBar onSwitchToBuilder={() => navigate('/build')} />
+      <TopBar onSwitchToBuilder={() => navigate('/build')} onOpenToolbox={openToolbox} />
       <LeftRail />
       {combatActive ? <CombatPanel /> : <MainPanel />}
       {!rightRailCollapsed && (
@@ -227,6 +245,13 @@ function RunLayout() {
           ◀ Rail
         </button>
       )}
+      <QuickRulingsMiniDrawer />
+      <DmToolboxDrawer
+        open={toolboxOpen}
+        onClose={() => setToolboxOpen(false)}
+        initialTab={toolboxTab}
+        remountKey={toolboxKey}
+      />
     </div>
   )
 }

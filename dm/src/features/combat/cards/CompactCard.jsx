@@ -5,6 +5,7 @@ import { useCombatStore } from '../../../stores/combatStore.js'
 import {
   isDead, isBloodied, kindColourRaw, typeLine, HP_COLOUR,
 } from './constants.js'
+import { greenMarkCombatTags } from '@shared/lib/greenMarks.js'
 
 const safeHp = (n) => (typeof n === 'number' && isFinite(n) ? n : 0)
 const SAVE_ORDER = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
@@ -435,6 +436,29 @@ function PCCard({ combatant, isActive, flashActive }) {
             large
           />
           <SavingThrowsStrip combatant={combatant} />
+
+          {(combatant.greenMarks ?? 0) >= 2 && (
+            <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {greenMarkCombatTags(combatant.greenMarks ?? 0).map((t) => (
+                <span
+                  key={t.key}
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 7,
+                    padding: '2px 6px',
+                    borderRadius: 'var(--radius)',
+                    border: t.key === 'necrotic' ? '1px solid rgba(160, 90, 200, 0.45)' : '1px solid rgba(90, 140, 75, 0.4)',
+                    background: t.key === 'necrotic' ? 'rgba(100, 50, 120, 0.2)' : 'rgba(40, 70, 35, 0.25)',
+                    color: t.key === 'necrotic' ? '#d4b8e8' : '#b8d9a8',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                  }}
+                >
+                  {t.label}
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Concentration spell */}
           {combatant.concentration && (

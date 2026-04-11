@@ -6,6 +6,7 @@ import QuickAdjustPanel from './subcomponents/QuickAdjustPanel.jsx'
 import ActionsList from './subcomponents/ActionsList.jsx'
 import { useCombatStore } from '../../../stores/combatStore.js'
 import { isDead, isBloodied, kindColourRaw, typeLine, HP_COLOUR } from './constants.js'
+import { greenMarkCombatTags } from '@shared/lib/greenMarks.js'
 
 const SAVE_ORDER = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
 
@@ -231,6 +232,21 @@ export default function FocusedCard({ combatant, players = [] }) {
                 textTransform: 'uppercase', letterSpacing: '0.08em',
               }}>Bloodied</span>
             )}
+            {isPC && (combatant.greenMarks ?? 0) >= 2 && greenMarkCombatTags(combatant.greenMarks ?? 0).map((t) => (
+              <span
+                key={t.key}
+                style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 8, padding: '2px 7px',
+                  background: t.key === 'necrotic' ? 'rgba(100, 50, 120, 0.25)' : 'rgba(40, 70, 35, 0.3)',
+                  border: t.key === 'necrotic' ? '1px solid rgba(160, 90, 200, 0.45)' : '1px solid rgba(90, 140, 75, 0.4)',
+                  borderRadius: 20,
+                  color: t.key === 'necrotic' ? '#d4b8e8' : '#b8d9a8',
+                  textTransform: 'uppercase', letterSpacing: '0.08em',
+                }}
+              >
+                {t.label}
+              </span>
+            ))}
           </div>
         </div>
 

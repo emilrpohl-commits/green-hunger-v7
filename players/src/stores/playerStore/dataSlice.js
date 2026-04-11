@@ -2,7 +2,7 @@ import { supabase } from '@shared/lib/supabase.js'
 import { parseCastingTimeMeta } from '@shared/lib/combatRules.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
 import { getRulesetContext, getSessionRunId } from '@shared/lib/runtimeContext.js'
-import { buildPlayerPartyRuntimeList } from '@shared/lib/partyRoster.js'
+import { buildPlayerPartyRuntimeList, mergeCharacterStateIntoRuntimeRow } from '@shared/lib/partyRoster.js'
 import { applyHomebrewPlayerSheet, shouldSkipLegacyPlayerSanitize } from '@shared/lib/homebrewPlayerSheet.js'
 import { applySpellHomebrewOverlays } from '@shared/lib/mergeSpellHomebrew.js'
 import { fetchSessionWithContentById } from '@shared/lib/sessionTreeLoader.js'
@@ -299,23 +299,10 @@ export const createDataSlice = (set, get) => ({
       const validStates = filterValidCharacterStateRows(charData || [])
       if (validStates.length > 0) {
         const { characters } = get()
-        const updated = characters.map(c => {
-          const saved = validStates.find(d => d.id === c.id)
+        const updated = characters.map((c) => {
+          const saved = validStates.find((d) => d.id === c.id)
           if (!saved) return c
-          const tj = saved.tactical_json && typeof saved.tactical_json === 'object' ? saved.tactical_json : {}
-          return {
-            ...c,
-            curHp: saved.cur_hp ?? c.curHp,
-            tempHp: saved.temp_hp ?? c.tempHp,
-            concentration: saved.concentration ?? c.concentration,
-            spellSlots: saved.spell_slots ?? c.spellSlots,
-            deathSaves: saved.death_saves ?? c.deathSaves,
-            conditions: saved.conditions ?? c.conditions,
-            tacticalJson: { ...(c.tacticalJson || {}), ...tj },
-            concentrationSpell: tj.concentrationSpell ?? c.concentrationSpell ?? null,
-            inspiration: typeof tj.inspiration === 'boolean' ? tj.inspiration : c.inspiration,
-            classResources: Array.isArray(tj.classResources) ? tj.classResources : (c.classResources || []),
-          }
+          return mergeCharacterStateIntoRuntimeRow({ ...c }, saved)
         })
         set({ characters: updated })
       }
@@ -373,6 +360,7 @@ export const createDataSlice = (set, get) => ({
         spell_slots: char.spellSlots,
         death_saves: char.deathSaves,
         conditions: char.conditions,
+        green_marks: Math.max(0, Math.floor(Number(char.greenMarks) || 0)),
         tactical_json: char.tacticalJson && typeof char.tacticalJson === 'object' ? char.tacticalJson : {},
         updated_at: new Date().toISOString(),
       })

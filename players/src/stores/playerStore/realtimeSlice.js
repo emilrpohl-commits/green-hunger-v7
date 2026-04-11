@@ -3,6 +3,7 @@ import { decodePlayerSavePrompt } from '@shared/lib/combatRules.js'
 import { qaHoldSavePromptChannelName } from '@shared/lib/qaDevChannels.js'
 import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
 import { shouldAcceptDmTargetForClient } from './helpers.js'
+import { mergeCharacterStateIntoRuntimeRow } from '@shared/lib/partyRoster.js'
 
 export const createRealtimeSlice = (set, get) => ({
   connected: false,
@@ -57,24 +58,9 @@ export const createRealtimeSlice = (set, get) => ({
       }, (payload) => {
         if (payload.new) {
           const { characters } = get()
-          const updated = characters.map(c => {
+          const updated = characters.map((c) => {
             if (c.id !== payload.new.id) return c
-            const tj = payload.new.tactical_json && typeof payload.new.tactical_json === 'object'
-              ? payload.new.tactical_json
-              : {}
-            return {
-              ...c,
-              curHp: payload.new.cur_hp ?? c.curHp,
-              tempHp: payload.new.temp_hp ?? c.tempHp,
-              concentration: payload.new.concentration ?? c.concentration,
-              spellSlots: payload.new.spell_slots ?? c.spellSlots,
-              deathSaves: payload.new.death_saves ?? c.deathSaves,
-              conditions: payload.new.conditions ?? c.conditions,
-              tacticalJson: { ...(c.tacticalJson || {}), ...tj },
-              concentrationSpell: tj.concentrationSpell ?? c.concentrationSpell ?? null,
-              inspiration: typeof tj.inspiration === 'boolean' ? tj.inspiration : c.inspiration,
-              classResources: Array.isArray(tj.classResources) ? tj.classResources : (c.classResources || []),
-            }
+            return mergeCharacterStateIntoRuntimeRow({ ...c }, payload.new)
           })
           set({ characters: updated, lastUpdated: new Date() })
         }

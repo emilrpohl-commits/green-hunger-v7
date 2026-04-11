@@ -2,8 +2,10 @@ import React from 'react'
 import { featureFlags } from '@shared/lib/featureFlags.js'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useCampaignStore } from '../../stores/campaignStore'
+import { useDmToolboxStore } from '../../stores/dmToolboxStore.js'
 
-export default function TopBar({ onSwitchToBuilder }) {
+export default function TopBar({ onSwitchToBuilder, onOpenToolbox }) {
+  const setQuickRulingsOpen = useDmToolboxStore((s) => s.setQuickRulingsDrawerOpen)
   const syncStatus = useSessionStore(s => s.syncStatus)
   const session = useSessionStore(s => s.session)
   const campaign = useCampaignStore(s => s.campaign)
@@ -66,6 +68,49 @@ export default function TopBar({ onSwitchToBuilder }) {
 
       {/* Right: Builder toggle + Sync status */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        {onOpenToolbox && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button
+              type="button"
+              onClick={() => setQuickRulingsOpen(true)}
+              title="Quick rulings strip — damage, DC, objects, mob"
+              style={{
+                padding: '4px 10px', border: '1px solid var(--border)', cursor: 'pointer',
+                borderRadius: 'var(--radius)', background: 'transparent',
+                color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
+                fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em',
+              }}
+            >
+              Rulings
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenToolbox('wild')}
+              title="Full DM toolbox"
+              style={{
+                padding: '4px 12px', border: '1px solid var(--green-mid)', cursor: 'pointer',
+                borderRadius: 'var(--radius)', background: 'var(--green-dim)',
+                color: 'var(--green-bright)', fontFamily: 'var(--font-mono)',
+                fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em',
+              }}
+            >
+              Toolbox
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenToolbox('wild')}
+              title="Open Wild Magic (toolbox)"
+              style={{
+                padding: '4px 10px', border: '1px solid var(--border)', cursor: 'pointer',
+                borderRadius: 'var(--radius)', background: 'transparent',
+                color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
+                fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em',
+              }}
+            >
+              Surge
+            </button>
+          </div>
+        )}
         {onSwitchToBuilder && (
           <button
             onClick={onSwitchToBuilder}
