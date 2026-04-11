@@ -9,7 +9,9 @@ export default function PartyStatus() {
   const updateMyCharacterTempHp = usePlayerStore((s) => s.updateMyCharacterTempHp)
   const setMyCharacterConditions = usePlayerStore((s) => s.setMyCharacterConditions)
 
-  const roster = Array.isArray(characters) ? characters : []
+  const roster = (Array.isArray(characters) ? characters : []).filter(
+    (c) => String(c?.id || '').toLowerCase() !== 'ilya'
+  )
   const pcs = roster.filter((c) => !c.isNPC)
   const npcs = roster.filter((c) => c.isNPC)
 
