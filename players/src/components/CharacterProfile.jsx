@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
+import { usePlayerStore } from '../stores/playerStore'
 import useCharacterActions from '../hooks/useCharacterActions'
+import RulesLookupPanel from '@shared/components/rules/RulesLookupPanel.jsx'
 import PortraitHeader from './PortraitHeader'
 import ConditionsBar from './ConditionsBar'
 import RollResultPanel from './RollResultPanel'
@@ -20,11 +22,14 @@ import { getSfxPrefs, setSfxPrefs } from '@shared/lib/sfxEngine.js'
 
 export default function CharacterProfile({ characterId, onBackToLogin }) {
   const actions = useCharacterActions(characterId)
+  const takeShortRest = usePlayerStore((s) => s.takeShortRest)
+  const takeLongRest = usePlayerStore((s) => s.takeLongRest)
   const [tab, setTab] = useState('stats')
   const [stripSignal, setStripSignal] = useState(null)
+  const [rulesLookupOpen, setRulesLookupOpen] = useState(false)
   const [sfxMute, setSfxMute] = useState(() => getSfxPrefs().muted)
   const [sfxVol, setSfxVol] = useState(() => getSfxPrefs().volume)
-  const { sentinelRef, visible: stickyVisible } = useStickySummaryVisibility('-120px 0px 0px 0px')
+  const { sentinelRef, visible: stickyVisible } = useStickySummaryVisibility('-120px 0px 0px 0px 0px')
 
   if (!actions.char) {
     return (
@@ -106,6 +111,7 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
 
   return (
     <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 0 60px' }}>
+      <RulesLookupPanel open={rulesLookupOpen} onClose={() => setRulesLookupOpen(false)} />
 
       <StickySummaryBar
         visible={stickyVisible}
@@ -173,7 +179,28 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
 
       <div style={{ padding: '12px 16px 0' }}>
 
-        <GreenMarkTracker current={liveChar?.greenMarks ?? 0} />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+          <GreenMarkTracker current={liveChar?.greenMarks ?? 0} />
+          <button
+            type="button"
+            onClick={() => setRulesLookupOpen(true)}
+            title="Search SRD rules glossary"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 9,
+              padding: '6px 12px',
+              background: 'var(--bg-raised)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+            }}
+          >
+            Rules
+          </button>
+        </div>
 
         <PlayerTacticalSection
           char={char}
@@ -209,6 +236,8 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
             if (mode === 'use') useSpellSlot(characterId, lv)
           }}
           onToggleEconomy={(kind) => toggleMyActionEconomyField(characterId, kind)}
+          onShortRest={canEditState ? () => { takeShortRest(characterId) } : undefined}
+          onLongRest={canEditState ? () => { takeLongRest(characterId) } : undefined}
         />
 
         <PlayerActionStrip

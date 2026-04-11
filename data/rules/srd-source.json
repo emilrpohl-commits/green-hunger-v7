@@ -1,0 +1,16 @@
+{
+  "srdVersion": "5.2.1",
+  "license": "CC-BY-4.0",
+  "expectedPdfFilenames": [
+    "SRD_CC_v5.2.1.pdf",
+    "SRC_CC_V5.2.1.pdf"
+  ],
+  "suggestedLocation": "Project repository root (same level as package.json)",
+  "note": "The PDF is optional for builds. Use it for human spot-checks against structured data in this folder, docs/5e-database-main, and shared/lib/rules/catalog/.",
+  "structuredSourcesInRepo": [
+    "data/rules/rules-core.json",
+    "data/rules/rules-glossary.json",
+    "data/rules/gameplay-toolbox.json",
+    "docs/5e-database-main/src/2024/"
+  ]
+}

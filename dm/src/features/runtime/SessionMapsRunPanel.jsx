@@ -21,8 +21,20 @@ export default function SessionMapsRunPanel() {
 
   if (!maps.length) {
     return (
-      <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic', lineHeight: 1.5 }}>
-        No session maps uploaded. Add MP4 maps in Builder → Session → Maps (save session after upload).
+      <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.55 }}>
+        <div style={{ fontStyle: 'italic', marginBottom: 10 }}>
+          No session map videos yet.
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+          <strong style={{ color: 'var(--text-primary)' }}>Map videos (MP4 / WebM):</strong>{' '}
+          switch to <strong>Builder</strong> (top bar) → <strong>Sessions</strong> → open a session → scroll to{' '}
+          <strong>Maps (MP4 / WEBM)</strong> → upload → <strong>Save</strong> the session. They appear here in Run mode.
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 10 }}>
+          <strong style={{ color: 'var(--text-primary)' }}>Scene cover images (JPG / PNG / WebP):</strong>{' '}
+          Builder → Sessions → <strong>Edit</strong> on a scene → <strong>Scene</strong> tab → <strong>Scene Media</strong> → upload cover.
+          (Beats are text; there is no per-beat image upload yet.)
+        </div>
       </div>
     )
   }

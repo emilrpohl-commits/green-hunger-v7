@@ -1,30 +1,52 @@
 import React, { useState } from 'react'
+import {
+  normalizeConditionName,
+  CONDITION_COLOUR,
+  CONDITION_DESC,
+} from '@shared/lib/rules/conditionCatalog.js'
+import { lookupGlossaryForCondition } from '@shared/lib/rules/glossaryService.js'
 
-/**
- * Condition metadata — icons and short descriptions for the most common 5e conditions.
- * No rules logic lives here; this is purely display.
- */
-const CONDITION_META = {
-  blinded:      { icon: '👁', colour: '#808080', desc: 'Attack rolls against you have advantage. Your attack rolls have disadvantage.' },
-  charmed:      { icon: '💫', colour: '#ff80a0', desc: 'Cannot attack the charmer. Charmer has advantage on social checks against you.' },
-  deafened:     { icon: '🔇', colour: '#888888', desc: 'Cannot hear. Automatically fail checks requiring hearing.' },
-  exhaustion:   { icon: '💀', colour: '#a06040', desc: 'Disadvantage on ability checks. Speed halved at level 2+.' },
-  frightened:   { icon: '😨', colour: '#c0a030', desc: 'Disadvantage on checks and attacks while source is visible. Cannot move toward source.' },
-  grappled:     { icon: '🤜', colour: '#c08040', desc: 'Speed is 0. Ends if grappler is incapacitated or you are moved away.' },
-  incapacitated:{ icon: '✕',  colour: '#b03030', desc: 'Cannot take actions or reactions.' },
-  invisible:    { icon: '◌',  colour: '#80c0c0', desc: 'Cannot be seen without special sense. Attacks against you have disadvantage.' },
-  paralysed:    { icon: '⚡', colour: '#c0a000', desc: 'Incapacitated, cannot move or speak. Attacks against you have advantage. Hits within 5 ft are critical.' },
-  petrified:    { icon: '🪨', colour: '#808060', desc: 'Transformed to stone, incapacitated, restrained, immune to poison and disease.' },
-  poisoned:     { icon: '☠', colour: '#50a040', desc: 'Disadvantage on attack rolls and ability checks.' },
-  prone:        { icon: '↓',  colour: '#a06020', desc: 'Melee attacks have advantage vs you. Ranged attacks have disadvantage vs you. Costs half move to stand.' },
-  restrained:   { icon: '⛓', colour: '#b06020', desc: 'Speed 0. Attack rolls have disadvantage. Attacks against you have advantage. DEX saves at disadvantage.' },
-  stunned:      { icon: '✵',  colour: '#c0a040', desc: 'Incapacitated. Fail STR and DEX saves. Attacks against you have advantage.' },
-  unconscious:  { icon: '💤', colour: '#6060a0', desc: 'Incapacitated, cannot move or speak, drop held items, fall prone, fail STR/DEX saves, attacks have advantage and are crits within 5 ft.' },
+/** Emoji hints keyed by normalized condition index (catalog-aligned). */
+const CONDITION_ICONS = {
+  blinded: '👁',
+  charmed: '💫',
+  deafened: '🔇',
+  exhaustion: '💀',
+  frightened: '😨',
+  grappled: '🤜',
+  incapacitated: '✕',
+  invisible: '◌',
+  paralyzed: '⚡',
+  petrified: '🪨',
+  poisoned: '☠',
+  prone: '↓',
+  restrained: '⛓',
+  stunned: '✵',
+  unconscious: '💤',
+  silenced: '🔕',
 }
 
-function getConditionMeta(name) {
-  const key = name.toLowerCase().replace(/[^a-z]/g, '')
-  return CONDITION_META[key] || { icon: '●', colour: '#7a8070', desc: name }
+/** Map "Exhaustion 2" etc. to catalog key "Exhaustion". */
+function catalogKeyForCondition(cond) {
+  const n = normalizeConditionName(cond)
+  if (/^exhaustion\b/i.test(String(n))) return 'Exhaustion'
+  return n
+}
+
+function conditionIcon(catalogKey) {
+  const idx = String(catalogKey || '')
+    .toLowerCase()
+    .replace(/\s+/g, '')
+  return CONDITION_ICONS[idx] || '●'
+}
+
+function conditionDescription(displayName, catalogKey) {
+  const short = CONDITION_DESC[catalogKey] || displayName
+  const gloss = lookupGlossaryForCondition(catalogKey)
+  if (gloss?.definition && gloss.definition.length > (short?.length || 0) + 12) {
+    return `${short}\n\n${gloss.definition}`
+  }
+  return short
 }
 
 function EffectDot({ colour }) {
@@ -89,8 +111,7 @@ function Chip({ label, icon, colour, description, concentration }) {
  * ConditionsBar
  *
  * Displays active conditions, spell effects, and buffs as an icon-led chip strip.
- * Each chip is clickable to expand a short description.
- * Returns null when there is nothing to show.
+ * Condition copy uses the shared catalog + rules glossary (no parallel meta map).
  */
 export default function ConditionsBar({ conditions, effects, myBuffs, concentration }) {
   const hasAnything =
@@ -103,21 +124,20 @@ export default function ConditionsBar({ conditions, effects, myBuffs, concentrat
 
   return (
     <div className="conditions-bar" style={{ margin: '0 0 12px' }}>
-      {/* Conditions (from combatant state) */}
-      {conditions?.map(cond => {
-        const meta = getConditionMeta(cond)
+      {conditions?.map((cond) => {
+        const catalogKey = catalogKeyForCondition(cond)
+        const colour = CONDITION_COLOUR[catalogKey] || '#7a8070'
         return (
           <Chip
             key={cond}
             label={cond}
-            icon={meta.icon}
-            colour={meta.colour}
-            description={meta.desc}
+            icon={conditionIcon(catalogKey)}
+            colour={colour}
+            description={conditionDescription(cond, catalogKey)}
           />
         )
       })}
 
-      {/* Active spell effects (applied by DM or store) */}
       {effects?.map((eff, i) => (
         <Chip
           key={eff.name + i}
@@ -129,7 +149,6 @@ export default function ConditionsBar({ conditions, effects, myBuffs, concentrat
         />
       ))}
 
-      {/* Active buffs (bardic inspiration, bless, etc.) */}
       {myBuffs?.map((buff, i) => {
         const label = buff.type === 'bardic' ? 'Bardic Inspiration' : buff.type
         return (

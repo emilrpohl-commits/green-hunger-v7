@@ -2,6 +2,11 @@ import { useState, useEffect, useCallback } from 'react'
 import { usePlayerStore } from '../stores/playerStore'
 import { parseCastingTimeMeta, ensureActionEconomy, applyDeterministicRollModifiers, getAcWithEffects } from '@shared/lib/combatRules.js'
 import { makeSavePromptPayload, resolveSpellPath } from '@shared/lib/domain/spellResolution.js'
+import { rollD20Test } from '@shared/lib/rules/d20Test.js'
+import {
+  resolvePlayerD20Modifiers,
+} from '@shared/lib/rules/conditionRollModifiers.js'
+import { formatDcWithLabel } from '@shared/lib/rules/dcDisplay.js'
 import { rollDie, rollDice, parseModNum, isAttackRoll, parseDiceNotation } from '../lib/diceHelpers'
 import { playSfx } from '@shared/lib/sfxEngine.js'
 
@@ -83,6 +88,31 @@ export default function useCharacterActions(characterId) {
   const myTurnActive = combatActive && myCombatantIndex >= 0 && myCombatantIndex === combatActiveCombatantIndex
   const myEconomy = ensureActionEconomy(getCombatantActionEconomy(characterId))
 
+  const actorExhaustionLevel = () => {
+    let n = Math.max(0, Math.min(6, Number(myCombatant?.exhaustionLevel) || 0))
+    if (n === 0 && (conditionsLive || []).some((c) => String(c).toLowerCase() === 'exhaustion')) n = 1
+    return n
+  }
+
+  const saveAbilityFromSaveRow = (save) => {
+    const raw = String(save?.name || '').toLowerCase()
+    if (raw.startsWith('str')) return 'str'
+    if (raw.startsWith('dex')) return 'dex'
+    if (raw.startsWith('con')) return 'con'
+    if (raw.startsWith('int')) return 'int'
+    if (raw.startsWith('wis')) return 'wis'
+    if (raw.startsWith('cha')) return 'cha'
+    return raw.slice(0, 3)
+  }
+
+  const inferAttackRange = (weaponOrSpell) => {
+    const r = String(weaponOrSpell?.range || '')
+    const n = String(weaponOrSpell?.name || '')
+    if (/ranged|range\s*\(|\d+\/\d+\s*ft/i.test(r)) return 'ranged'
+    if (/\bbow\b|\bcrossbow\b|\bdart\b|\bsling\b|\bjavelin\b|\bneedle\b|\bbolt\b/i.test(n)) return 'ranged'
+    return 'melee'
+  }
+
   const resolveSpellForCasting = (spell) => {
     const next = { ...spell }
     if (!next.mechanic) next.mechanic = next.combatProfile?.resolutionType || 'utility'
@@ -125,11 +155,18 @@ export default function useCharacterActions(characterId) {
   }
 
   const rollSkill = (skill, opts = {}) => {
-    const d20 = rollDie(20)
+    const mods = resolvePlayerD20Modifiers({
+      rollKind: 'check',
+      actorConditions: conditionsLive,
+      exhaustionLevel: actorExhaustionLevel(),
+    })
+    const test = rollD20Test(rollDie, { advantage: mods.advantage, disadvantage: mods.disadvantage })
+    const d20 = test.value
     const mod = parseModNum(skill.mod)
     const modded = applyDeterministicRollModifiers({ combatant: myCombatant, baseRoll: d20 + mod, rollType: 'check', includeGuidance: true })
-    const total = modded.total
+    const total = modded.total - mods.exhaustionPenalty
     const contextLabel = opts.contextLabel || `${skill.name} check`
+    const diceStr = test.rolls.length > 1 ? test.rolls.join('/') : String(d20)
     setRollResult({
       type: 'skill',
       name: skill.name,
@@ -137,20 +174,30 @@ export default function useCharacterActions(characterId) {
       d20,
       mod,
       total,
-      crit: d20 === 20,
+      crit: test.rolls.includes(20),
       fumble: d20 === 1,
     })
     setPendingAttack(null)
-    const label = d20 === 20 ? ` NAT 20!` : d20 === 1 ? ` nat 1` : ''
-    pushRoll(`${skill.name} check: d20(${d20}) + ${mod} = ${total}${label}`, char.name)
+    const label = test.rolls.includes(20) ? ` NAT 20!` : d20 === 1 ? ` nat 1` : ''
+    const advNote = test.mode !== 'normal' ? ` [${test.mode}]` : ''
+    const exNote = mods.exhaustionPenalty ? ` −${mods.exhaustionPenalty} (exhaustion)` : ''
+    pushRoll(`${skill.name} check: d20(${diceStr}) + ${mod} = ${total}${exNote}${advNote}${label}`, char.name)
   }
 
   const rollSave = (save, opts = {}) => {
-    const d20 = rollDie(20)
+    const mods = resolvePlayerD20Modifiers({
+      rollKind: 'save',
+      actorConditions: conditionsLive,
+      exhaustionLevel: actorExhaustionLevel(),
+      saveAbility: saveAbilityFromSaveRow(save),
+    })
+    const test = rollD20Test(rollDie, { advantage: mods.advantage, disadvantage: mods.disadvantage })
+    const d20 = test.value
     const mod = parseModNum(save.mod)
     const modded = applyDeterministicRollModifiers({ combatant: myCombatant, baseRoll: d20 + mod, rollType: 'save' })
-    const total = modded.total
+    const total = modded.total - mods.exhaustionPenalty
     const contextLabel = opts.contextLabel || `${save.name} save`
+    const diceStr = test.rolls.length > 1 ? test.rolls.join('/') : String(d20)
     setRollResult({
       type: 'save',
       name: save.name,
@@ -158,12 +205,14 @@ export default function useCharacterActions(characterId) {
       d20,
       mod,
       total,
-      crit: d20 === 20,
+      crit: test.rolls.includes(20),
       fumble: d20 === 1,
     })
     setPendingAttack(null)
-    const label = d20 === 20 ? ` NAT 20!` : d20 === 1 ? ` nat 1` : ''
-    pushRoll(`${save.name} save: d20(${d20}) + ${mod} = ${total}${label}`, char.name)
+    const label = test.rolls.includes(20) ? ` NAT 20!` : d20 === 1 ? ` nat 1` : ''
+    const advNote = test.mode !== 'normal' ? ` [${test.mode}]` : ''
+    const exNote = mods.exhaustionPenalty ? ` −${mods.exhaustionPenalty} (exhaustion)` : ''
+    pushRoll(`${save.name} save: d20(${diceStr}) + ${mod} = ${total}${exNote}${advNote}${label}`, char.name)
   }
 
   const rollAttack = async (weapon, target) => {
@@ -176,12 +225,23 @@ export default function useCharacterActions(characterId) {
       pushRoll(`${weapon.name}: forced save — ${weapon.save || weapon.hit}`, char.name)
       return
     }
-    const d20 = rollDie(20)
+    const atkMods = resolvePlayerD20Modifiers({
+      rollKind: 'attack',
+      actorConditions: conditionsLive,
+      exhaustionLevel: actorExhaustionLevel(),
+      targetConditions: target?.conditions || [],
+      options: { attackRange: inferAttackRange(weapon) },
+    })
+    const test = rollD20Test(rollDie, { advantage: atkMods.advantage, disadvantage: atkMods.disadvantage })
+    const d20 = test.value
     const bonus = weapon.attackBonus || 0
     const modded = applyDeterministicRollModifiers({ combatant: myCombatant, baseRoll: d20 + bonus, rollType: 'attack' })
-    const total = modded.total
-    const crit = d20 === 20
+    const total = modded.total - atkMods.exhaustionPenalty
+    const crit = test.rolls.includes(20)
     const hit = target ? (crit || total >= getAcWithEffects(target)) : null
+    const diceStr = test.rolls.length > 1 ? test.rolls.join('/') : String(d20)
+    const advNote = test.mode !== 'normal' ? ` [${test.mode}]` : ''
+    const exNote = atkMods.exhaustionPenalty ? ` −${atkMods.exhaustionPenalty} (exhaustion)` : ''
 
     if (hit && target && weapon.damageDice) {
       const dd = weapon.damageDice
@@ -190,9 +250,9 @@ export default function useCharacterActions(characterId) {
       const dmgTotal = rolls.reduce((a, b) => a + b, 0) + dd.modifier
       setRollResult({ type: 'attack-damage', weaponName: weapon.name, d20, bonus, total, crit, target, rolls, modifier: dd.modifier, dmgTotal, damageType: dd.type })
       setPendingAttack(null)
-      applyDamageToEnemy(target.id, dmgTotal, char.name, weapon.name)
+      applyDamageToEnemy(target.id, dmgTotal, char.name, weapon.name, dd.type || null)
       const critStr = crit ? ' CRIT!' : ''
-      pushRoll(`${weapon.name} attack: d20(${d20}) + ${bonus} = ${total} vs ${target.name} AC ${getAcWithEffects(target)} → HIT${critStr}`, char.name)
+      pushRoll(`${weapon.name} attack: d20(${diceStr}) + ${bonus} = ${total}${exNote}${advNote} vs ${target.name} AC ${getAcWithEffects(target)} → HIT${critStr}`, char.name)
       pushRoll(`${weapon.name} damage${crit ? ' (crit)' : ''}: [${rolls.join('+')}]${dd.modifier ? `+${dd.modifier}` : ''} = ${dmgTotal} ${dd.type} → ${target.name}`, char.name)
       return
     }
@@ -206,7 +266,7 @@ export default function useCharacterActions(characterId) {
     const hitStr = hit === null ? '' : hit ? ` → HIT` : ` → MISS`
     const critStr = crit ? ` CRITICAL!` : ''
     const targetStr = target ? ` vs ${target.name} AC ${getAcWithEffects(target)}` : ''
-    pushRoll(`${weapon.name} attack: d20(${d20}) + ${bonus} = ${total}${targetStr}${hitStr}${critStr}`, char.name)
+    pushRoll(`${weapon.name} attack: d20(${diceStr}) + ${bonus} = ${total}${exNote}${advNote}${targetStr}${hitStr}${critStr}`, char.name)
   }
 
   const rollDamageFromPending = () => {
@@ -220,7 +280,7 @@ export default function useCharacterActions(characterId) {
     setRollResult({ type: 'damage', weaponName: weapon.name, rolls, modifier: dd.modifier, total, damageType: dd.type, target, crit })
     setPendingAttack(null)
     if (target) {
-      applyDamageToEnemy(target.id, total, char.name, weapon.name)
+      applyDamageToEnemy(target.id, total, char.name, weapon.name, weapon.damageDice?.type || null)
     }
     const critStr = crit ? ' (crit)' : ''
     const targetStr = target ? ` → ${target.name}` : ''
@@ -317,12 +377,23 @@ export default function useCharacterActions(characterId) {
 
     const spellPath = resolveSpellPath(spell)
     if (spellPath === 'attack') {
-      const d20 = rollDie(20)
+      const atkMods = resolvePlayerD20Modifiers({
+        rollKind: 'attack',
+        actorConditions: conditionsLive,
+        exhaustionLevel: actorExhaustionLevel(),
+        targetConditions: target?.conditions || [],
+        options: { attackRange: inferAttackRange(spell) },
+      })
+      const test = rollD20Test(rollDie, { advantage: atkMods.advantage, disadvantage: atkMods.disadvantage })
+      const d20 = test.value
       const bonus = spell.toHit || 0
       const modded = applyDeterministicRollModifiers({ combatant: myCombatant, baseRoll: d20 + bonus, rollType: 'attack' })
-      const total = modded.total
-      const crit = d20 === 20
+      const total = modded.total - atkMods.exhaustionPenalty
+      const crit = test.rolls.includes(20)
       const hit = target ? (crit || total >= getAcWithEffects(target)) : null
+      const diceStr = test.rolls.length > 1 ? test.rolls.join('/') : String(d20)
+      const advNote = test.mode !== 'normal' ? ` [${test.mode}]` : ''
+      const exNote = atkMods.exhaustionPenalty ? ` −${atkMods.exhaustionPenalty} (exhaustion)` : ''
       setRollResult({ type: 'attack', weaponName: spell.name, d20, bonus, total, hit, target, crit })
       if (hit !== false) {
         setPendingSpellDmg({ spell, target, slotLevel: slotLvl, crit, extraLevels })
@@ -332,7 +403,7 @@ export default function useCharacterActions(characterId) {
       const hitStr = hit === null ? '' : hit ? ' → HIT' : ' → MISS'
       const critStr = crit ? ' CRITICAL!' : ''
       const rangeStr = target ? ` vs ${target.name} AC ${getAcWithEffects(target)}` : ''
-      pushRoll(`${spell.name} attack: d20(${d20}) + ${bonus} = ${total}${rangeStr}${hitStr}${critStr}`, char.name)
+      pushRoll(`${spell.name} attack: d20(${diceStr}) + ${bonus} = ${total}${exNote}${advNote}${rangeStr}${hitStr}${critStr}`, char.name)
 
     } else if (spellPath === 'save') {
       const dd = spell.damage
@@ -342,12 +413,12 @@ export default function useCharacterActions(characterId) {
         const rolls = rollDice(totalDice, spell.damageIfHurt?.sides || dd.sides)
         const total = rolls.reduce((a, b) => a + b, 0) + dd.mod
         const primaryTarget = selectedTargets[0] || target || null
-        setRollResult({ type: 'save-spell', weaponName: spell.name, saveStr: `${spell.saveType} DC ${spell.saveDC}`, weapon: spell, target: primaryTarget, rolls, modifier: dd.mod, damageTotal: total, damageType: dd.type })
+        setRollResult({ type: 'save-spell', weaponName: spell.name, saveStr: `${spell.saveType} ${formatDcWithLabel(spell.saveDC) || `DC ${spell.saveDC}`}`, weapon: spell, target: primaryTarget, rolls, modifier: dd.mod, damageTotal: total, damageType: dd.type })
         setPendingSpellDmg(null)
         const targetStr = selectedTargets.length > 1
           ? ` → ${selectedTargets.map(t => t.name).join(', ')}`
           : primaryTarget ? ` → ${primaryTarget.name}` : ''
-        pushRoll(`${spell.name} (${spell.saveType} DC ${spell.saveDC}): [${rolls.join('+')}]${dd.mod ? `+${dd.mod}` : ''} = ${total} ${dd.type}${targetStr}`, char.name)
+        pushRoll(`${spell.name} (${spell.saveType} ${formatDcWithLabel(spell.saveDC) || `DC ${spell.saveDC}`}): [${rolls.join('+')}]${dd.mod ? `+${dd.mod}` : ''} = ${total} ${dd.type}${targetStr}`, char.name)
         const targetsPayload = (selectedTargets.length > 0 ? selectedTargets : primaryTarget ? [primaryTarget] : []).map(t => ({ id: t.id, name: t.name }))
         pushSavePrompt(makeSavePromptPayload({
           promptId: `${Date.now()}-${characterId}-${spell.name}`,
@@ -361,11 +432,11 @@ export default function useCharacterActions(characterId) {
         closeSpellPanel()
       } else {
         const primaryTarget = selectedTargets[0] || target || null
-        setRollResult({ type: 'save-spell', weaponName: spell.name, saveStr: `${spell.saveType} DC ${spell.saveDC}`, weapon: spell, target: primaryTarget })
+        setRollResult({ type: 'save-spell', weaponName: spell.name, saveStr: `${spell.saveType} ${formatDcWithLabel(spell.saveDC) || `DC ${spell.saveDC}`}`, weapon: spell, target: primaryTarget })
         const targetStr = selectedTargets.length > 1
           ? ` → ${selectedTargets.map(t => t.name).join(', ')}`
           : primaryTarget ? ` → ${primaryTarget.name}` : ''
-        pushRoll(`${spell.name}: ${spell.saveType} DC ${spell.saveDC}${targetStr}`, char.name)
+        pushRoll(`${spell.name}: ${spell.saveType} ${formatDcWithLabel(spell.saveDC) || `DC ${spell.saveDC}`}${targetStr}`, char.name)
         const targetsPayload = (selectedTargets.length > 0 ? selectedTargets : primaryTarget ? [primaryTarget] : []).map(t => ({ id: t.id, name: t.name }))
         pushSavePrompt(makeSavePromptPayload({
           promptId: `${Date.now()}-${characterId}-${spell.name}`,
@@ -393,7 +464,7 @@ export default function useCharacterActions(characterId) {
       setRollResult({ type: 'damage', weaponName: spell.name, rolls: rollBreakdown, modifier: 0, total: totalDmg, damageType: dd.type, target, crit: false })
       const targetStr = target ? ` → ${target.name}` : ''
       pushRoll(`${spell.name} (${missilesCount} missiles): [${rollBreakdown.join('+')}] = ${totalDmg} ${dd.type}${targetStr}`, char.name)
-      if (target) applyDamageToEnemy(target.id, totalDmg, char.name, spell.name)
+      if (target) applyDamageToEnemy(target.id, totalDmg, char.name, spell.name, dd.type || null)
       closeSpell()
 
     } else if (spellPath === 'heal') {
@@ -422,7 +493,7 @@ export default function useCharacterActions(characterId) {
     const damageTargets = targets?.length ? targets : (target ? [target] : [])
     if (precomputedDamage != null) {
       if (damageTargets.length > 0) {
-        for (const t of damageTargets) applyDamageToEnemy(t.id, precomputedDamage, char.name, spell.name)
+        for (const t of damageTargets) applyDamageToEnemy(t.id, precomputedDamage, char.name, spell.name, spell.damage?.type || null)
         const targetStr = ` → ${damageTargets.map(t => t.name).join(', ')}`
         pushRoll(`${spell.name} damage (applied): ${precomputedDamage} ${spell.damage?.type || ''}${targetStr}`, char.name)
       }
@@ -449,7 +520,7 @@ export default function useCharacterActions(characterId) {
     setRollResult({ type: 'damage', weaponName: spell.name, rolls, modifier: dd.mod, total, damageType: dd.type, target: damageTargets[0] || target, crit })
     setPendingSpellDmg(null)
     if (damageTargets.length > 0) {
-      for (const t of damageTargets) applyDamageToEnemy(t.id, total, char.name, spell.name)
+      for (const t of damageTargets) applyDamageToEnemy(t.id, total, char.name, spell.name, dd.type || null)
     }
     const critStr = crit ? ' (crit)' : ''
     const targetStr = damageTargets.length > 0 ? ` → ${damageTargets.map(t => t.name).join(', ')}` : ''
@@ -464,9 +535,17 @@ export default function useCharacterActions(characterId) {
     const saveAbility = String(dmRoll.savePrompt.saveAbility || '').toUpperCase()
     const saveEntry = (char.savingThrows || []).find(s => String(s.name || '').toUpperCase() === saveAbility)
     const mod = parseModNum(saveEntry?.mod || 0)
-    const d20 = Math.floor(Math.random() * 20) + 1
+    const saveAbilityKey = saveAbility.slice(0, 3).toLowerCase()
+    const mods = resolvePlayerD20Modifiers({
+      rollKind: 'save',
+      actorConditions: conditionsLive,
+      exhaustionLevel: actorExhaustionLevel(),
+      saveAbility: saveAbilityKey,
+    })
+    const test = rollD20Test(rollDie, { advantage: mods.advantage, disadvantage: mods.disadvantage })
+    const d20 = test.value
     const modded = applyDeterministicRollModifiers({ combatant: myCombatant, baseRoll: d20 + mod, rollType: 'save' })
-    const total = isManual ? (parseInt(manualTotal, 10) || 0) : modded.total
+    const total = isManual ? (parseInt(manualTotal, 10) || 0) : (modded.total - mods.exhaustionPenalty)
     const success = total >= (dmRoll.savePrompt.saveDc || 10)
     const meta = dmRoll.savePrompt.damageMeta
     const curForDice = liveChar?.curHp ?? maxHp
@@ -484,8 +563,10 @@ export default function useCharacterActions(characterId) {
           : rawTotal
       }
     }
-    setRollResult({ type: 'save', name: `${saveAbility} vs ${dmRoll.savePrompt.actionName}`, d20, mod, total, crit: d20 === 20, fumble: d20 === 1 })
-    pushRoll(`${dmRoll.savePrompt.actionName}: ${saveAbility} save total ${total} vs DC ${dmRoll.savePrompt.saveDc} → ${success ? 'SUCCESS' : 'FAIL'}`, char.name)
+    setRollResult({ type: 'save', name: `${saveAbility} vs ${dmRoll.savePrompt.actionName}`, d20, mod, total, crit: test.rolls.includes(20), fumble: d20 === 1 })
+    const dcPrompt = formatDcWithLabel(dmRoll.savePrompt.saveDc) || `DC ${dmRoll.savePrompt.saveDc}`
+    const exNote = !isManual && mods.exhaustionPenalty ? ` −${mods.exhaustionPenalty} (exhaustion)` : ''
+    pushRoll(`${dmRoll.savePrompt.actionName}: ${saveAbility} save total ${total}${exNote} vs ${dcPrompt} → ${success ? 'SUCCESS' : 'FAIL'}`, char.name)
     if (hpDmg > 0) {
       await applyDamageToCharacter(
         characterId,

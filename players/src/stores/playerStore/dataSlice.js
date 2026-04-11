@@ -17,6 +17,9 @@ import {
 import { fetchSpellCompendiumAll } from '@shared/lib/spellCompendium/fetchPaged.js'
 import { compendiumRowToPlayerEntry } from '@shared/lib/spellCompendium/mappers.js'
 import { CHARACTERS } from '@shared/content/session1.js'
+import { normalizeConditionName } from '@shared/lib/rules/conditionCatalog.js'
+import { normalizeConditionsArray } from '@shared/lib/rules/conditionHydration.js'
+import { applyLongRestHpOnly, applyLongRestExhaustion } from '@shared/lib/rules/restOrchestrator.js'
 import {
   normalizeSpellId, mergeSpellWithOverride, toEngineCompendiumSpell,
   withSpellIds, sanitizeIlyaSheet,
@@ -431,7 +434,8 @@ export const createDataSlice = (set, get) => ({
 
   setMyCharacterConditions: async (characterId, conditions) => {
     if (!get().canEditCharacterState(characterId)) return
-    await get().upsertCharacterStateRow(characterId, { conditions: Array.isArray(conditions) ? conditions : [] })
+    const next = normalizeConditionsArray(Array.isArray(conditions) ? conditions : [])
+    await get().upsertCharacterStateRow(characterId, { conditions: next })
   },
 
   saveMyCharacterSheet: async (characterId, patch = {}) => {
@@ -473,5 +477,88 @@ export const createDataSlice = (set, get) => ({
     // Rehydrate map/runtime rows from DB shape to keep both apps in sync.
     await get().loadCharacters()
     return { data }
+  },
+
+  takeShortRest: async (characterId) => {
+    if (!get().canEditCharacterState(characterId)) return { error: 'not_allowed' }
+    const staticChar = get().playerCharacters[characterId]
+    const prev = get().characters.find((c) => c.id === characterId)
+    const prevTj = prev?.tacticalJson && typeof prev.tacticalJson === 'object' ? prev.tacticalJson : {}
+    await get().upsertCharacterStateRow(characterId, {
+      tacticalJson: { ...prevTj, lastShortRestAt: new Date().toISOString() },
+    })
+    const { combatActive, combatRound, sessionRunId } = get()
+    if (combatActive && sessionRunId) {
+      try {
+        await supabase.from('combat_feed').insert({
+          session_id: sessionRunId,
+          round: combatRound,
+          text: `${staticChar?.name || characterId} finishes a short rest — spend Hit Dice and recharge features per SRD.`,
+          type: 'system',
+          shared: true,
+          timestamp: new Date().toISOString(),
+        })
+      } catch (e) {
+        console.error('takeShortRest combat_feed', e)
+      }
+    }
+    return { ok: true }
+  },
+
+  takeLongRest: async (characterId) => {
+    if (!get().canEditCharacterState(characterId)) return { error: 'not_allowed' }
+    const c = get().characters.find((x) => x.id === characterId)
+    const staticChar = get().playerCharacters[characterId]
+    if (!c) return { error: 'no_row' }
+    const maxHp = staticChar?.stats?.maxHp ?? c.maxHp ?? 0
+    const hpSnap = applyLongRestHpOnly({ maxHp, curHp: c.curHp })
+    const prevTj = c.tacticalJson && typeof c.tacticalJson === 'object' ? c.tacticalJson : {}
+    const exLv = Math.max(0, Math.min(6, Number(prevTj.exhaustionLevel) || 0))
+    const exSnap = applyLongRestExhaustion({ exhaustionLevel: exLv })
+    const slots = c.spellSlots && typeof c.spellSlots === 'object'
+      ? JSON.parse(JSON.stringify(c.spellSlots))
+      : {}
+    for (const k of Object.keys(slots)) {
+      const cell = slots[k]
+      if (cell && typeof cell === 'object' && Number.isFinite(Number(cell.max))) {
+        slots[k] = { ...cell, used: 0 }
+      }
+    }
+    let nextConditions = normalizeConditionsArray(c.conditions || [])
+    if (exSnap.exhaustionLevel > 0) {
+      if (!nextConditions.some((x) => normalizeConditionName(x) === 'Exhaustion')) {
+        nextConditions = [...nextConditions, 'Exhaustion']
+      }
+    } else {
+      nextConditions = nextConditions.filter((x) => normalizeConditionName(x) !== 'Exhaustion')
+    }
+    await get().upsertCharacterStateRow(characterId, {
+      curHp: hpSnap.curHp,
+      tempHp: 0,
+      spellSlots: slots,
+      concentration: false,
+      conditions: nextConditions,
+      tacticalJson: {
+        ...prevTj,
+        exhaustionLevel: exSnap.exhaustionLevel,
+        concentrationSpell: null,
+      },
+    })
+    const { combatActive, combatRound, sessionRunId } = get()
+    if (combatActive && sessionRunId) {
+      try {
+        await supabase.from('combat_feed').insert({
+          session_id: sessionRunId,
+          round: combatRound,
+          text: `${staticChar?.name || characterId} finishes a long rest — HP restored, spell slots reset, exhaustion reduced, concentration cleared.`,
+          type: 'system',
+          shared: true,
+          timestamp: new Date().toISOString(),
+        })
+      } catch (e) {
+        console.error('takeLongRest combat_feed', e)
+      }
+    }
+    return { ok: true }
   },
 })

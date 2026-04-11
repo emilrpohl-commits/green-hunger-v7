@@ -3,19 +3,35 @@ import { makeActionEconomy, consumeActionEconomy, sortCombatantsByInitiative, ap
 import { useSessionStore } from '../sessionStore.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
 import { getRulesetContext } from '@shared/lib/runtimeContext.js'
+import { normalizeConditionName } from '@shared/lib/rules/conditionCatalog.js'
+import { normalizeCombatantConditions } from '@shared/lib/rules/conditionHydration.js'
+import { applyDamageWithTraits, coerceDamageTypeForPipeline } from '@shared/lib/rules/damagePipeline.js'
 
 export const createActionsSlice = (set, get) => ({
   savePrompts: [],
 
-  damageCombatant: async (combatantId, amount) => {
+  damageCombatant: async (combatantId, amount, damageType = null) => {
     const { combatants } = get()
     const combatant = combatants.find(c => c.id === combatantId)
     if (!combatant) return
 
-    const actualAmount = parseInt(amount) || 0
+    const rawAmount = parseInt(amount, 10) || 0
+    let hpLoss = rawAmount
+    const factors = []
+    const typeForPipeline = damageType ? coerceDamageTypeForPipeline(damageType) : null
+    if (featureFlags.rulesDamagePipeline && typeForPipeline) {
+      const applied = applyDamageWithTraits(rawAmount, typeForPipeline, {
+        resistances: combatant.resistances,
+        vulnerabilities: combatant.vulnerabilities,
+        immunities: combatant.immunities,
+      })
+      hpLoss = applied.final
+      factors.push(...applied.factors)
+    }
+
     let newTempHp = combatant.tempHp
     let newHp = combatant.curHp
-    let remaining = actualAmount
+    let remaining = hpLoss
 
     if (newTempHp > 0) {
       const absorbed = Math.min(newTempHp, remaining)
@@ -30,9 +46,17 @@ export const createActionsSlice = (set, get) => ({
     set({ combatants: updated })
 
     const isShared = combatant.type === 'player'
+    const typeNote = typeForPipeline ? ` [${typeForPipeline}]` : (damageType ? ` [${damageType}]` : '')
+    const factorReadable = (f) => {
+      if (f.kind === 'immunity') return `immunity${f.detail ? ` (${f.detail})` : ''} → 0`
+      if (f.kind === 'resistance') return `resistance${f.detail ? ` (${f.detail})` : ''} → half`
+      if (f.kind === 'vulnerability') return `vulnerability${f.detail ? ` (${f.detail})` : ''} → double`
+      return f.kind + (f.detail ? ` (${f.detail})` : '')
+    }
+    const factorNote = factors.length ? ` — ${factors.map(factorReadable).join('; ')}` : ''
     const msg = newHp === 0
       ? `${combatant.name} is DOWN (0 HP).`
-      : `${combatant.name} takes ${actualAmount} damage. (${newHp}/${combatant.maxHp} HP)`
+      : `${combatant.name} takes ${hpLoss} damage${typeNote}${factorNote}. (${newHp}/${combatant.maxHp} HP)`
     await get().pushFeedEvent(msg, 'damage', isShared)
     await get().syncCombatState()
   },
@@ -59,7 +83,7 @@ export const createActionsSlice = (set, get) => ({
 
   toggleCondition: async (combatantId, condition) => {
     const { combatants } = get()
-    let conditionName = condition
+    let conditionName = normalizeConditionName(condition)
     if (featureFlags.use5eEngine && featureFlags.engineConditions) {
       const rulesetContext = getRulesetContext()
       const selectedRuleset = rulesetContext.active_ruleset === 'custom' ? '2024' : rulesetContext.active_ruleset
@@ -74,7 +98,7 @@ export const createActionsSlice = (set, get) => ({
             String(c.name || '').toLowerCase() === String(condition || '').toLowerCase()
             || String(c.source_index || '').toLowerCase() === String(condition || '').toLowerCase()
           )
-          if (lookup?.name) conditionName = lookup.name
+          if (lookup?.name) conditionName = normalizeConditionName(lookup.name)
           set({
             knownConditions: data.map((c) => ({
               index: c.source_index,
@@ -86,15 +110,40 @@ export const createActionsSlice = (set, get) => ({
         // Keep manual condition flow if catalog query fails.
       }
     }
-    const updated = combatants.map(c => {
-      if (c.id !== combatantId) return c
-      const has = c.conditions.includes(conditionName)
-      return {
-        ...c,
-        conditions: has
-          ? c.conditions.filter(x => x !== conditionName)
-          : [...c.conditions, conditionName]
+    const norm = (x) => normalizeConditionName(x)
+    const isExhaustion = norm(conditionName).toLowerCase() === 'exhaustion'
+    const updated = combatants.map((c) => {
+      if (c.id !== combatantId) return normalizeCombatantConditions(c)
+      const list = c.conditions || []
+      const has = list.some((x) => norm(x) === norm(conditionName))
+      let next
+      if (has) {
+        next = {
+          ...c,
+          conditions: list.filter((x) => norm(x) !== norm(conditionName)),
+          ...(isExhaustion ? { exhaustionLevel: 0 } : {}),
+        }
+      } else {
+        next = {
+          ...c,
+          conditions: [...list, conditionName],
+          ...(isExhaustion
+            ? { exhaustionLevel: Math.max(1, Math.min(6, Number(c.exhaustionLevel) || 1)) }
+            : {}),
+        }
       }
+      return normalizeCombatantConditions(next)
+    })
+    set({ combatants: updated })
+    await get().syncCombatState()
+  },
+
+  setCombatantExhaustionLevel: async (combatantId, level) => {
+    const { combatants } = get()
+    const n = Math.max(0, Math.min(6, Math.floor(Number(level) || 0)))
+    const updated = combatants.map((c) => {
+      if (c.id !== combatantId) return normalizeCombatantConditions(c)
+      return normalizeCombatantConditions({ ...c, exhaustionLevel: n })
     })
     set({ combatants: updated })
     await get().syncCombatState()
@@ -164,7 +213,7 @@ export const createActionsSlice = (set, get) => ({
     const dmg = prompt.damage?.amount || 0
     const applyDmg = success ? (prompt.damage?.halfOnSuccess ? Math.floor(dmg / 2) : 0) : dmg
 
-    if (applyDmg > 0) await get().damageCombatant(targetId, applyDmg)
+    if (applyDmg > 0) await get().damageCombatant(targetId, applyDmg, prompt.damage?.type || null)
     if (!success && prompt.effect?.name) {
       await get().addEffect(targetId, {
         name: prompt.effect.name,

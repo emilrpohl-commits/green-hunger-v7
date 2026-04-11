@@ -1,5 +1,10 @@
 import React, { useState, useRef } from 'react'
 import { useCombatStore } from '../../../../stores/combatStore.js'
+import { DAMAGE_TYPE_SELECT_OPTIONS } from '@shared/lib/rules/damagePipeline.js'
+import {
+  readLastManualDamageType,
+  writeLastManualDamageType,
+} from '../../lastManualDamageTypeStorage.js'
 
 const QUICK_DAMAGE = [2, 4, 5, 6, 8, 10, 12, 15, 20]
 const QUICK_HEAL   = [4, 6, 8, 10]
@@ -20,6 +25,7 @@ export default function QuickAdjustPanel({ combatant, showHealChips = false }) {
   const healCombatant   = useCombatStore(s => s.healCombatant)
 
   const [amount, setAmount] = useState('')
+  const [damageTypeId, setDamageTypeId] = useState(readLastManualDamageType)
   const [flash, setFlash]   = useState(null) // 'dmg' | 'heal' | null
   const flashTimer = useRef(null)
 
@@ -32,7 +38,8 @@ export default function QuickAdjustPanel({ combatant, showHealChips = false }) {
   function applyDamage(val) {
     const n = parseInt(val) || parseInt(amount)
     if (!n || n <= 0) return
-    damageCombatant(combatant.id, n)
+    writeLastManualDamageType(damageTypeId)
+    damageCombatant(combatant.id, n, damageTypeId || null)
     setAmount('')
     triggerFlash('dmg')
   }
@@ -97,6 +104,28 @@ export default function QuickAdjustPanel({ combatant, showHealChips = false }) {
         >
           + Heal
         </button>
+        <select
+          value={damageTypeId}
+          onChange={(e) => setDamageTypeId(e.target.value)}
+          title="Damage type (R/V/I when rules pipeline flag is on)"
+          style={{
+            maxWidth: 112,
+            padding: '4px 6px',
+            fontSize: 10,
+            fontFamily: 'var(--font-mono)',
+            background: 'var(--bg-raised)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+          }}
+        >
+          {DAMAGE_TYPE_SELECT_OPTIONS.map((o) => (
+            <option key={o.value || 'untyped'} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Quick damage chips */}

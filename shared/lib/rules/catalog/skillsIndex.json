@@ -1,0 +1,24 @@
+{
+  "ruleset": "2024",
+  "srdVersion": "5.2.1",
+  "skills": [
+    { "index": "acrobatics", "name": "Acrobatics", "ability": "dex" },
+    { "index": "animal-handling", "name": "Animal Handling", "ability": "wis" },
+    { "index": "arcana", "name": "Arcana", "ability": "int" },
+    { "index": "athletics", "name": "Athletics", "ability": "str" },
+    { "index": "deception", "name": "Deception", "ability": "cha" },
+    { "index": "history", "name": "History", "ability": "int" },
+    { "index": "insight", "name": "Insight", "ability": "wis" },
+    { "index": "intimidation", "name": "Intimidation", "ability": "cha" },
+    { "index": "investigation", "name": "Investigation", "ability": "int" },
+    { "index": "medicine", "name": "Medicine", "ability": "wis" },
+    { "index": "nature", "name": "Nature", "ability": "int" },
+    { "index": "perception", "name": "Perception", "ability": "wis" },
+    { "index": "performance", "name": "Performance", "ability": "cha" },
+    { "index": "persuasion", "name": "Persuasion", "ability": "cha" },
+    { "index": "religion", "name": "Religion", "ability": "int" },
+    { "index": "sleight-of-hand", "name": "Sleight of Hand", "ability": "dex" },
+    { "index": "stealth", "name": "Stealth", "ability": "dex" },
+    { "index": "survival", "name": "Survival", "ability": "wis" }
+  ]
+}

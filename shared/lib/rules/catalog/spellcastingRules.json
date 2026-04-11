@@ -1,0 +1,24 @@
+{
+  "ruleset": "2024",
+  "srdVersion": "5.2.1",
+  "components": {
+    "V": "Verbal",
+    "S": "Somatic",
+    "M": "Material"
+  },
+  "concentration": {
+    "summary": "One concentration spell at a time; taking damage forces a Con save (DC 10 or half damage) to maintain.",
+    "maxConcurrent": 1,
+    "conSaveDcBase": 10,
+    "conSaveDcHalfDamage": true
+  },
+  "ritual": {
+    "summary": "If a spell has the ritual tag, it can be cast with +10 minutes casting time without expending a slot if the caster has a ritual feature."
+  },
+  "castingTimeEconomy": {
+    "action": "action",
+    "bonus_action": "bonus_action",
+    "reaction": "reaction",
+    "special": "special"
+  }
+}

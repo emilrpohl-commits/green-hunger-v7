@@ -4,6 +4,7 @@ import { supabase } from '@shared/lib/supabase.js'
 import { useCampaignStore } from '../../stores/campaignStore'
 import { makeCampaignSpellId, referenceSpellRowToCampaignPayload } from '@shared/lib/reference/referenceSpellToCampaign.js'
 import { ABILITIES, PHB_CLASSES as CLASS_NAMES, slugify, toAbilityBlock } from '@shared/lib/characterSheetShape.js'
+import { lookupSkill } from '@shared/lib/rules/skillsIndex.js'
 
 function normalizeSpellName(value = '') {
   return String(value || '')
@@ -33,6 +34,25 @@ function parseClassAndLevel(text) {
   const b = text.match(/(\d{1,2})(?:st|nd|rd|th)?\s+Level\s+([A-Za-z]+)/i)
   if (b) return { className: b[2], level: Number(b[1]) }
   return { className: 'Fighter', level: 1 }
+}
+
+function parseSkillsFromPdfText(text) {
+  const skills = []
+  const seen = new Set()
+  const block = text.match(/Skills?\s*[:\-]\s*([^\n]+)/i)?.[1]
+  if (!block) return skills
+  const parts = block.split(/[,;]/).map((s) => s.trim()).filter(Boolean)
+  for (const part of parts) {
+    const m = part.match(/^([A-Za-z][A-Za-z\s\/'-]+?)\s*([+-]\d+)/)
+    if (!m) continue
+    const hit = lookupSkill(m[1].trim())
+    const name = hit ? hit.name : m[1].trim().replace(/\s+/g, ' ')
+    const key = name.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    skills.push({ name, mod: m[2] })
+  }
+  return skills
 }
 
 function extractSpellCandidates(text) {
@@ -82,6 +102,7 @@ function parseDraftFromText(rawText) {
     },
     ability_scores: abilityScores,
     spellCandidates: extractSpellCandidates(text),
+    skills: parseSkillsFromPdfText(text),
   }
 }
 
@@ -209,7 +230,7 @@ export default function CharacterPdfImport() {
         stats: draft.stats || {},
         ability_scores: draft.ability_scores || {},
         saving_throws: [],
-        skills: [],
+        skills: draft.skills?.length ? draft.skills : [],
         spell_slots: {},
         features: [],
         weapons: [],

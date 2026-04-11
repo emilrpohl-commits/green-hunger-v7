@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "reference:import": "node scripts/reference-import.mjs"
+    "reference:import": "node scripts/reference-import.mjs",
+    "rules:smoke": "node ../tools/rulesLayerSmokeCheck.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

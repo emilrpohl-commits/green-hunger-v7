@@ -9,6 +9,8 @@ import {
   buildSavePromptDamageMeta,
 } from '@shared/lib/combatRules.js'
 import { rollDie, parseDmgString, parseDamageFromStatblock } from '../constants.js'
+import { primaryDamageTypeFromAction } from '@shared/lib/rules/damagePipeline.js'
+import { formatDcWithLabel } from '@shared/lib/rules/dcDisplay.js'
 import { playDmSfx } from '@shared/lib/sfxEngine.js'
 
 /**
@@ -67,8 +69,9 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
     if (selected.type === 'save') {
       const dc       = selected.saveDC || 12
       const saveType = selected.saveType || 'DEX'
+      const dcLabel = formatDcWithLabel(dc)
       pushFeedEvent(
-        `${combatant.name} uses ${selected.name}: ${atkTarget?.name || 'target'} makes ${saveType} save (DC ${dc}).`,
+        `${combatant.name} uses ${selected.name}: ${atkTarget?.name || 'target'} makes ${saveType} save (${dcLabel || `DC ${dc}`}).`,
         'save-prompt', true,
       )
       if (atkTarget?.id) {
@@ -128,7 +131,8 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
     if (hit) {
       const dmgExpr = parseDamageFromStatblock(selected.damage) || dmgInput
       const dmg     = parseDmgString(dmgExpr, crit)
-      damageCombatant(atkTarget.id, dmg.total)
+      const dmgType = primaryDamageTypeFromAction(selected.damage)
+      damageCombatant(atkTarget.id, dmg.total, dmgType)
       const critStr = crit ? ' CRIT!' : ''
       pushFeedEvent(
         `${combatant.name} → ${selected.name} on ${atkTarget.name}${critStr}: d20(${d20})+${toHit}${modsStr} = ${total} → HIT! ${dmg.total} dmg`,
@@ -277,7 +281,7 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
               : atkResult.hit === false
                 ? `MISS d20(${atkResult.d20})=${atkResult.total} vs ${atkResult.targetName}`
                 : atkResult.type === 'save'
-                  ? `${atkResult.targetName}: DC ${atkResult.total} save`
+                  ? `${atkResult.targetName}: ${formatDcWithLabel(atkResult.total) || `DC ${atkResult.total}`} save`
                   : `${atkResult.targetName}: special`
             }
           </div>
@@ -375,7 +379,7 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
                 : atkResult.hit === false
                   ? `MISS — d20(${atkResult.d20}) = ${atkResult.total} vs ${atkResult.targetName}`
                   : atkResult.type === 'save'
-                    ? `${atkResult.targetName}: make DC ${atkResult.total} save`
+                    ? `${atkResult.targetName}: make ${formatDcWithLabel(atkResult.total) || `DC ${atkResult.total}`} save`
                     : `${atkResult.targetName}: special used`
               }
             </div>

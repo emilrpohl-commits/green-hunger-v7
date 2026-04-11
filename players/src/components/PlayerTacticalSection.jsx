@@ -5,6 +5,7 @@ import {
   CharacterConditionChips,
   ActionEconomyTrack,
 } from '@shared/components/character/index.js'
+import { formatDcWithLabel } from '@shared/lib/rules/dcDisplay.js'
 
 /**
  * Sticky tactical + resource strip for the player sheet.
@@ -37,6 +38,8 @@ export default function PlayerTacticalSection({
   onRemoveCondition,
   onSpellSlotClick,
   onToggleEconomy,
+  onShortRest,
+  onLongRest,
 }) {
   const [concDraft, setConcDraft] = useState(concSpellProp || '')
   React.useEffect(() => {
@@ -65,7 +68,14 @@ export default function PlayerTacticalSection({
         <StatMini label="AC" value={ac} colour={char.colour} />
         <StatMini label="Spd" value={`${speed}′`} colour={char.colour} />
         <StatMini label="Init" value={initiativeLabel} colour={char.colour} />
-        {spellSaveDC != null && <StatMini label="DC" value={spellSaveDC} colour={char.colour} />}
+        {spellSaveDC != null && (
+          <StatMini
+            label="DC"
+            value={spellSaveDC}
+            colour={char.colour}
+            title={formatDcWithLabel(spellSaveDC) || undefined}
+          />
+        )}
         {inspiration && (
           <span style={{
             fontFamily: 'var(--font-mono)',
@@ -179,6 +189,47 @@ export default function PlayerTacticalSection({
         onSpellSlotClick={canEdit ? onSpellSlotClick : undefined}
       />
 
+      {canEdit && onShortRest && onLongRest && (
+        <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          <button
+            type="button"
+            onClick={onShortRest}
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 9,
+              padding: '6px 12px',
+              background: 'var(--bg-raised)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+            }}
+          >
+            Short rest
+          </button>
+          <button
+            type="button"
+            onClick={onLongRest}
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 9,
+              padding: '6px 12px',
+              background: 'var(--bg-raised)',
+              border: '1px solid var(--green-mid)',
+              borderRadius: 'var(--radius)',
+              color: 'var(--green-bright)',
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+            }}
+          >
+            Long rest
+          </button>
+        </div>
+      )}
+
       {curHp === 0 && (
         <div style={{ marginTop: 10, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--danger)' }}>
           Unconscious — track death saves in Party or ask your DM.
@@ -201,9 +252,9 @@ export default function PlayerTacticalSection({
   )
 }
 
-function StatMini({ label, value, colour }) {
+function StatMini({ label, value, colour, title }) {
   return (
-    <div style={{
+    <div title={title} style={{
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',

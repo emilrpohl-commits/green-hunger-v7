@@ -15,6 +15,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@shared': path.join(root, 'shared'),
+      '@rules-data': path.join(root, 'data', 'rules'),
       '@tools': path.join(root, 'tools'),
       '@supabase-root': path.join(root, 'supabase'),
       // shared/ lives outside this package; force deps to this app's node_modules

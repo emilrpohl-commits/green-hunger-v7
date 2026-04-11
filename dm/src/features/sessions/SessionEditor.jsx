@@ -80,6 +80,23 @@ export default function SessionEditor({ sessionId, onClose, onEditScene }) {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
         <div style={{ maxWidth: 700 }}>
+          <div style={{
+            marginBottom: 18,
+            padding: '12px 14px',
+            background: 'var(--bg-raised)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-lg)',
+            fontSize: 12,
+            color: 'var(--text-secondary)',
+            lineHeight: 1.55,
+          }}
+          >
+            <div style={{ ...mono, fontSize: 9, color: 'var(--green-bright)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+              Where media lives
+            </div>
+            <strong style={{ color: 'var(--text-primary)' }}>This page — map videos:</strong> section below (MP4/WebM) for tactical/table video.{' '}
+            <strong style={{ color: 'var(--text-primary)' }}>Scene stills:</strong> use <strong>Edit</strong> on a scene in the list → <strong>Scene</strong> tab → <strong>Scene Media</strong> (not on individual beats).
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div style={{ marginBottom: 14, gridColumn: '1/-1' }}>
               <label style={labelStyle}>Title</label>

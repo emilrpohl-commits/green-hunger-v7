@@ -1,0 +1,12 @@
+{
+  "ruleset": "2024",
+  "srdVersion": "5.2.1",
+  "standardLadder": [
+    { "id": "veryEasy", "label": "Very easy", "dc": 5, "hint": "Routine for almost anyone." },
+    { "id": "easy", "label": "Easy", "dc": 10, "hint": "A relaxed challenge for a capable person." },
+    { "id": "medium", "label": "Medium", "dc": 15, "hint": "Typical trained adventurer benchmark." },
+    { "id": "hard", "label": "Hard", "dc": 20, "hint": "Demanding even for veterans." },
+    { "id": "veryHard", "label": "Very hard", "dc": 25, "hint": "Exceptional effort or luck." },
+    { "id": "nearlyImpossible", "label": "Nearly impossible", "dc": 30, "hint": "Legendary; failure is expected." }
+  ]
+}

@@ -2,6 +2,7 @@ import { supabase } from '@shared/lib/supabase.js'
 import { ensureActionEconomy } from '@shared/lib/combatRules.js'
 import { getRulesetContext, getSessionRunId } from '@shared/lib/runtimeContext.js'
 import { parseCombatantsArray } from '@shared/lib/validation/storeBoundaries.js'
+import { normalizeCombatantConditions } from '@shared/lib/rules/conditionHydration.js'
 
 export const createStateSlice = (set, get) => ({
   active: false,
@@ -43,7 +44,7 @@ export const createStateSlice = (set, get) => ({
     if (incomingTs != null && lastApplied != null && incomingTs < lastApplied) return
 
     const combatants = parseCombatantsArray(row.combatants, 'dm.applyCombatStateRow')
-      .map(c => ({ ...c, actionEconomy: ensureActionEconomy(c) }))
+      .map((c) => normalizeCombatantConditions({ ...c, actionEconomy: ensureActionEconomy(c) }))
 
     let nextLast = lastApplied ?? null
     if (incomingTs != null) {

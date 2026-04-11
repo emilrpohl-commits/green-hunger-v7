@@ -19,8 +19,15 @@ import {
  *
  * Wires directly to combatStore for add/remove — pass combatant, not id.
  */
+function exhaustionLabel(c) {
+  const lv = Math.max(0, Math.min(6, Math.floor(Number(c?.exhaustionLevel) || 0)))
+  if (lv <= 0) return 'Exhaustion'
+  return `Exhaustion ${lv}`
+}
+
 export default function ConditionChips({ combatant, compact = false }) {
   const toggleCondition = useCombatStore(s => s.toggleCondition)
+  const setCombatantExhaustionLevel = useCombatStore(s => s.setCombatantExhaustionLevel)
   const addEffect       = useCombatStore(s => s.addEffect)
   const removeEffect    = useCombatStore(s => s.removeEffect)
 
@@ -75,6 +82,7 @@ export default function ConditionChips({ combatant, compact = false }) {
         {conditions.map(cond => {
           const colour = CONDITION_COLOUR[cond] || '#a09080'
           const title  = CONDITION_DESC[cond] || cond
+          const label  = cond === 'Exhaustion' ? exhaustionLabel(combatant) : cond
           return (
             <span
               key={cond}
@@ -87,11 +95,39 @@ export default function ConditionChips({ combatant, compact = false }) {
                 color: colour,
               }}
             >
-              {cond}
+              {label}
               <span style={{ fontSize: 10, opacity: 0.7, lineHeight: 1 }}>×</span>
             </span>
           )
         })}
+        {conditions.includes('Exhaustion') && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 2 }}>
+            <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Lv</span>
+            {[1, 2, 3, 4, 5, 6].map((lv) => {
+              const cur = Math.max(0, Math.min(6, Math.floor(Number(combatant.exhaustionLevel) || 1)))
+              const sel = cur === lv
+              return (
+                <button
+                  key={lv}
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setCombatantExhaustionLevel(combatant.id, lv) }}
+                  style={{
+                    padding: '0 5px',
+                    fontSize: 9,
+                    fontFamily: 'var(--font-mono)',
+                    borderRadius: 4,
+                    border: `1px solid ${sel ? 'var(--green-bright)' : 'var(--border)'}`,
+                    background: sel ? 'rgba(122,184,106,0.15)' : 'var(--bg-card)',
+                    color: sel ? 'var(--green-bright)' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {lv}
+                </button>
+              )
+            })}
+          </span>
+        )}
 
         {/* Active spell effects */}
         {effects.map(eff => (

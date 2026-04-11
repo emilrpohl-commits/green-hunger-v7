@@ -1,11 +1,14 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { featureFlags } from '@shared/lib/featureFlags.js'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useCampaignStore } from '../../stores/campaignStore'
 import { useDmToolboxStore } from '../../stores/dmToolboxStore.js'
+import RulesLookupPanel from '@shared/components/rules/RulesLookupPanel.jsx'
 
 export default function TopBar({ onSwitchToBuilder, onOpenToolbox }) {
+  const [rulesLookupOpen, setRulesLookupOpen] = useState(false)
   const setQuickRulingsOpen = useDmToolboxStore((s) => s.setQuickRulingsDrawerOpen)
+  const rollWildMagic = useDmToolboxStore((s) => s.rollWildMagic)
   const syncStatus = useSessionStore(s => s.syncStatus)
   const session = useSessionStore(s => s.session)
   const campaign = useCampaignStore(s => s.campaign)
@@ -27,6 +30,8 @@ export default function TopBar({ onSwitchToBuilder, onOpenToolbox }) {
   }[syncStatus]
 
   return (
+    <>
+    <RulesLookupPanel open={rulesLookupOpen} onClose={() => setRulesLookupOpen(false)} />
     <div
       className="md:px-6 md:gap-5"
       style={{
@@ -72,6 +77,19 @@ export default function TopBar({ onSwitchToBuilder, onOpenToolbox }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button
               type="button"
+              onClick={() => setRulesLookupOpen(true)}
+              title="Search SRD rules glossary"
+              style={{
+                padding: '4px 10px', border: '1px solid var(--border)', cursor: 'pointer',
+                borderRadius: 'var(--radius)', background: 'transparent',
+                color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
+                fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em',
+              }}
+            >
+              Rules
+            </button>
+            <button
+              type="button"
               onClick={() => setQuickRulingsOpen(true)}
               title="Quick rulings strip — damage, DC, objects, mob"
               style={{
@@ -82,6 +100,22 @@ export default function TopBar({ onSwitchToBuilder, onOpenToolbox }) {
               }}
             >
               Rulings
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                rollWildMagic()
+                onOpenToolbox('wild')
+              }}
+              title="Roll wild magic (d100) and open the Wild Magic toolbox tab"
+              style={{
+                padding: '4px 10px', border: '1px solid rgba(180, 120, 220, 0.45)', cursor: 'pointer',
+                borderRadius: 'var(--radius)', background: 'rgba(140, 80, 180, 0.12)',
+                color: '#d8b8e8', fontFamily: 'var(--font-mono)',
+                fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em',
+              }}
+            >
+              Wild surge
             </button>
             <button
               type="button"
@@ -130,5 +164,6 @@ export default function TopBar({ onSwitchToBuilder, onOpenToolbox }) {
         </div>
       </div>
     </div>
+    </>
   )
 }
