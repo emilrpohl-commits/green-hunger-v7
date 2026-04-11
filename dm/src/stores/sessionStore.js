@@ -244,11 +244,48 @@ export const useSessionStore = create((set, get) => ({
         spell_slots: char.spellSlots,
         death_saves: char.deathSaves,
         conditions: char.conditions,
+        tactical_json: char.tacticalJson && typeof char.tacticalJson === 'object' ? char.tacticalJson : {},
         updated_at: new Date().toISOString()
       })
     } catch (e) {
       console.error('Sync error:', e)
     }
+  },
+
+  /** Merge tactical_json fields (concentrationSpell, inspiration, classResources, actionEconomy). */
+  patchCharacterTacticalJson: async (characterId, partial) => {
+    const { characters } = get()
+    const updated = characters.map((c) => {
+      if (c.id !== characterId) return c
+      const prev = c.tacticalJson && typeof c.tacticalJson === 'object' ? c.tacticalJson : {}
+      return { ...c, tacticalJson: { ...prev, ...partial } }
+    })
+    set({ characters: updated })
+    await get().syncCharacterState(characterId)
+  },
+
+  setCharacterConcentration: async (characterId, active, spellName = null) => {
+    const { characters } = get()
+    const updated = characters.map((c) => {
+      if (c.id !== characterId) return c
+      const prev = c.tacticalJson && typeof c.tacticalJson === 'object' ? c.tacticalJson : {}
+      const tacticalJson = {
+        ...prev,
+        concentrationSpell: active ? (spellName || prev.concentrationSpell || '') : null,
+      }
+      return { ...c, concentration: !!active, tacticalJson }
+    })
+    set({ characters: updated })
+    await get().syncCharacterState(characterId)
+  },
+
+  setCharacterConditions: async (characterId, conditions) => {
+    const { characters } = get()
+    const updated = characters.map((c) =>
+      c.id === characterId ? { ...c, conditions: Array.isArray(conditions) ? conditions : [] } : c
+    )
+    set({ characters: updated })
+    await get().syncCharacterState(characterId)
   },
 
   // Load state from Supabase on mount
@@ -287,6 +324,7 @@ export const useSessionStore = create((set, get) => ({
         const updated = characters.map(c => {
           const saved = charData.find(d => d.id === c.id)
           if (!saved) return c
+          const tj = saved.tactical_json && typeof saved.tactical_json === 'object' ? saved.tactical_json : {}
           return {
             ...c,
             curHp: saved.cur_hp ?? c.curHp,
@@ -294,7 +332,11 @@ export const useSessionStore = create((set, get) => ({
             concentration: saved.concentration ?? c.concentration,
             spellSlots: saved.spell_slots ?? c.spellSlots,
             deathSaves: saved.death_saves ?? c.deathSaves,
-            conditions: saved.conditions ?? c.conditions
+            conditions: saved.conditions ?? c.conditions,
+            tacticalJson: { ...(c.tacticalJson || {}), ...tj },
+            concentrationSpell: tj.concentrationSpell ?? c.concentrationSpell ?? null,
+            inspiration: typeof tj.inspiration === 'boolean' ? tj.inspiration : c.inspiration,
+            classResources: Array.isArray(tj.classResources) ? tj.classResources : (c.classResources || []),
           }
         })
         set({ characters: updated })

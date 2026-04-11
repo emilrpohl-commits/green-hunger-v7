@@ -11,10 +11,13 @@ import SpellsTab from './tabs/SpellsTab'
 import ActionsTab from './tabs/ActionsTab'
 import FeaturesTab from './tabs/FeaturesTab'
 import EquipmentTab from './tabs/EquipmentTab'
+import StickySummaryBar, { useStickySummaryVisibility } from './StickySummaryBar.jsx'
+import PlayerTacticalSection from './PlayerTacticalSection.jsx'
 
 export default function CharacterProfile({ characterId, onBackToLogin }) {
   const actions = useCharacterActions(characterId)
   const [tab, setTab] = useState('stats')
+  const { sentinelRef, visible: stickyVisible } = useStickySummaryVisibility('-120px 0px 0px 0px')
 
   if (!actions.char) {
     return (
@@ -67,7 +70,8 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
   }
 
   const {
-    char, curHp, tempHp, concentration, myCombatant,
+    char, curHp, tempHp, concentration, concentrationSpell, conditionsLive, inspiration, classResources,
+    canEditState, myCombatant,
     combatActive, combatCombatants, combatActiveCombatantIndex,
     myTurnActive, myEconomy, ilyaAssignedTo,
     spellSlots, activeSpell, spellSlotLevel, enemies, partyChars, playerCharacters,
@@ -77,12 +81,37 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
     rollResult, pendingSpellDmg, turnPromptVisible,
     dmRoll, showDmRoll, manualSaveTotal,
     initiativePhase, hasBardic,
+    updateMyCharacterHp, updateMyCharacterTempHp,
+    setMyCharacterConcentration, patchMyCharacterTacticalJson, setMyCharacterConditions,
+    toggleMyActionEconomyField, useSpellSlot,
   } = actions
 
   const tabs = ['stats', 'spells', 'actions', 'features', 'equipment']
 
+  const acValue = combatActive && myCombatant
+    ? (myCombatant.effectiveAc ?? myCombatant.ac ?? char.stats.ac)
+    : char.stats.ac
+
+  const maxHp = char.stats.maxHp ?? 0
+  const slotsHint = spellSlots && typeof spellSlots === 'object'
+    ? Object.entries(spellSlots).map(([lv, s]) => `L${lv}:${(s?.max ?? 0) - (s?.used ?? 0)}`).join(' ')
+    : ''
+
   return (
     <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 0 60px' }}>
+
+      <StickySummaryBar
+        visible={stickyVisible}
+        charColour={char.colour}
+        curHp={curHp}
+        maxHp={maxHp}
+        tempHp={tempHp}
+        ac={acValue}
+        conditions={conditionsLive}
+        concentration={concentration}
+        concentrationSpell={concentrationSpell}
+        resourceHint={slotsHint}
+      />
 
       {showDmRoll && (
         <DmRollNotification
@@ -108,8 +137,9 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
           padding: '10px 14px',
           boxShadow: `0 4px 24px ${char.colour}40`,
           minWidth: 220,
-          textAlign: 'center'
-        }}>
+          textAlign: 'center',
+        }}
+        >
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: char.colour, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
             Your Turn
           </div>
@@ -129,9 +159,48 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
         charColour={char.colour}
         ilyaAssignedTo={ilyaAssignedTo}
         loggedInAs={characterId}
+        showStatBadges={false}
       />
 
+      <div ref={sentinelRef} style={{ height: 1, marginTop: -1 }} aria-hidden />
+
       <div style={{ padding: '12px 16px 0' }}>
+
+        <PlayerTacticalSection
+          char={char}
+          characterId={characterId}
+          curHp={curHp}
+          tempHp={tempHp}
+          maxHp={maxHp}
+          ac={acValue}
+          speed={char.stats.speed}
+          initiativeLabel={String(char.stats.initiative ?? '+0')}
+          spellSaveDC={char.stats.spellSaveDC}
+          spellSlots={spellSlots}
+          conditions={conditionsLive}
+          concentration={concentration}
+          concentrationSpell={concentrationSpell}
+          inspiration={inspiration}
+          classResources={classResources}
+          combatActive={combatActive}
+          myTurnActive={myTurnActive}
+          myEconomy={myEconomy}
+          canEdit={canEditState}
+          onHpDelta={(d) => updateMyCharacterHp(characterId, curHp + d)}
+          onTempHp={(t) => updateMyCharacterTempHp(characterId, t)}
+          onToggleConcentration={() => setMyCharacterConcentration(characterId, true, '')}
+          onConcentrationSpellBlur={(text) => patchMyCharacterTacticalJson(characterId, { concentrationSpell: text || null })}
+          onEndConcentration={() => setMyCharacterConcentration(characterId, false, null)}
+          onRemoveCondition={(name) => setMyCharacterConditions(
+            characterId,
+            conditionsLive.filter((c) => c !== name)
+          )}
+          onSpellSlotClick={(level, mode) => {
+            const lv = parseInt(level, 10)
+            if (mode === 'use') useSpellSlot(characterId, lv)
+          }}
+          onToggleEconomy={(kind) => toggleMyActionEconomyField(characterId, kind)}
+        />
 
         {combatActive && (
           <CombatStrip
@@ -144,14 +213,14 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
         )}
 
         <ConditionsBar
-          conditions={myCombatant?.conditions}
+          conditions={[]}
           effects={myCombatant?.effects}
-          myBuffs={actions.myBuffs}
-          concentration={concentration}
+          myBuffs={myBuffs}
+          concentration={false}
         />
 
         <div style={{ display: 'flex', gap: 5, marginBottom: 14, flexWrap: 'wrap' }}>
-          {tabs.map(t => (
+          {tabs.map((t) => (
             <button key={t} onClick={() => setTab(t)} style={{
               padding: '6px 14px',
               fontFamily: 'var(--font-mono)', fontSize: 10,
@@ -160,8 +229,9 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
               border: `1px solid ${tab === t ? char.colour + '60' : 'var(--border)'}`,
               borderRadius: 'var(--radius)',
               color: tab === t ? 'var(--text-primary)' : 'var(--text-muted)',
-              cursor: 'pointer'
-            }}>
+              cursor: 'pointer',
+            }}
+            >
               {t === 'actions' ? '⚔ Actions' : t}
             </button>
           ))}

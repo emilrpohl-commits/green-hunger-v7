@@ -46,15 +46,19 @@ export const createCombatSlice = (set, get) => ({
       nextLast = nextLast != null ? Math.max(nextLast, incomingTs) : incomingTs
     }
 
-    set({
+    const ilyaAssign = row.ilya_assigned_to ?? null
+    set((state) => ({
       combatActive: row.active ?? false,
       combatRound: row.round ?? 1,
       combatCombatants: combatants,
       combatActiveCombatantIndex: row.active_combatant_index ?? 0,
-      ilyaAssignedTo: row.ilya_assigned_to ?? null,
+      ilyaAssignedTo: ilyaAssign,
       initiativePhase: row.initiative_phase ?? false,
       _combatStateSyncedAt: nextLast,
-    })
+      characters: state.characters.map((c) =>
+        c.id === 'ilya' ? { ...c, assignedPcId: ilyaAssign } : c
+      ),
+    }))
   },
 
   fetchCombatantsForWrite: async () => {
@@ -393,6 +397,47 @@ export const createCombatSlice = (set, get) => ({
   getCombatantActionEconomy: (characterId) => {
     const c = get().combatCombatants.find(x => x.id === characterId)
     return ensureActionEconomy(c || {})
+  },
+
+  /** Manual toggle while it's your turn (table correction / undo). */
+  toggleMyActionEconomyField: async (characterId, field) => {
+    const {
+      combatActive, combatRound, combatActiveCombatantIndex, initiativePhase,
+      ilyaAssignedTo, sessionRunId,
+    } = get()
+    if (!combatActive) return
+    const list = await get().fetchCombatantsForWrite()
+    const idx = list.findIndex((c) => c.id === characterId)
+    if (idx < 0 || idx !== combatActiveCombatantIndex) return
+    const keyMap = {
+      action: 'actionAvailable',
+      bonusAction: 'bonusActionAvailable',
+      reaction: 'reactionAvailable',
+    }
+    const aeKey = keyMap[field]
+    if (!aeKey) return
+    const actor = list[idx]
+    const ae = ensureActionEconomy(actor)
+    const nextAe = { ...ae, [aeKey]: !ae[aeKey] }
+    const updated = list.map((c, i) => (i === idx ? { ...c, actionEconomy: nextAe } : c))
+    set({ combatCombatants: updated })
+    const ts = new Date().toISOString()
+    try {
+      await supabase.from('combat_state').upsert({
+        id: sessionRunId,
+        session_run_id: sessionRunId,
+        active: combatActive,
+        round: combatRound,
+        combatants: updated,
+        active_combatant_index: combatActiveCombatantIndex,
+        initiative_phase: initiativePhase,
+        ilya_assigned_to: ilyaAssignedTo,
+        updated_at: ts,
+      })
+      get().bumpCombatStateSyncedFromWrite(ts)
+    } catch (e) {
+      console.error('toggleMyActionEconomyField', e)
+    }
   },
 
   pushRoll: async (text, charName) => {

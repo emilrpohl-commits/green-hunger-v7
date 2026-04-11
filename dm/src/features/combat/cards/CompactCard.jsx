@@ -7,6 +7,60 @@ import {
 } from './constants.js'
 
 const safeHp = (n) => (typeof n === 'number' && isFinite(n) ? n : 0)
+const SAVE_ORDER = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
+
+function asNum(v, fallback = 0) {
+  if (v && typeof v === 'object') {
+    const fromScore = Number(v.score)
+    if (Number.isFinite(fromScore)) return fromScore
+    const fromValue = Number(v.value)
+    if (Number.isFinite(fromValue)) return fromValue
+    const fromMod = Number(v.mod)
+    if (Number.isFinite(fromMod)) return fromMod
+  }
+  const n = Number(v)
+  return Number.isFinite(n) ? n : fallback
+}
+
+function deriveSaveMap(combatant) {
+  const scoreSource = combatant.abilityScores
+    || combatant.ability_scores
+    || combatant.stats?.abilityScores
+    || combatant.stats?.ability_scores
+    || {}
+  const saveMap = {}
+
+  for (const ab of SAVE_ORDER) {
+    const score = asNum(scoreSource[ab], 10)
+    saveMap[ab] = Math.floor((score - 10) / 2)
+  }
+
+  const listed = combatant.savingThrows
+    || combatant.saving_throws
+    || combatant.stats?.savingThrows
+    || combatant.stats?.saving_throws
+    || []
+
+  if (Array.isArray(listed)) {
+    for (const raw of listed) {
+      if (!raw) continue
+      if (typeof raw === 'string') {
+        const m = raw.match(/(STR|DEX|CON|INT|WIS|CHA)\s*([+-]?\d+)/i)
+        if (!m) continue
+        const name = m[1].toUpperCase()
+        saveMap[name] = asNum(m[2], saveMap[name] ?? 0)
+        continue
+      }
+      if (typeof raw === 'object') {
+        const name = String(raw.name || raw.ability || '').toUpperCase()
+        if (!SAVE_ORDER.includes(name)) continue
+        const mod = raw.mod ?? raw.bonus ?? raw.value
+        saveMap[name] = asNum(mod, saveMap[name] ?? 0)
+      }
+    }
+  }
+  return saveMap
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared HP bar + badges strip
@@ -37,7 +91,7 @@ function HpStrip({ curHp, maxHp, tempHp, ac, speed, large = false }) {
           </span>
         </div>
         <div style={{ display: 'flex', gap: 5 }}>
-          {ac  != null && <StatBadge label="AC"  value={ac} />}
+          <StatBadge label="AC" value={ac ?? '—'} />
           {speed     && <StatBadge label="SPD" value={`${speed}′`} />}
         </div>
       </div>
@@ -47,6 +101,19 @@ function HpStrip({ curHp, maxHp, tempHp, ac, speed, large = false }) {
         <div style={{ height: '100%', width: `${pct}%`, background: colour, borderRadius: 3, transition: 'width 0.45s ease, background 0.45s ease' }} />
         <div style={{ position: 'absolute', top: -2, left: '50%', width: 1, height: 9, background: 'rgba(180,80,40,0.5)', pointerEvents: 'none' }} />
       </div>
+    </div>
+  )
+}
+
+function SavingThrowsStrip({ combatant }) {
+  const saveMap = deriveSaveMap(combatant)
+  return (
+    <div style={{ marginTop: 5, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+      {SAVE_ORDER.map((ab) => {
+        const mod = asNum(saveMap[ab], 0)
+        const text = mod >= 0 ? `+${mod}` : String(mod)
+        return <StatBadge key={ab} label={ab} value={text} />
+      })}
     </div>
   )
 }
@@ -364,9 +431,10 @@ function PCCard({ combatant, isActive, flashActive }) {
         <div style={{ flex: 1, padding: '10px 12px 10px', display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0 }}>
           <HpStrip
             curHp={combatant.curHp} maxHp={combatant.maxHp} tempHp={combatant.tempHp}
-            ac={combatant.ac} speed={combatant.speed || combatant.stats?.speed}
+            ac={combatant.effectiveAc ?? combatant.ac} speed={combatant.speed || combatant.stats?.speed}
             large
           />
+          <SavingThrowsStrip combatant={combatant} />
 
           {/* Concentration spell */}
           {combatant.concentration && (
@@ -506,8 +574,9 @@ function EnemyCard({ combatant, isActive, flashActive, players }) {
 
           <HpStrip
             curHp={combatant.curHp} maxHp={combatant.maxHp} tempHp={combatant.tempHp}
-            ac={combatant.ac} speed={combatant.speed || combatant.stats?.speed}
+            ac={combatant.effectiveAc ?? combatant.ac} speed={combatant.speed || combatant.stats?.speed}
           />
+          <SavingThrowsStrip combatant={combatant} />
 
           {!dead && (
             <>

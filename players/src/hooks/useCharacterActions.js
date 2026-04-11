@@ -29,7 +29,14 @@ export default function useCharacterActions(characterId) {
   const submitInitiative = usePlayerStore(s => s.submitInitiative)
   const tryUseCombatActionType = usePlayerStore(s => s.tryUseCombatActionType)
   const getCombatantActionEconomy = usePlayerStore(s => s.getCombatantActionEconomy)
+  const toggleMyActionEconomyField = usePlayerStore(s => s.toggleMyActionEconomyField)
   const ilyaAssignedTo = usePlayerStore(s => s.ilyaAssignedTo)
+  const canEditCharacterState = usePlayerStore(s => s.canEditCharacterState)
+  const updateMyCharacterHp = usePlayerStore(s => s.updateMyCharacterHp)
+  const updateMyCharacterTempHp = usePlayerStore(s => s.updateMyCharacterTempHp)
+  const setMyCharacterConcentration = usePlayerStore(s => s.setMyCharacterConcentration)
+  const patchMyCharacterTacticalJson = usePlayerStore(s => s.patchMyCharacterTacticalJson)
+  const setMyCharacterConditions = usePlayerStore(s => s.setMyCharacterConditions)
 
   const char = playerCharacters[characterId]
   const liveChar = characters.find(c => c.id === characterId)
@@ -52,6 +59,11 @@ export default function useCharacterActions(characterId) {
   const tempHp = liveChar?.tempHp ?? 0
   const spellSlots = liveChar?.spellSlots ?? companionSpellSlots[characterId] ?? char?.spellSlots ?? {}
   const concentration = liveChar?.concentration ?? false
+  const concentrationSpell = liveChar?.concentrationSpell ?? liveChar?.tacticalJson?.concentrationSpell ?? ''
+  const conditionsLive = liveChar?.conditions ?? []
+  const inspiration = !!(liveChar?.inspiration ?? liveChar?.tacticalJson?.inspiration)
+  const classResources = liveChar?.classResources ?? liveChar?.tacticalJson?.classResources ?? []
+  const canEditState = canEditCharacterState(characterId)
   const maxHp = char?.stats?.maxHp ?? 0
   const hpPct = maxHp > 0 ? (curHp / maxHp) * 100 : 0
   const hpColour = curHp === 0 ? 'var(--danger)' : hpPct > 60 ? 'var(--green-bright)' : hpPct > 30 ? 'var(--warning)' : '#c46040'
@@ -489,11 +501,17 @@ export default function useCharacterActions(characterId) {
 
   return {
     char, liveChar, curHp, tempHp, spellSlots, concentration,
+    concentrationSpell, conditionsLive, inspiration, classResources,
+    canEditState,
     hpPct, hpColour, myBuffs, hasBardic,
     enemies, partyChars, myCombatant, myTurnActive, myEconomy,
     combatActive, combatRound, combatCombatants, combatActiveCombatantIndex,
     activeBuffs, bardicInspirationUses, playerCharacters, ilyaAssignedTo,
     initiativePhase, submitInitiative, pushRoll,
+
+    updateMyCharacterHp, updateMyCharacterTempHp,
+    setMyCharacterConcentration, patchMyCharacterTacticalJson, setMyCharacterConditions,
+    toggleMyActionEconomyField, useSpellSlot,
 
     rollResult, pendingAttack, pendingSpellDmg,
     selectedTarget, setSelectedTarget,

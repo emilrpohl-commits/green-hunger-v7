@@ -163,6 +163,7 @@ function RunLayout() {
   const campaign = useCampaignStore(s => s.campaign)
   const loading = useCampaignStore(s => s.loading)
   const seedlessHome = featureFlags.seedlessPlatform && !featureFlags.demoCampaign
+  const [rightRailCollapsed, setRightRailCollapsed] = useState(false)
 
   if (seedlessHome && !loading && !campaign) {
     return (
@@ -184,17 +185,47 @@ function RunLayout() {
     <div style={{
       display: 'grid',
       gridTemplateRows: '48px 1fr',
-      gridTemplateColumns: combatActive ? '240px 1fr 320px' : '240px 1fr 280px',
+      gridTemplateColumns: rightRailCollapsed
+        ? '240px 1fr 0px'
+        : (combatActive ? '240px 1fr 320px' : '240px 1fr 280px'),
       gridTemplateAreas: '"topbar topbar topbar" "left main right"',
       height: '100vh',
       background: 'var(--bg-deep)',
       overflow: 'hidden',
-      transition: 'grid-template-columns 0.3s ease'
+      transition: 'grid-template-columns 0.3s ease',
+      position: 'relative',
     }}>
       <TopBar onSwitchToBuilder={() => navigate('/build')} />
       <LeftRail />
       {combatActive ? <CombatPanel /> : <MainPanel />}
-      <RightRail />
+      {!rightRailCollapsed && (
+        <RightRail onCollapse={() => setRightRailCollapsed(true)} />
+      )}
+      {rightRailCollapsed && (
+        <button
+          type="button"
+          onClick={() => setRightRailCollapsed(false)}
+          title="Show sidebar"
+          style={{
+            position: 'absolute',
+            right: 6,
+            top: 62,
+            zIndex: 220,
+            padding: '6px 8px',
+            borderRadius: 'var(--radius)',
+            border: '1px solid var(--border)',
+            background: 'var(--bg-raised)',
+            color: 'var(--text-muted)',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10,
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            cursor: 'pointer',
+          }}
+        >
+          ◀ Rail
+        </button>
+      )}
     </div>
   )
 }

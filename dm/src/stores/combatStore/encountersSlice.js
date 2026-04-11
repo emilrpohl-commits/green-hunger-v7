@@ -110,6 +110,8 @@ export const createEncountersSlice = (set, get) => ({
         effects: [],
         concentration: false,
         image: c.image || null,
+        abilityScores: c.abilityScores || {},
+        savingThrows: c.savingThrows || [],
         actionEconomy: makeActionEconomy(),
         rosterContentSource: c.contentSource || rosterSource,
       }

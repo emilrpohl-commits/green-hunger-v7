@@ -10,6 +10,7 @@ import CharacterProfile from './components/CharacterProfile'
 export default function App() {
   const subscribe = usePlayerStore(s => s.subscribe)
   const ilyaAssignedTo = usePlayerStore(s => s.ilyaAssignedTo)
+  const characters = usePlayerStore(s => s.characters)
   const [loggedInAs, setLoggedInAs] = useState(null)
   const navigate = useNavigate()
   const location = useLocation()
@@ -28,24 +29,33 @@ export default function App() {
 
   useEffect(() => {
     const saved = sessionStorage.getItem('gh_player')
-    if (saved) setLoggedInAs(saved)
+    if (saved) {
+      setLoggedInAs(saved)
+      usePlayerStore.getState().setActiveSessionUserId(saved)
+    }
   }, [])
 
+  const ilyaLinkedToPlayer = characters.some(
+    (c) => c.id === 'ilya' && String(c.assignedPcId || '') === String(loggedInAs || '')
+  ) || String(ilyaAssignedTo || '') === String(loggedInAs || '')
+
   useEffect(() => {
-    if (location.pathname === '/companion' && ilyaAssignedTo !== loggedInAs) {
+    if (location.pathname === '/companion' && loggedInAs !== 'party' && !ilyaLinkedToPlayer) {
       navigate('/profile', { replace: true })
     }
-  }, [ilyaAssignedTo, loggedInAs, location.pathname, navigate])
+  }, [ilyaLinkedToPlayer, loggedInAs, location.pathname, navigate])
 
   const handleLogin = (id) => {
     sessionStorage.setItem('gh_player', id)
     setLoggedInAs(id)
+    usePlayerStore.getState().setActiveSessionUserId(id)
     navigate(id === 'party' ? '/party' : '/profile')
   }
 
   const handleLogout = () => {
     sessionStorage.removeItem('gh_player')
     setLoggedInAs(null)
+    usePlayerStore.getState().setActiveSessionUserId(null)
     navigate('/')
   }
 
@@ -53,7 +63,7 @@ export default function App() {
     return <LoginScreen onLogin={handleLogin} />
   }
 
-  const showCompanionTab = loggedInAs !== 'party' && ilyaAssignedTo === loggedInAs
+  const showCompanionTab = loggedInAs !== 'party' && ilyaLinkedToPlayer
   const isPartyOnly = loggedInAs === 'party'
 
   const navTabs = [

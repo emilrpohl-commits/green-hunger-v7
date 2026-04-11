@@ -59,6 +59,9 @@ export const createRealtimeSlice = (set, get) => ({
           const { characters } = get()
           const updated = characters.map(c => {
             if (c.id !== payload.new.id) return c
+            const tj = payload.new.tactical_json && typeof payload.new.tactical_json === 'object'
+              ? payload.new.tactical_json
+              : {}
             return {
               ...c,
               curHp: payload.new.cur_hp ?? c.curHp,
@@ -66,7 +69,11 @@ export const createRealtimeSlice = (set, get) => ({
               concentration: payload.new.concentration ?? c.concentration,
               spellSlots: payload.new.spell_slots ?? c.spellSlots,
               deathSaves: payload.new.death_saves ?? c.deathSaves,
-              conditions: payload.new.conditions ?? c.conditions
+              conditions: payload.new.conditions ?? c.conditions,
+              tacticalJson: { ...(c.tacticalJson || {}), ...tj },
+              concentrationSpell: tj.concentrationSpell ?? c.concentrationSpell ?? null,
+              inspiration: typeof tj.inspiration === 'boolean' ? tj.inspiration : c.inspiration,
+              classResources: Array.isArray(tj.classResources) ? tj.classResources : (c.classResources || []),
             }
           })
           set({ characters: updated, lastUpdated: new Date() })

@@ -14,6 +14,7 @@ const characterStateRowSchema = z.object({
   spell_slots: z.record(z.string(), z.any()).optional().nullable(),
   death_saves: z.record(z.string(), z.any()).optional().nullable(),
   conditions: z.array(z.string()).optional().nullable(),
+  tactical_json: z.unknown().optional().nullable(),
 }).passthrough()
 
 const dbCharacterRowSchema = z.object({

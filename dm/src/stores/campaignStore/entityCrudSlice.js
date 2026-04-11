@@ -56,6 +56,7 @@ const CHARACTER_DB_COLUMNS = [
   'portrait_thumb_storage_path',
   'colour',
   'is_npc',
+  'assigned_pc_id',
   'is_active',
   'notes',
   'stats',
@@ -240,6 +241,24 @@ export function createEntityCrudSlice(set, get) {
         : [...list, saved]
       set({ characters: updated.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''))) })
       return { data: saved }
+    },
+
+    patchCharacterAssignment: async (characterId, assignedPcId) => {
+      const { data, error } = await supabase
+        .from('characters')
+        .update({
+          assigned_pc_id: assignedPcId || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', characterId)
+        .select()
+        .single()
+      if (error) return { error: error.message }
+      const list = get().characters || []
+      set({
+        characters: list.map((c) => (c.id === characterId ? { ...c, ...data } : c)),
+      })
+      return { data }
     },
 
     deleteCharacter: async (id) => {
