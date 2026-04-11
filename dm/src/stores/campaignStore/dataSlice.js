@@ -3,6 +3,25 @@ import { featureFlags } from '@shared/lib/featureFlags.js'
 import { loadSessionContentTree } from '@shared/lib/sessionTreeLoader.js'
 import { filterValidSpellRows } from '@shared/lib/validation/storeBoundaries.js'
 
+async function fetchStatBlocksForCampaignPaged(campaignId, pageSize = 250) {
+  const rows = []
+  let from = 0
+  while (true) {
+    const to = from + pageSize - 1
+    const { data, error } = await supabase
+      .from('stat_blocks')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .range(from, to)
+    if (error) throw new Error(`stat_blocks: ${error.message}`)
+    const batch = data || []
+    rows.push(...batch)
+    if (batch.length < pageSize) break
+    from += pageSize
+  }
+  return rows.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+}
+
 function emptyCampaignState(campaignChoices = []) {
   return {
     campaign: null,
@@ -106,12 +125,14 @@ export function createDataSlice(set, get) {
           .single()
         if (ce) throw new Error(`campaign: ${ce.message}`)
 
-        const { data: statBlocks, error: sbe } = await supabase
-          .from('stat_blocks')
-          .select('*')
-          .eq('campaign_id', campaign.id)
-          .order('name')
-        if (sbe) throw new Error(`stat_blocks: ${sbe.message}`)
+        let statBlocks = []
+        try {
+          statBlocks = await fetchStatBlocksForCampaignPaged(campaign.id)
+        } catch (e) {
+          // Non-fatal: let DM app load while surfacing the warning.
+          console.warn('stat_blocks load:', e?.message || e)
+          statBlocks = []
+        }
 
         const allStatBlocks = statBlocks || []
         const activeStatBlocks = allStatBlocks.filter(sb => !sb.archived_at)
@@ -153,7 +174,7 @@ export function createDataSlice(set, get) {
         const { data: characterRows, error: chErr } = await supabase
           .from('characters')
           .select('*')
-          .eq('campaign_id', campaign.id)
+          .or(`campaign_id.eq.${campaign.id},campaign_id.is.null`)
           .order('name')
         if (chErr) {
           console.warn('characters load:', chErr.message)

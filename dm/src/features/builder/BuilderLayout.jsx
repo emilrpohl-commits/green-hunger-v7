@@ -23,7 +23,7 @@ const NAV_ITEMS = [
   { id: 'npcs', label: 'NPCs', icon: '🧙' },
   { id: 'reference', label: 'SRD Reference', icon: '📚' },
   { id: 'character-import', label: 'Character Import', icon: '🧾' },
-  { id: 'characters', label: 'Characters', icon: '🧝' },
+  { id: 'characters', label: 'Character sheets', icon: '🧝' },
   { id: 'encounters', label: 'Encounters', icon: '🎯' },
 ]
 

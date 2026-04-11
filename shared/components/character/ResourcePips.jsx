@@ -155,9 +155,27 @@ export function ResourceStrip({
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: compact ? 10 : 14, alignItems: 'center' }}>
           <span style={{ ...labelStyle(compact), width: '100%', marginBottom: -4 }}>Spell slots</span>
           {spellEntries.map((r) => (
-            <div key={r.level} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div key={r.level} style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
               <span style={labelStyle(compact)}>Lvl {r.level}</span>
-              <div style={{ display: 'flex', gap: 3 }}>
+              {onSpellSlotClick && !readOnly && (
+                <button
+                  type="button"
+                  title="Use one slot"
+                  disabled={r.current <= 0}
+                  onClick={() => onSpellSlotClick(r.level, 'use')}
+                  style={{
+                    ...mini,
+                    padding: compact ? '1px 6px' : '2px 8px',
+                    fontSize: compact ? 11 : 12,
+                    lineHeight: 1,
+                    opacity: r.current <= 0 ? 0.4 : 1,
+                    cursor: r.current <= 0 ? 'default' : 'pointer',
+                  }}
+                >
+                  −
+                </button>
+              )}
+              <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
                 {Array.from({ length: r.max }).map((_, i) => {
                   const remaining = r.current
                   const filled = i < remaining
@@ -180,6 +198,24 @@ export function ResourceStrip({
                   )
                 })}
               </div>
+              {onSpellSlotClick && !readOnly && (
+                <button
+                  type="button"
+                  title="Restore one slot"
+                  disabled={r.current >= r.max}
+                  onClick={() => onSpellSlotClick(r.level, 'restore')}
+                  style={{
+                    ...mini,
+                    padding: compact ? '1px 6px' : '2px 8px',
+                    fontSize: compact ? 11 : 12,
+                    lineHeight: 1,
+                    opacity: r.current >= r.max ? 0.4 : 1,
+                    cursor: r.current >= r.max ? 'default' : 'pointer',
+                  }}
+                >
+                  +
+                </button>
+              )}
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)' }}>
                 {r.current}/{r.max}
               </span>

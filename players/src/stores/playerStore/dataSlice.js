@@ -415,4 +415,45 @@ export const createDataSlice = (set, get) => ({
     if (!get().canEditCharacterState(characterId)) return
     await get().upsertCharacterStateRow(characterId, { conditions: Array.isArray(conditions) ? conditions : [] })
   },
+
+  saveMyCharacterSheet: async (characterId, patch = {}) => {
+    if (!get().canEditCharacterState(characterId)) return { error: 'not_allowed' }
+    const payload = {
+      updated_at: new Date().toISOString(),
+    }
+    if (patch.name != null) payload.name = String(patch.name || '').trim()
+    if (patch.class != null) payload.class = String(patch.class || '').trim()
+    if (patch.subclass != null) payload.subclass = String(patch.subclass || '').trim()
+    if (patch.level != null) payload.level = Math.max(1, Math.min(20, Number(patch.level) || 1))
+    if (patch.species != null) payload.species = String(patch.species || '').trim()
+    if (patch.background != null) payload.background = String(patch.background || '').trim()
+    if (patch.languages !== undefined) payload.languages = patch.languages == null ? null : String(patch.languages)
+    if (patch.senses !== undefined) payload.senses = patch.senses == null ? null : String(patch.senses)
+    if (patch.backstory !== undefined) payload.backstory = patch.backstory == null ? null : String(patch.backstory)
+    if (patch.stats && typeof patch.stats === 'object') payload.stats = patch.stats
+    if (patch.abilityScores && typeof patch.abilityScores === 'object') payload.ability_scores = patch.abilityScores
+    if (Array.isArray(patch.savingThrows)) payload.saving_throws = patch.savingThrows
+    if (Array.isArray(patch.skills)) payload.skills = patch.skills
+    if (patch.spellSlots && typeof patch.spellSlots === 'object') payload.spell_slots = patch.spellSlots
+    if (patch.sorceryPoints === null || (patch.sorceryPoints && typeof patch.sorceryPoints === 'object')) payload.sorcery_points = patch.sorceryPoints
+    if (Array.isArray(patch.features)) payload.features = patch.features
+    if (Array.isArray(patch.weapons)) payload.weapons = patch.weapons
+    if (Array.isArray(patch.healingActions)) payload.healing_actions = patch.healingActions
+    if (Array.isArray(patch.buffActions)) payload.buff_actions = patch.buffActions
+    if (Array.isArray(patch.equipment)) payload.equipment = patch.equipment
+    if (Array.isArray(patch.magicItems)) payload.magic_items = patch.magicItems
+    if (patch.passiveScores && typeof patch.passiveScores === 'object') payload.passive_scores = patch.passiveScores
+
+    const { data, error } = await supabase
+      .from('characters')
+      .update(payload)
+      .eq('id', characterId)
+      .select()
+      .single()
+    if (error) return { error: error.message }
+
+    // Rehydrate map/runtime rows from DB shape to keep both apps in sync.
+    await get().loadCharacters()
+    return { data }
+  },
 })
