@@ -115,20 +115,24 @@ export default function useCharacterActions(characterId) {
 
   const resolveSpellForCasting = (spell) => {
     const next = { ...spell }
+    const st = char?.stats && typeof char.stats === 'object' && !Array.isArray(char.stats) ? char.stats : {}
     if (!next.mechanic) next.mechanic = next.combatProfile?.resolutionType || 'utility'
     if (!next.targetMode) next.targetMode = next.combatProfile?.targetMode || 'single'
     const castingMeta = parseCastingTimeMeta(next.castingTime)
     next.actionType = next.actionType || castingMeta.actionType
     next.isBonusAction = next.isBonusAction ?? castingMeta.isBonusAction
     next.isReaction = next.isReaction ?? castingMeta.isReaction
+    const tm = next.targetMode
     if (!next.target) {
-      if (next.targetMode === 'self') next.target = 'self'
-      else if (next.targetMode === 'single' || next.targetMode === 'multi_select' || next.targetMode.startsWith('area')) next.target = 'enemy'
+      if (tm === 'self') next.target = 'self'
+      else if (tm === 'single' || tm === 'multi_select' || (typeof tm === 'string' && tm.startsWith('area'))) {
+        next.target = 'enemy'
+      }
     }
     if (!next.saveType) next.saveType = next.combatProfile?.saveAbility || null
-    if (!next.saveDC && next.saveType) next.saveDC = char.stats.spellSaveDC
+    if (!next.saveDC && next.saveType) next.saveDC = st.spellSaveDC
     if (!next.toHit && next.mechanic === 'attack') {
-      const parsed = parseInt(String(char.stats.spellAttack || '').replace('+', ''), 10)
+      const parsed = parseInt(String(st.spellAttack || '').replace('+', ''), 10)
       next.toHit = Number.isNaN(parsed) ? 0 : parsed
     }
     if (!next.damage && next.damage_dice) {

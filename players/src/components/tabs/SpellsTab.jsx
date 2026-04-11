@@ -11,6 +11,7 @@ export default function SpellsTab({
   combatActive,
   stripSignal = null,
 }) {
+  const st = char?.stats && typeof char.stats === 'object' && !Array.isArray(char.stats) ? char.stats : {}
   const [spellFilter, setSpellFilter] = useState('all')
 
   useEffect(() => {
@@ -60,14 +61,14 @@ export default function SpellsTab({
           Spellcasting
         </span>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-secondary)' }}>
-          Attack {char.stats.spellAttack}
+          Attack {st.spellAttack ?? '—'}
         </span>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-secondary)' }}>
-          Save DC {char.stats.spellSaveDC}
+          Save DC {st.spellSaveDC ?? '—'}
         </span>
-        {char.stats.spellcastingAbility && (
+        {st.spellcastingAbility && (
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>
-            {char.stats.spellcastingAbility}
+            {st.spellcastingAbility}
           </span>
         )}
       </div>

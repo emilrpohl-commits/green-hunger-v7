@@ -28,6 +28,38 @@ import {
 const useBundledPlayerRuntime = !featureFlags.seedlessPlatform || featureFlags.demoCampaign
 const PLAYER_RUNTIME_CHARACTERS = useBundledPlayerRuntime ? CHARACTERS.filter(c => !c.isNPC) : []
 
+/** DB JSONB mistakes (array/string/null) must not white-screen the player app. */
+function coerceJsonObject(v) {
+  return v != null && typeof v === 'object' && !Array.isArray(v) ? v : {}
+}
+function coerceJsonArray(v) {
+  return Array.isArray(v) ? v : []
+}
+function coercePlayerSheetShape(sheet) {
+  if (!sheet || typeof sheet !== 'object') return sheet
+  return {
+    ...sheet,
+    stats: coerceJsonObject(sheet.stats),
+    abilityScores: coerceJsonObject(sheet.abilityScores),
+    passiveScores: coerceJsonObject(sheet.passiveScores),
+    spellSlots: coerceJsonObject(sheet.spellSlots),
+    spells: coerceJsonObject(sheet.spells),
+    homebrew_json: coerceJsonObject(sheet.homebrew_json),
+    savingThrows: coerceJsonArray(sheet.savingThrows),
+    skills: coerceJsonArray(sheet.skills),
+    features: coerceJsonArray(sheet.features),
+    weapons: coerceJsonArray(sheet.weapons),
+    healingActions: coerceJsonArray(sheet.healingActions),
+    buffActions: coerceJsonArray(sheet.buffActions),
+    equipment: coerceJsonArray(sheet.equipment),
+    magicItems: coerceJsonArray(sheet.magicItems),
+    sorceryPoints:
+      sheet.sorceryPoints != null && typeof sheet.sorceryPoints === 'object' && !Array.isArray(sheet.sorceryPoints)
+        ? sheet.sorceryPoints
+        : null,
+  }
+}
+
 export const createDataSlice = (set, get) => ({
   spellCompendium: {},
   knownConditions: [],
@@ -290,7 +322,7 @@ export const createDataSlice = (set, get) => ({
         if (sheet.id === 'ilya' && !shouldSkipLegacyPlayerSanitize(row.homebrew_json)) {
           sheet = sanitizeIlyaSheet(sheet)
         }
-        playerCharacters[row.id] = sheet
+        playerCharacters[row.id] = coercePlayerSheetShape(sheet)
       }
       const knownConditions = (conditionRows || []).map((row) => ({
         index: row.source_index,
@@ -332,7 +364,8 @@ export const createDataSlice = (set, get) => ({
       const validStates = filterValidCharacterStateRows(charData || [])
       if (validStates.length > 0) {
         const { characters } = get()
-        const updated = characters.map((c) => {
+        const roster = Array.isArray(characters) ? characters : []
+        const updated = roster.map((c) => {
           const saved = validStates.find((d) => d.id === c.id)
           if (!saved) return c
           return mergeCharacterStateIntoRuntimeRow({ ...c }, saved)

@@ -52,6 +52,7 @@ export function toPlayerNarrativeSession(dbSession) {
       order: s.order || 0,
       title: s.title,
       subtitle: s.player_description || s.subtitle || s.summary || '',
+      image_url: s.image_url || '',
       beats: (s.beats || [])
         .map(b => ({
           id: b.id,
@@ -59,6 +60,7 @@ export function toPlayerNarrativeSession(dbSession) {
           title: b.title || '',
           type: b.type,
           playerText: String(b.player_text || b.playerText || '').trim(),
+          flavour_text: String(b.flavour_text || b.flavourText || '').trim(),
         }))
         .sort((a, b) => (a.order || 0) - (b.order || 0)),
     })).sort((a, b) => a.order - b.order),

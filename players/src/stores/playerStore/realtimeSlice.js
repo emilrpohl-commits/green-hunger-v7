@@ -58,7 +58,8 @@ export const createRealtimeSlice = (set, get) => ({
       }, (payload) => {
         if (payload.new) {
           const { characters } = get()
-          const updated = characters.map((c) => {
+          const roster = Array.isArray(characters) ? characters : []
+          const updated = roster.map((c) => {
             if (c.id !== payload.new.id) return c
             return mergeCharacterStateIntoRuntimeRow({ ...c }, payload.new)
           })

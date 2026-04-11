@@ -275,7 +275,7 @@ export default function ActionsTab({
             </div>
           </div>
 
-          {char.buffActions.map(ba => (
+          {(Array.isArray(char.buffActions) ? char.buffActions : []).map(ba => (
             <div key={ba.name} style={{
               background: 'var(--bg-raised)', border: '1px solid var(--border)',
               borderRadius: 'var(--radius-lg)', padding: '12px 14px'

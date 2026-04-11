@@ -35,7 +35,8 @@ export default function App() {
     }
   }, [])
 
-  const ilyaLinkedToPlayer = characters.some(
+  const roster = Array.isArray(characters) ? characters : []
+  const ilyaLinkedToPlayer = roster.some(
     (c) => c.id === 'ilya' && String(c.assignedPcId || '') === String(loggedInAs || '')
   ) || String(ilyaAssignedTo || '') === String(loggedInAs || '')
 

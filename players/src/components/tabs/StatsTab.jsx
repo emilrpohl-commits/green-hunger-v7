@@ -2,11 +2,18 @@ import React from 'react'
 import { Section, RollBtn } from '../ui/Section'
 
 export default function StatsTab({ char, rollSave, rollSkill }) {
+  const abilityScores = char?.abilityScores && typeof char.abilityScores === 'object' && !Array.isArray(char.abilityScores) ? char.abilityScores : {}
+  const savingThrows = Array.isArray(char.savingThrows) ? char.savingThrows : []
+  const skills = Array.isArray(char.skills) ? char.skills : []
+  const passiveScores = char?.passiveScores && typeof char.passiveScores === 'object' && !Array.isArray(char.passiveScores) ? char.passiveScores : {}
+  const weapons = Array.isArray(char.weapons) ? char.weapons : []
+  const st = char?.stats && typeof char.stats === 'object' && !Array.isArray(char.stats) ? char.stats : {}
+
   return (
     <>
       <Section title="Ability Scores">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
-          {Object.entries(char.abilityScores).map(([stat, val]) => (
+          {Object.entries(abilityScores).map(([stat, val]) => (
             <div key={stat} style={{
               background: 'var(--bg-raised)', border: '1px solid var(--border)',
               borderRadius: 'var(--radius)', padding: '10px 4px', textAlign: 'center'
@@ -42,7 +49,7 @@ export default function StatsTab({ char, rollSave, rollSkill }) {
 
       <Section title="Skills">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {char.skills.map(s => (
+          {skills.map(s => (
             <div key={s.name} style={{
               display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0',
               borderBottom: '1px solid var(--border)',
@@ -79,7 +86,7 @@ export default function StatsTab({ char, rollSave, rollSkill }) {
 
       <Section title="Passive Scores">
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          {Object.entries(char.passiveScores).map(([k, v]) => (
+          {Object.entries(passiveScores).map(([k, v]) => (
             <div key={k} style={{ textAlign: 'center' }}>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, color: 'var(--text-primary)', fontWeight: 500 }}>{v}</div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', marginTop: 2 }}>{k}</div>
@@ -89,7 +96,7 @@ export default function StatsTab({ char, rollSave, rollSkill }) {
       </Section>
 
       <Section title="Weapons & Attacks">
-        {char.weapons.map(w => (
+        {weapons.map(w => (
           <div key={w.name} style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
             padding: '6px 0', borderBottom: '1px solid var(--border)'
@@ -105,7 +112,7 @@ export default function StatsTab({ char, rollSave, rollSkill }) {
           </div>
         ))}
         <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>
-          Spell Attack: {char.stats.spellAttack} · Save DC: {char.stats.spellSaveDC}
+          Spell Attack: {st.spellAttack ?? '—'} · Save DC: {st.spellSaveDC ?? '—'}
         </div>
       </Section>
 
