@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
 import { validateStatBlock } from '@shared/lib/statBlockActions.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
 import PortraitUploadField from '../../components/PortraitUploadField.jsx'
+import { uploadAudioFile } from '@shared/lib/audioStorage.js'
 
 const ABILITY_SCORES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
 const SIZES = ['Tiny', 'Small', 'Medium', 'Large', 'Huge', 'Gargantuan']
@@ -44,6 +45,7 @@ function blankStatBlock() {
     dm_notes: [],
     tags: [],
     slug: '',
+    spellcasting: {},
     portrait_original_storage_path: null,
     portrait_crop: { unit: 'relative', x: 0.12, y: 0.08, width: 0.76, height: 0.84, zoom: 1.0 },
     portrait_thumb_storage_path: null,
@@ -86,6 +88,7 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
           combat_prompts: sb.combat_prompts || [],
           dm_notes: Array.isArray(sb.dm_notes) ? sb.dm_notes : sb.dm_notes ? [sb.dm_notes] : [],
           tags: sb.tags || [],
+          spellcasting: sb.spellcasting && typeof sb.spellcasting === 'object' ? { ...sb.spellcasting } : {},
           portrait_original_storage_path: sb.portrait_original_storage_path || null,
           portrait_crop: sb.portrait_crop || blankStatBlock().portrait_crop,
           portrait_thumb_storage_path: sb.portrait_thumb_storage_path || null,
@@ -184,6 +187,7 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
     { id: 'abilities', label: 'Abilities' },
     { id: 'traits', label: 'Traits' },
     { id: 'actions', label: 'Actions' },
+    { id: 'spells', label: 'Spellbook' },
     { id: 'extras', label: 'Prompts & Notes' },
   ]
 
@@ -469,6 +473,8 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
               onChange={v => update('actions', v)}
               labelStyle={labelStyle}
               inputStyle={inputStyle}
+              campaignId={campaign?.id}
+              statBlockId={statBlockId || 'new'}
             />
             <SectionDivider label="Bonus Actions" />
             <ActionListField
@@ -477,6 +483,8 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
               onChange={v => update('bonus_actions', v)}
               labelStyle={labelStyle}
               inputStyle={inputStyle}
+              campaignId={campaign?.id}
+              statBlockId={statBlockId || 'new'}
             />
             <SectionDivider label="Reactions" />
             <NameDescListField
@@ -493,6 +501,16 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
               labelStyle={labelStyle}
             />
           </div>
+        )}
+
+        {activeTab === 'spells' && (
+          <StatBlockSpellCompendiumSection
+            form={form}
+            setForm={setForm}
+            labelStyle={labelStyle}
+            inputStyle={inputStyle}
+            mono={mono}
+          />
         )}
 
         {activeTab === 'extras' && (
@@ -513,6 +531,138 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
             />
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Spell compendium refs (stored in stat_blocks.spellcasting.compendium_refs)
+// ---------------------------------------------------------------------------
+
+function StatBlockSpellCompendiumSection({ form, setForm, labelStyle, inputStyle, mono }) {
+  const compendiumSpells = useCampaignStore((s) => s.compendiumSpells)
+  const [q, setQ] = useState('')
+  const sc = form.spellcasting && typeof form.spellcasting === 'object' ? form.spellcasting : {}
+  const refs = Array.isArray(sc.compendium_refs) ? sc.compendium_refs : []
+
+  const pickList = useMemo(() => {
+    const qq = q.trim().toLowerCase()
+    return (compendiumSpells || [])
+      .filter((s) => {
+        if (!qq) return true
+        const n = (s.name || '').toLowerCase()
+        const sid = (s.spell_id || '').toLowerCase()
+        return n.includes(qq) || sid.includes(qq)
+      })
+      .slice(0, 35)
+  }, [compendiumSpells, q])
+
+  const patchSpellcasting = (patch) => {
+    setForm((f) => ({
+      ...f,
+      spellcasting: { ...(typeof f.spellcasting === 'object' ? f.spellcasting : {}), ...patch },
+    }))
+  }
+
+  const addSpell = (spell) => {
+    const sid = spell.spell_id
+    if (!sid || refs.some((r) => r.spell_id === sid)) return
+    patchSpellcasting({
+      compendium_refs: [...refs, { spell_id: sid, name: spell.name, level: spell.level }],
+    })
+  }
+
+  const removeAt = (idx) => {
+    patchSpellcasting({ compendium_refs: refs.filter((_, i) => i !== idx) })
+  }
+
+  return (
+    <div style={{ maxWidth: 700 }}>
+      <SectionDivider label="Compendium spells" />
+      <p style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.55, margin: '0 0 14px' }}>
+        Attach spells by stable <strong style={{ color: 'var(--text-secondary)' }}>spell_id</strong> for casters. Preserves summon / targeting metadata from the compendium row at runtime. Existing SRD{' '}
+        <strong style={{ color: 'var(--text-secondary)' }}>spellcasting</strong> JSON (slots, lists) is left intact — this list is additive.
+      </p>
+      <label style={labelStyle}>Search compendium</label>
+      <input
+        style={{ ...inputStyle, marginBottom: 12 }}
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Spell name or spell_id…"
+      />
+      <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
+        {pickList.map((s) => {
+          const sid = s.spell_id
+          const has = refs.some((r) => r.spell_id === sid)
+          return (
+            <div key={sid} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+              <span style={{ flex: 1, color: 'var(--text-primary)' }}>
+                {s.name}{' '}
+                <span style={{ ...mono, fontSize: 9, color: 'var(--text-muted)' }}>Lv{s.level}</span>
+              </span>
+              <button
+                type="button"
+                disabled={has}
+                onClick={() => addSpell(s)}
+                style={{
+                  padding: '4px 10px',
+                  ...mono,
+                  fontSize: 9,
+                  textTransform: 'uppercase',
+                  background: has ? 'transparent' : 'var(--green-dim)',
+                  border: `1px solid ${has ? 'var(--border)' : 'var(--green-mid)'}`,
+                  borderRadius: 'var(--radius)',
+                  color: has ? 'var(--text-muted)' : 'var(--green-bright)',
+                  cursor: has ? 'default' : 'pointer',
+                }}
+              >
+                {has ? 'Added' : 'Add'}
+              </button>
+            </div>
+          )
+        })}
+      </div>
+      <SectionDivider label={`Attached (${refs.length})`} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {refs.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No compendium spells linked.</div>}
+        {refs.map((r, idx) => (
+          <div
+            key={`${r.spell_id}-${idx}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '10px 12px',
+              background: 'var(--bg-raised)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+            }}
+          >
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>{r.name || r.spell_id}</div>
+              <div style={{ ...mono, fontSize: 9, color: 'var(--text-muted)' }}>
+                {r.spell_id} · Lv{r.level ?? '—'}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => removeAt(idx)}
+              style={{
+                padding: '4px 10px',
+                ...mono,
+                fontSize: 9,
+                background: 'transparent',
+                border: '1px solid rgba(196,64,64,0.35)',
+                borderRadius: 'var(--radius)',
+                color: 'var(--danger)',
+                cursor: 'pointer',
+              }}
+            >
+              Remove
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -684,8 +834,8 @@ function NameDescListField({ label, items = [], onChange, labelStyle }) {
   )
 }
 
-function ActionListField({ label, items = [], onChange, labelStyle, inputStyle }) {
-  const add = () => onChange([...items, { name: '', type: 'attack', toHit: 0, reach: '5 ft.', damage: '', effect: '', desc: '' }])
+function ActionListField({ label, items = [], onChange, labelStyle, inputStyle, campaignId, statBlockId }) {
+  const add = () => onChange([...items, { name: '', type: 'attack', toHit: 0, reach: '5 ft.', damage: '', effect: '', desc: '', sound_effect_url: '' }])
   const remove = (i) => onChange(items.filter((_, idx) => idx !== i))
   const updateItem = (i, field, val) => {
     onChange(items.map((item, idx) => idx === i ? { ...item, [field]: val } : item))
@@ -739,6 +889,55 @@ function ActionListField({ label, items = [], onChange, labelStyle, inputStyle }
             rows={2}
             style={{ width: '100%', padding: '8px 10px', background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.6, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
           />
+
+          {(item.type === 'attack' || item.type === 'save') && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+              <div style={{ ...mono, fontSize: 8, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Attack / power SFX (optional)</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                <input
+                  style={{ ...inputStyle, flex: 1, minWidth: 160, fontSize: 11 }}
+                  value={item.sound_effect_url || ''}
+                  onChange={e => updateItem(i, 'sound_effect_url', e.target.value)}
+                  placeholder="audio path or URL"
+                />
+                <label style={{
+                  padding: '6px 10px',
+                  borderRadius: 'var(--radius)',
+                  border: '1px solid var(--border)',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 9,
+                  textTransform: 'uppercase',
+                  cursor: campaignId ? 'pointer' : 'not-allowed',
+                  opacity: campaignId ? 1 : 0.5,
+                }}
+                >
+                  Upload
+                  <input
+                    type="file"
+                    accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav"
+                    hidden
+                    disabled={!campaignId}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      e.target.value = ''
+                      if (!file || !campaignId) return
+                      try {
+                        const { storagePath } = await uploadAudioFile({
+                          file,
+                          campaignId,
+                          category: 'monster-sfx',
+                          entityId: `${statBlockId || 'new'}-${i}`,
+                        })
+                        updateItem(i, 'sound_effect_url', storagePath)
+                      } catch (err) {
+                        console.error(err)
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+          )}
         </div>
       ))}
       <button onClick={add} style={{ padding: '7px 16px', background: 'transparent', border: '1px dashed var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 10, textTransform: 'uppercase', width: '100%' }}>

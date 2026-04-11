@@ -9,6 +9,7 @@ import {
   buildSavePromptDamageMeta,
 } from '@shared/lib/combatRules.js'
 import { rollDie, parseDmgString, parseDamageFromStatblock } from '../constants.js'
+import { playDmSfx } from '@shared/lib/sfxEngine.js'
 
 /**
  * ActionsList
@@ -115,6 +116,7 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
 
     const d20    = rollDie(20)
     const toHit  = Number(selected.toHit ?? atkBonus) || 0
+    playDmSfx(selected.sound_effect_url || selected.soundEffectUrl)
     const modded = applyDeterministicRollModifiers({ combatant, baseRoll: d20 + toHit, rollType: 'attack' })
     const total  = modded.total
     const crit   = d20 === 20

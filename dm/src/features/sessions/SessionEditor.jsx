@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
+import { uploadSessionMapVideo } from '@shared/lib/sessionMapStorage.js'
 
 export default function SessionEditor({ sessionId, onClose, onEditScene }) {
+  const campaign = useCampaignStore(s => s.campaign)
   const sessions = useCampaignStore(s => s.sessions)
   const saveSession = useCampaignStore(s => s.saveSession)
   const deleteSession = useCampaignStore(s => s.deleteSession)
@@ -12,6 +14,7 @@ export default function SessionEditor({ sessionId, onClose, onEditScene }) {
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState(null)
+  const [mapUploadBusy, setMapUploadBusy] = useState(false)
 
   useEffect(() => {
     if (session) {
@@ -25,6 +28,7 @@ export default function SessionEditor({ sessionId, onClose, onEditScene }) {
         contingency_notes: session.contingency_notes || '',
         post_session_notes: session.post_session_notes || '',
         notes: session.notes || '',
+        session_maps: Array.isArray(session.session_maps) ? session.session_maps : [],
       })
     }
   }, [sessionId, sessions])
@@ -110,6 +114,83 @@ export default function SessionEditor({ sessionId, onClose, onEditScene }) {
             <label style={labelStyle}>Post-Session Notes</label>
             <textarea style={{ ...taStyle }} rows={3} value={form.post_session_notes || ''} onChange={e => setForm(f => ({ ...f, post_session_notes: e.target.value }))} />
           </div>
+
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', borderBottom: '1px solid var(--border)', paddingBottom: 6, marginBottom: 16, marginTop: 24 }}>
+            Maps (MP4 / WEBM)
+          </div>
+          <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            Dungeon Alchemist and similar exports. Stored in Supabase; Run mode → Maps tab to play. Save session after changes.
+          </p>
+          <label style={{
+            display: 'inline-block',
+            marginBottom: 14,
+            padding: '8px 14px',
+            borderRadius: 'var(--radius)',
+            border: '1px solid var(--green-mid)',
+            background: 'var(--green-dim)',
+            color: 'var(--green-bright)',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10,
+            textTransform: 'uppercase',
+            cursor: mapUploadBusy || !campaign?.id ? 'not-allowed' : 'pointer',
+            opacity: mapUploadBusy ? 0.6 : 1,
+          }}
+          >
+            {mapUploadBusy ? 'Uploading…' : '+ Upload map video'}
+            <input
+              type="file"
+              accept="video/mp4,video/webm"
+              hidden
+              disabled={mapUploadBusy || !campaign?.id}
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                e.target.value = ''
+                if (!file || !campaign?.id || !session?.id) return
+                setMapUploadBusy(true)
+                try {
+                  const { storagePath } = await uploadSessionMapVideo({
+                    file,
+                    campaignId: campaign.id,
+                    sessionId: session.id,
+                  })
+                  const name = window.prompt('Map name', file.name.replace(/\.[^.]+$/, '') || 'Map') || 'Map'
+                  const maps = [...(form.session_maps || [])]
+                  maps.push({
+                    id: crypto.randomUUID(),
+                    name,
+                    videoUrl: storagePath,
+                  })
+                  setForm((f) => ({ ...f, session_maps: maps }))
+                } catch (err) {
+                  setSaveMsg({ type: 'error', text: String(err?.message || err) })
+                }
+                setMapUploadBusy(false)
+              }}
+            />
+          </label>
+          {(form.session_maps || []).map((m, idx) => (
+            <div key={m.id || idx} style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8, padding: '10px 12px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
+              <input
+                style={{ ...inputStyle, flex: 1 }}
+                value={m.name || ''}
+                onChange={(e) => {
+                  const maps = [...(form.session_maps || [])]
+                  maps[idx] = { ...maps[idx], name: e.target.value }
+                  setForm((f) => ({ ...f, session_maps: maps }))
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const maps = (form.session_maps || []).filter((_, j) => j !== idx)
+                  setForm((f) => ({ ...f, session_maps: maps }))
+                }}
+                style={{ padding: '6px 10px', fontSize: 10, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', background: 'transparent', border: '1px solid rgba(196,64,64,0.35)', borderRadius: 'var(--radius)', color: 'var(--danger)', cursor: 'pointer' }}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
 
           {/* Scenes */}
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', borderBottom: '1px solid var(--border)', paddingBottom: 6, marginBottom: 16, marginTop: 24 }}>

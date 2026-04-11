@@ -2,6 +2,8 @@ import { supabase } from '@shared/lib/supabase.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
 import { loadSessionContentTree } from '@shared/lib/sessionTreeLoader.js'
 import { filterValidSpellRows } from '@shared/lib/validation/storeBoundaries.js'
+import { compendiumRowToDmListRow } from '@shared/lib/spellCompendium/mappers.js'
+import { fetchSpellCompendiumAll } from '@shared/lib/spellCompendium/fetchPaged.js'
 
 async function fetchStatBlocksForCampaignPaged(campaignId, pageSize = 250) {
   const rows = []
@@ -152,9 +154,39 @@ export function createDataSlice(set, get) {
         const { data: spellsRaw } = await supabase
           .from('spells')
           .select('*')
-          .or(`campaign_id.eq.${campaign.id},campaign_id.is.null`)
-          .order('level, name')
-        const spells = filterValidSpellRows(spellsRaw || [])
+          .eq('campaign_id', campaign.id)
+          .order('level', { ascending: true })
+          .order('name', { ascending: true })
+        const campaignSpellsOnly = filterValidSpellRows(spellsRaw || [])
+
+        let compendiumTableRows = []
+        try {
+          compendiumTableRows = await fetchSpellCompendiumAll(supabase)
+        } catch (e) {
+          console.warn('spell_compendium load:', e?.message || e)
+        }
+
+        let legacyGlobalSpells = []
+        try {
+          const { data: leg } = await supabase
+            .from('spells')
+            .select('*')
+            .is('campaign_id', null)
+            .order('level', { ascending: true })
+            .order('name', { ascending: true })
+          legacyGlobalSpells = filterValidSpellRows(leg || [])
+        } catch (e) {
+          console.warn('legacy global spells load:', e?.message || e)
+        }
+
+        const compendiumMapped = compendiumTableRows.map(compendiumRowToDmListRow).filter(Boolean)
+        const compendiumIds = new Set(compendiumMapped.map((s) => s.spell_id))
+        const legacyMerged = legacyGlobalSpells
+          .filter((s) => s.spell_id && !compendiumIds.has(s.spell_id))
+          .map((s) => ({ ...s, _compendium: false, _sourceType: 'legacy' }))
+        const compendiumSpells = [...compendiumMapped, ...legacyMerged].sort(
+          (a, b) => (a.level - b.level) || String(a.name || '').localeCompare(String(b.name || ''))
+        )
 
         const { data: npcs } = await supabase
           .from('npcs')
@@ -276,9 +308,6 @@ export function createDataSlice(set, get) {
           archivedSessionsRaw.map(s => get().loadSessionContent(s))
         )
 
-        const campaignSpells = (spells || []).filter(s => s.campaign_id === campaign.id)
-        const compendiumSpells = (spells || []).filter(s => s.campaign_id == null)
-
         set({
           campaign,
           adventureId,
@@ -286,7 +315,7 @@ export function createDataSlice(set, get) {
           statBlocks: activeStatBlocks,
           archivedStatBlocks,
           statBlockMap,
-          spells: campaignSpells,
+          spells: campaignSpellsOnly,
           compendiumSpells,
           npcs: npcs || [],
           assets: assets || [],
@@ -309,6 +338,33 @@ export function createDataSlice(set, get) {
     },
 
     loadSessionContent: async (session) => loadSessionContentTree(supabase, session),
+
+    refreshCompendiumSpells: async () => {
+      try {
+        const compendiumTableRows = await fetchSpellCompendiumAll(supabase)
+        let legacyGlobalSpells = []
+        const { data: leg } = await supabase
+          .from('spells')
+          .select('*')
+          .is('campaign_id', null)
+          .order('level', { ascending: true })
+          .order('name', { ascending: true })
+        legacyGlobalSpells = filterValidSpellRows(leg || [])
+        const compendiumMapped = compendiumTableRows.map(compendiumRowToDmListRow).filter(Boolean)
+        const compendiumIds = new Set(compendiumMapped.map((s) => s.spell_id))
+        const legacyMerged = legacyGlobalSpells
+          .filter((s) => s.spell_id && !compendiumIds.has(s.spell_id))
+          .map((s) => ({ ...s, _compendium: false, _sourceType: 'legacy' }))
+        const compendiumSpells = [...compendiumMapped, ...legacyMerged].sort(
+          (a, b) => (a.level - b.level) || String(a.name || '').localeCompare(String(b.name || ''))
+        )
+        set({ compendiumSpells })
+        return { ok: true, count: compendiumSpells.length }
+      } catch (e) {
+        console.warn('refreshCompendiumSpells:', e?.message || e)
+        return { ok: false, error: e?.message || String(e) }
+      }
+    },
 
     refreshSession: async (sessionId) => {
       const { data: session } = await supabase.from('sessions').select('*').eq('id', sessionId).single()

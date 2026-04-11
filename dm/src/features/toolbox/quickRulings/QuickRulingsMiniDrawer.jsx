@@ -16,34 +16,7 @@ export default function QuickRulingsMiniDrawer() {
 
   const [section, setSection] = useState('damage')
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        title="Quick rulings"
-        style={{
-          position: 'fixed',
-          right: 16,
-          bottom: 16,
-          zIndex: 380,
-          padding: '10px 14px',
-          borderRadius: 'var(--radius)',
-          border: '1px solid var(--green-mid)',
-          background: 'var(--green-dim)',
-          color: 'var(--green-bright)',
-          fontFamily: 'var(--font-mono)',
-          fontSize: 10,
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          cursor: 'pointer',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-        }}
-      >
-        ⚡ Rulings
-      </button>
-    )
-  }
+  if (!open) return null
 
   if (collapsed) {
     return (

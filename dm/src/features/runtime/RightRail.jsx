@@ -7,6 +7,8 @@ import RevealPanel from '../reveals/RevealPanel'
 import { featureFlags } from '@shared/lib/featureFlags.js'
 import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
 import { DmRuntimeCharacterCard, CompanionsAndNpcsSection } from './DmPartyCards.jsx'
+import CollapsibleDmPartyPanel from './CollapsibleDmPartyPanel.jsx'
+import SessionMapsRunPanel from './SessionMapsRunPanel.jsx'
 
 function emptyEncounterParticipant() {
   return { stat_block_id: '', count: 1, initiative: '' }
@@ -679,9 +681,10 @@ function RollsPanel() {
 
 const TAB_COLOUR = {
   party: 'var(--green-bright)',
+  maps: '#6090b0',
   encounters: 'var(--danger)',
   rolls: 'var(--info)',
-  reveal: 'var(--rot-bright)'
+  reveal: 'var(--rot-bright)',
 }
 
 export default function RightRail({ onCollapse = null }) {
@@ -689,7 +692,7 @@ export default function RightRail({ onCollapse = null }) {
   const playerRolls = useCombatStore(s => s.playerRolls)
   const [tab, setTab] = useState('party')
 
-  const tabs = ['party', 'encounters', 'rolls', 'reveal']
+  const tabs = ['party', 'maps', 'encounters', 'rolls', 'reveal']
 
   return (
     <div style={{
@@ -761,10 +764,12 @@ export default function RightRail({ onCollapse = null }) {
           >
             Party
           </div>
-          {characters.filter(c => !c.isNPC).map(char => (
-            <DmRuntimeCharacterCard key={char.id} char={char} tagLabel="Player" />
-          ))}
+          <CollapsibleDmPartyPanel characters={characters.filter((c) => !c.isNPC)} tagLabel="Player" />
           <CompanionsAndNpcsSection characters={characters} />
+        </div>
+      ) : tab === 'maps' ? (
+        <div style={{ flex: 1, overflow: 'auto' }}>
+          <SessionMapsRunPanel />
         </div>
       ) : tab === 'encounters' ? (
         <div style={{ flex: 1, overflow: 'auto' }}>

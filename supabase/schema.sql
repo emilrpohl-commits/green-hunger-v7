@@ -74,6 +74,7 @@ create table if not exists sessions (
   post_session_notes text,
   archived_at timestamptz,
   notes text,
+  session_maps jsonb default '[]',
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -100,6 +101,8 @@ create table if not exists scenes (
   fail_forward_notes text,
   scaling_notes text,
   is_published boolean default false,         -- controls player app visibility
+  image_url text,
+  scene_images jsonb default '[]',
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -145,6 +148,7 @@ create table if not exists beats (
   player_text text,                           -- player-safe version if different
   dm_notes text,
   mechanical_effect text,
+  flavour_text text,
   stat_block_id uuid,                         -- fk to stat_blocks
   encounter_id uuid,                          -- fk to encounters
   asset_ids uuid[],                           -- maps/handouts to reveal
@@ -237,6 +241,7 @@ create table if not exists spells (
   imported_at timestamptz,
   classes text[],
   notes text,
+  sound_effect_url text,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -250,6 +255,60 @@ create table if not exists spells_raw (
   imported_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+-- Canonical spell compendium (spreadsheet / full dataset; not per-campaign)
+create table if not exists spell_compendium (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null,
+  spell_id text not null,
+  name text not null,
+  level int not null default 0,
+  school text,
+  casting_time text,
+  duration text,
+  range text,
+  area text,
+  attack text,
+  save text,
+  damage_effect text,
+  ritual boolean default false,
+  concentration boolean default false,
+  verbal boolean default false,
+  somatic boolean default false,
+  material boolean default false,
+  material_text text,
+  source text,
+  details text,
+  source_link text,
+  summon_stat_block text,
+  targeting text,
+  max_targets text,
+  tags text[] default array[]::text[],
+  search_text text,
+  sound_effect_url text,
+  source_type text not null default 'compendium',
+  resolution_type text,
+  target_mode text,
+  save_ability text,
+  attack_type text,
+  components jsonb default '{"V":false,"S":false,"M":null}',
+  rules_json jsonb default '{}',
+  import_batch text,
+  imported_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+create unique index if not exists spell_compendium_slug_unique on spell_compendium (slug);
+create unique index if not exists spell_compendium_spell_id_unique on spell_compendium (spell_id);
+create index if not exists spell_compendium_level_idx on spell_compendium (level);
+create index if not exists spell_compendium_school_lower_idx on spell_compendium (lower(school));
+create index if not exists spell_compendium_source_idx on spell_compendium (lower(source));
+create index if not exists spell_compendium_search_idx
+  on spell_compendium using gin (
+    to_tsvector(
+      'english',
+      coalesce(name, '') || ' ' || coalesce(details, '') || ' ' || coalesce(damage_effect, '') || ' ' || coalesce(school, '') || ' ' || coalesce(source, '') || ' ' || coalesce(search_text, '')
+    )
+  );
 
 -- Player-side character spell mapping (used by players/src/stores/playerStore.js)
 create table if not exists character_spells (
@@ -809,6 +868,7 @@ alter table consequences enable row level security;
 alter table stat_blocks enable row level security;
 alter table spells enable row level security;
 alter table spells_raw enable row level security;
+alter table spell_compendium enable row level security;
 alter table npcs enable row level security;
 alter table encounters enable row level security;
 alter table lore_cards enable row level security;
@@ -855,6 +915,7 @@ begin
     ('stat_blocks',     'allow_all_stat_blocks'),
     ('spells',          'allow_all_spells'),
     ('spells_raw',      'allow_all_spells_raw'),
+    ('spell_compendium','allow_all_spell_compendium'),
     ('npcs',            'allow_all_npcs'),
     ('encounters',      'allow_all_encounters'),
     ('lore_cards',      'allow_all_lore_cards'),

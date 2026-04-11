@@ -86,7 +86,7 @@ export default function TopBar({ onSwitchToBuilder, onOpenToolbox }) {
             <button
               type="button"
               onClick={() => onOpenToolbox('wild')}
-              title="Full DM toolbox"
+              title="Full DM toolbox (includes Wild Magic)"
               style={{
                 padding: '4px 12px', border: '1px solid var(--green-mid)', cursor: 'pointer',
                 borderRadius: 'var(--radius)', background: 'var(--green-dim)',
@@ -95,19 +95,6 @@ export default function TopBar({ onSwitchToBuilder, onOpenToolbox }) {
               }}
             >
               Toolbox
-            </button>
-            <button
-              type="button"
-              onClick={() => onOpenToolbox('wild')}
-              title="Open Wild Magic (toolbox)"
-              style={{
-                padding: '4px 10px', border: '1px solid var(--border)', cursor: 'pointer',
-                borderRadius: 'var(--radius)', background: 'transparent',
-                color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
-                fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em',
-              }}
-            >
-              Surge
             </button>
           </div>
         )}

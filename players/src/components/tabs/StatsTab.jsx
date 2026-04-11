@@ -34,7 +34,7 @@ export default function StatsTab({ char, rollSave, rollSkill }) {
               <span style={{ fontSize: 13, color: s.proficient ? 'var(--text-primary)' : 'var(--text-muted)', flex: 1 }}>
                 {s.name}
               </span>
-              <RollBtn colour={char.colour} small onClick={() => rollSave(s)} />
+              <RollBtn colour={char.colour} small onClick={() => rollSave(s, { contextLabel: `${s.name} save` })} />
             </div>
           ))}
         </div>
@@ -67,7 +67,7 @@ export default function StatsTab({ char, rollSave, rollSkill }) {
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: char.colour, textTransform: 'uppercase', letterSpacing: '0.08em' }}>exp</span>
               )}
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)' }}>{s.ability}</span>
-              <RollBtn colour={s.proficient ? char.colour : 'var(--text-muted)'} small onClick={() => rollSkill(s)} />
+              <RollBtn colour={s.proficient ? char.colour : 'var(--text-muted)'} small onClick={() => rollSkill(s, { contextLabel: `${s.name} check` })} />
             </div>
           ))}
         </div>

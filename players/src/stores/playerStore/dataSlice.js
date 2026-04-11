@@ -14,6 +14,8 @@ import {
   filterValidCharacterStateRows,
   filterValidSpellRows,
 } from '@shared/lib/validation/storeBoundaries.js'
+import { fetchSpellCompendiumAll } from '@shared/lib/spellCompendium/fetchPaged.js'
+import { compendiumRowToPlayerEntry } from '@shared/lib/spellCompendium/mappers.js'
 import { CHARACTERS } from '@shared/content/session1.js'
 import {
   normalizeSpellId, mergeSpellWithOverride, toEngineCompendiumSpell,
@@ -92,7 +94,7 @@ export const createDataSlice = (set, get) => ({
       const [
         { data: charRows },
         { data: spellRows },
-        { data: compendiumRows },
+        { data: spellsTableRows },
         { data: rulesSpellRows },
         { data: conditionRows },
         { data: sessionRow },
@@ -108,6 +110,13 @@ export const createDataSlice = (set, get) => ({
           : Promise.resolve({ data: [] }),
         supabase.from('session_state').select('campaign_id').eq('id', sessionRunId).maybeSingle(),
       ])
+
+      let spellCompendiumTableRows = []
+      try {
+        spellCompendiumTableRows = await fetchSpellCompendiumAll(supabase)
+      } catch (e) {
+        console.warn('spell_compendium load:', e?.message || e)
+      }
 
       let spellOverlays = []
       const campaignId = sessionRow?.campaign_id
@@ -140,16 +149,24 @@ export const createDataSlice = (set, get) => ({
       set({ charactersLoadError: null })
 
       const spellCompendium = {}
-      ;(filterValidSpellRows(compendiumRows || [])).forEach((row) => {
+      for (const crow of spellCompendiumTableRows || []) {
+        const entry = compendiumRowToPlayerEntry(crow)
+        if (entry?.spellId) spellCompendium[entry.spellId] = entry
+      }
+      const compendiumTableSpellIds = new Set(Object.keys(spellCompendium))
+
+      const spellsTableSpellToEntry = (row) => {
         const spellId = normalizeSpellId(row.spell_id || row.name)
-        if (!spellId) return
+        if (!spellId) return null
         const castingMeta = parseCastingTimeMeta(row.casting_time)
         const mechanic = row.rules_json?.inferred_mechanic || row.resolution_type || 'utility'
         const target = row.rules_json?.inferred_target
           || (row.target_mode && row.target_mode.startsWith('area') ? 'enemy' : null)
-        spellCompendium[spellId] = {
+        return {
           spellId,
           source_index: row.source_index || spellId,
+          compendiumSource: 'spells_table',
+          soundEffectUrl: row.sound_effect_url || null,
           name: row.name,
           level: row.level,
           school: row.school,
@@ -179,6 +196,19 @@ export const createDataSlice = (set, get) => ({
             area: row.area || {},
             rules: row.rules_json || {},
           },
+        }
+      }
+
+      ;(filterValidSpellRows(spellsTableRows || [])).forEach((row) => {
+        const spellId = normalizeSpellId(row.spell_id || row.name)
+        if (!spellId) return
+        if (row.campaign_id == null) {
+          if (compendiumTableSpellIds.has(spellId)) return
+          const entry = spellsTableSpellToEntry(row)
+          if (entry) spellCompendium[spellId] = entry
+        } else if (campaignId && row.campaign_id === campaignId) {
+          const entry = spellsTableSpellToEntry(row)
+          if (entry) spellCompendium[spellId] = entry
         }
       })
       ;(rulesSpellRows || []).forEach((row) => {

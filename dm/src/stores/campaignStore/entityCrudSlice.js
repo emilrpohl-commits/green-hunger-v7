@@ -32,6 +32,7 @@ const SPELL_DB_COLUMNS = [
   'source',
   'classes',
   'notes',
+  'sound_effect_url',
   'ruleset',
   'source_index',
   'source_url',
@@ -369,6 +370,22 @@ export function createEntityCrudSlice(set, get) {
       const { error } = await supabase.from('character_spells').insert(rowsToInsert)
       if (error) return { error: error.message }
       return { data: { inserted: rowsToInsert.length } }
+    },
+
+    assignSpellToCharacter: async (characterId, spellId) => {
+      if (!characterId || !spellId) return { error: 'Character and spell required.' }
+      return get().assignSpellsToCharacters({ spellIds: [spellId], characterIds: [characterId] })
+    },
+
+    removeCharacterSpellLink: async (characterId, spellId) => {
+      if (!characterId || !spellId) return { error: 'Character and spell required.' }
+      const { error } = await supabase
+        .from('character_spells')
+        .delete()
+        .eq('character_id', characterId)
+        .eq('spell_id', spellId)
+      if (error) return { error: error.message }
+      return { success: true }
     },
 
     saveAudioAsset: async (asset) => {
