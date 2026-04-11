@@ -1,5 +1,7 @@
-import React from 'react'
+import React, { useMemo, useState } from 'react'
 import SpellCard from '../SpellCard'
+import FilterChipRow from '../ui/FilterChipRow.jsx'
+import { ENTITY_FILTER_LABELS, matchesEntityFilter, spellToFilterTags } from '../../lib/entityFilters.js'
 
 export default function SpellsTab({
   char, spellSlots, activeSpell, spellSlotLevel, setSpellSlotLevel,
@@ -8,8 +10,34 @@ export default function SpellsTab({
   openSpell, closeSpell, castSpell, resolveSpellForCasting,
   combatActive,
 }) {
+  const [spellFilter, setSpellFilter] = useState('all')
+
+  const filteredSpellEntries = useMemo(() => {
+    const out = []
+    for (const [level, levelSpells] of Object.entries(char.spells || {})) {
+      for (const spell of levelSpells || []) {
+        const displaySpell = resolveSpellForCasting(spell)
+        const tags = spellToFilterTags(displaySpell)
+        if (!matchesEntityFilter(spellFilter, tags)) continue
+        out.push({ level, spell, displaySpell })
+      }
+    }
+    return out
+  }, [char, spellFilter, resolveSpellForCasting])
+
+  const spellsByLevel = useMemo(() => {
+    const m = {}
+    for (const row of filteredSpellEntries) {
+      if (!m[row.level]) m[row.level] = []
+      m[row.level].push(row)
+    }
+    return m
+  }, [filteredSpellEntries])
+
   return (
     <>
+      <FilterChipRow options={ENTITY_FILTER_LABELS} value={spellFilter} onChange={setSpellFilter} accent={char.colour} />
+
       <div style={{
         marginBottom: 14,
         padding: '8px 12px',
@@ -58,7 +86,13 @@ export default function SpellsTab({
         />
       )}
 
-      {Object.entries(char.spells).map(([level, levelSpells]) => {
+      {Object.keys(char.spells || {}).sort((a, b) => {
+        if (a === 'cantrips') return -1
+        if (b === 'cantrips') return 1
+        return Number(a) - Number(b)
+      }).map((level) => {
+        const levelSpells = spellsByLevel[level]
+        if (!levelSpells?.length) return null
         const isCantrips = level === 'cantrips'
         const slotData = !isCantrips ? (spellSlots[level] || null) : null
         const slotsRemaining = slotData ? Math.max(0, slotData.max - slotData.used) : null
@@ -109,8 +143,7 @@ export default function SpellsTab({
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {levelSpells.map(spell => {
-                const displaySpell = resolveSpellForCasting(spell)
+              {levelSpells.map(({ spell, displaySpell }) => {
                 const isActive = activeSpell?.name === displaySpell.name
                 const slotKey = displaySpell.minSlot || (displaySpell.level > 0 ? displaySpell.level : null)
                 const slot = slotKey ? (spellSlots[slotKey] || { max: 0, used: 0 }) : null

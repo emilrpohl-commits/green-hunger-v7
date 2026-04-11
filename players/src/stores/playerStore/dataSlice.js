@@ -2,7 +2,7 @@ import { supabase } from '@shared/lib/supabase.js'
 import { parseCastingTimeMeta } from '@shared/lib/combatRules.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
 import { getRulesetContext, getSessionRunId } from '@shared/lib/runtimeContext.js'
-import { buildPlayerRuntimeCharacters } from '@shared/lib/partyRoster.js'
+import { buildPlayerPartyRuntimeList } from '@shared/lib/partyRoster.js'
 import { applyHomebrewPlayerSheet, shouldSkipLegacyPlayerSanitize } from '@shared/lib/homebrewPlayerSheet.js'
 import { applySpellHomebrewOverlays } from '@shared/lib/mergeSpellHomebrew.js'
 import { fetchSessionWithContentById } from '@shared/lib/sessionTreeLoader.js'
@@ -237,6 +237,7 @@ export const createDataSlice = (set, get) => ({
           class: row.class, subclass: row.subclass, level: row.level,
           species: row.species, background: row.background,
           player: row.player, isNPC: row.is_npc, isActive: row.is_active,
+          assigned_pc_id: row.assigned_pc_id ?? null,
           image: row.image, colour: row.colour,
           portraitUrl: portraitUrl || row.image || null,
           portrait_original_storage_path: row.portrait_original_storage_path || null,
@@ -263,7 +264,7 @@ export const createDataSlice = (set, get) => ({
         name: row.name,
         desc: Array.isArray(row.payload?.desc) ? row.payload.desc.join('\n\n') : (row.payload?.desc || ''),
       }))
-      const runtimeCharacters = buildPlayerRuntimeCharacters(validChars, [], PLAYER_RUNTIME_CHARACTERS)
+      const runtimeCharacters = buildPlayerPartyRuntimeList(validChars, [], PLAYER_RUNTIME_CHARACTERS)
       set({
         playerCharacters: withSpellIds(playerCharacters),
         spellCompendium,
@@ -301,6 +302,7 @@ export const createDataSlice = (set, get) => ({
         const updated = characters.map(c => {
           const saved = validStates.find(d => d.id === c.id)
           if (!saved) return c
+          const tj = saved.tactical_json && typeof saved.tactical_json === 'object' ? saved.tactical_json : {}
           return {
             ...c,
             curHp: saved.cur_hp ?? c.curHp,
@@ -308,7 +310,11 @@ export const createDataSlice = (set, get) => ({
             concentration: saved.concentration ?? c.concentration,
             spellSlots: saved.spell_slots ?? c.spellSlots,
             deathSaves: saved.death_saves ?? c.deathSaves,
-            conditions: saved.conditions ?? c.conditions
+            conditions: saved.conditions ?? c.conditions,
+            tacticalJson: { ...(c.tacticalJson || {}), ...tj },
+            concentrationSpell: tj.concentrationSpell ?? c.concentrationSpell ?? null,
+            inspiration: typeof tj.inspiration === 'boolean' ? tj.inspiration : c.inspiration,
+            classResources: Array.isArray(tj.classResources) ? tj.classResources : (c.classResources || []),
           }
         })
         set({ characters: updated })
@@ -328,5 +334,85 @@ export const createDataSlice = (set, get) => ({
         sessionHydrationDetail: String(e?.message || e),
       })
     }
+  },
+
+  canEditCharacterState: (characterId) => {
+    const me = get().activeSessionUserId
+    if (!me || me === 'party') return false
+    if (characterId === me) return true
+    const { ilyaAssignedTo } = get()
+    if (characterId === 'ilya' && String(ilyaAssignedTo) === String(me)) return true
+    const row = get().characters.find((c) => c.id === characterId)
+    if (row?.isNPC && row?.assignedPcId != null && String(row.assignedPcId) === String(me)) return true
+    return false
+  },
+
+  upsertCharacterStateRow: async (characterId, patch) => {
+    if (!get().canEditCharacterState(characterId)) return
+    const { characters } = get()
+    const next = characters.map((c) => {
+      if (c.id !== characterId) return c
+      let merged = { ...c, ...patch }
+      if (patch.tacticalJson && typeof patch.tacticalJson === 'object') {
+        merged = {
+          ...merged,
+          tacticalJson: { ...(c.tacticalJson || {}), ...patch.tacticalJson },
+        }
+      }
+      return merged
+    })
+    set({ characters: next })
+    const char = next.find((c) => c.id === characterId)
+    if (!char) return
+    try {
+      await supabase.from('character_states').upsert({
+        id: characterId,
+        cur_hp: char.curHp,
+        temp_hp: char.tempHp,
+        concentration: char.concentration,
+        spell_slots: char.spellSlots,
+        death_saves: char.deathSaves,
+        conditions: char.conditions,
+        tactical_json: char.tacticalJson && typeof char.tacticalJson === 'object' ? char.tacticalJson : {},
+        updated_at: new Date().toISOString(),
+      })
+    } catch (e) {
+      console.error('player upsertCharacterStateRow', e)
+    }
+  },
+
+  updateMyCharacterHp: async (characterId, newHp) => {
+    const c = get().characters.find((x) => x.id === characterId)
+    if (!c || !get().canEditCharacterState(characterId)) return
+    const curHp = Math.max(0, Math.min(c.maxHp, newHp))
+    await get().upsertCharacterStateRow(characterId, { curHp })
+  },
+
+  updateMyCharacterTempHp: async (characterId, tempHp) => {
+    if (!get().canEditCharacterState(characterId)) return
+    await get().upsertCharacterStateRow(characterId, { tempHp: Math.max(0, tempHp) })
+  },
+
+  patchMyCharacterTacticalJson: async (characterId, partial) => {
+    if (!get().canEditCharacterState(characterId)) return
+    const c = get().characters.find((x) => x.id === characterId)
+    const prev = c?.tacticalJson && typeof c.tacticalJson === 'object' ? c.tacticalJson : {}
+    await get().upsertCharacterStateRow(characterId, { tacticalJson: { ...prev, ...partial } })
+  },
+
+  setMyCharacterConcentration: async (characterId, active, spellName = null) => {
+    if (!get().canEditCharacterState(characterId)) return
+    const c = get().characters.find((x) => x.id === characterId)
+    const prev = c?.tacticalJson && typeof c.tacticalJson === 'object' ? c.tacticalJson : {}
+    const tacticalJson = {
+      ...prev,
+      concentrationSpell: active ? (spellName ?? prev.concentrationSpell ?? '') : null,
+    }
+    await get().upsertCharacterStateRow(characterId, { concentration: !!active, tacticalJson })
+  },
+
+  setMyCharacterConditions: async (characterId, conditions) => {
+    if (!get().canEditCharacterState(characterId)) return
+    await get().upsertCharacterStateRow(characterId, { conditions: Array.isArray(conditions) ? conditions : [] })
   },
 })

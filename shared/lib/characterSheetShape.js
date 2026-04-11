@@ -82,6 +82,7 @@ export function blankDbCharacter(campaignId, partial = {}) {
     portrait_thumb_storage_path: partial.portrait_thumb_storage_path ?? null,
     colour: partial.colour || '#6f9b7a',
     is_npc: !!partial.is_npc,
+    assigned_pc_id: partial.assigned_pc_id ?? null,
     is_active: partial.is_active !== false,
     notes: partial.notes ?? '',
     stats: { ...DEFAULT_STATS, ...(partial.stats || {}) },

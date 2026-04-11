@@ -1,6 +1,14 @@
-import React from 'react'
+import React, { useMemo, useState } from 'react'
 import { Section } from '../ui/Section'
 import { isAttackRoll } from '../../lib/diceHelpers'
+import FilterChipRow from '../ui/FilterChipRow.jsx'
+import {
+  ENTITY_FILTER_LABELS,
+  matchesEntityFilter,
+  weaponToFilterTags,
+  healingActionToFilterTags,
+  buffActionToFilterTags,
+} from '../../lib/entityFilters.js'
 
 export default function ActionsTab({
   char, combatActive, enemies, partyChars, playerCharacters, characterId,
@@ -9,8 +17,27 @@ export default function ActionsTab({
   rollAttack, rollHeal, grantBardic,
   bardicInspirationUses, activeBuffs, spellSlots,
 }) {
+  const [actFilter, setActFilter] = useState('all')
+
+  const showAttack = useMemo(
+    () => actFilter === 'all' || matchesEntityFilter(actFilter, weaponToFilterTags()),
+    [actFilter]
+  )
+  const visibleHeals = useMemo(
+    () => (char.healingActions || []).filter((ha) => matchesEntityFilter(actFilter, healingActionToFilterTags(ha))),
+    [char.healingActions, actFilter]
+  )
+  const showHealSection = visibleHeals.length > 0
+  const showBuffs = useMemo(() => {
+    if (!char.buffActions?.length) return false
+    if (actFilter === 'all') return true
+    return matchesEntityFilter(actFilter, buffActionToFilterTags())
+  }, [char.buffActions, actFilter])
+
   return (
     <>
+      <FilterChipRow options={ENTITY_FILTER_LABELS} value={actFilter} onChange={setActFilter} accent={char.colour} />
+
       <Section title="⚔ Attack">
         {combatActive && enemies.length > 0 && (
           <div style={{ marginBottom: 14 }}>
@@ -63,7 +90,7 @@ export default function ActionsTab({
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {char.weapons.map(w => (
+          {showAttack && (char.weapons || []).map(w => (
             <div key={w.name} style={{
               background: 'var(--bg-raised)', border: '1px solid var(--border)',
               borderRadius: 'var(--radius-lg)', padding: '12px 14px',
@@ -91,10 +118,13 @@ export default function ActionsTab({
               </button>
             </div>
           ))}
+          {(char.weapons || []).length > 0 && !showAttack && (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>No attacks match this filter.</div>
+          )}
         </div>
       </Section>
 
-      {char.healingActions && char.healingActions.length > 0 && (
+      {char.healingActions && char.healingActions.length > 0 && showHealSection && (
         <Section title="💚 Heal">
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
@@ -136,7 +166,7 @@ export default function ActionsTab({
             </div>
           </div>
 
-          {char.healingActions.map(ha => (
+          {visibleHeals.map(ha => (
             <div key={ha.name} style={{
               background: 'var(--bg-raised)', border: '1px solid var(--border)',
               borderRadius: 'var(--radius-lg)', padding: '12px 14px',
@@ -203,7 +233,7 @@ export default function ActionsTab({
         </Section>
       )}
 
-      {char.buffActions && char.buffActions.length > 0 && (
+      {char.buffActions && char.buffActions.length > 0 && showBuffs && (
         <Section title="✨ Buffs">
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: char.colour, marginBottom: 10 }}>
             {bardicInspirationUses} / {char.buffActions[0]?.maxUses} uses remaining

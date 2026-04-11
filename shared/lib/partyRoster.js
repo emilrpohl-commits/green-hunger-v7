@@ -5,6 +5,7 @@
 
 import { CHARACTERS } from '@shared/content/session1.js'
 import { warnFallback } from './fallbackTelemetry.js'
+import { parseTacticalJson } from './tacticalCharacterShape.js'
 
 /** @param {Record<string, unknown>} c session1.CHARACTERS entry */
 export function runtimeRowFromSessionCharacter(c) {
@@ -21,12 +22,21 @@ export function runtimeRowFromSessionCharacter(c) {
     tempHp: c.tempHp ?? 0,
     ac: c.ac,
     initiative: typeof c.initiative === 'number' ? c.initiative : 0,
+    speed: c.speed ?? null,
+    abilityScores: c.abilityScores ?? c.stats?.abilityScores ?? {},
+    savingThrows: c.savingThrows ?? [],
     spellSlots: c.spellSlots,
     deathSaves: c.deathSaves,
     concentration: c.concentration ?? false,
     conditions: c.conditions ?? [],
     image: c.image || null,
     isNPC: !!c.isNPC,
+    assignedPcId: c.assignedPcId ?? null,
+    tacticalJson: {},
+    concentrationSpell: null,
+    portrait_thumb_storage_path: null,
+    portrait_original_storage_path: null,
+    colour: c.colour ?? null,
   }
 }
 
@@ -50,6 +60,7 @@ export function runtimeRowFromDbCharacter(row, fallback = {}) {
   }
   const maxHp = stats.maxHp ?? fallback.maxHp ?? 10
   const ac = stats.ac ?? fallback.ac ?? 10
+  const speed = stats.speed ?? fallback.speed ?? null
   const initRaw = stats.initiative ?? fallback.initiative ?? 0
   const initiative = typeof initRaw === 'number'
     ? initRaw
@@ -68,12 +79,45 @@ export function runtimeRowFromDbCharacter(row, fallback = {}) {
     tempHp: fallback.tempHp ?? 0,
     ac,
     initiative,
+    speed,
+    abilityScores: row.ability_scores ?? fallback.abilityScores ?? {},
+    savingThrows: row.saving_throws ?? fallback.savingThrows ?? [],
     spellSlots: row.spell_slots ?? fallback.spellSlots ?? {},
     deathSaves: fallback.deathSaves ?? { successes: 0, failures: 0 },
     concentration: fallback.concentration ?? false,
     conditions: fallback.conditions ?? [],
     image: row.image || fallback.image || null,
     isNPC: !!row.is_npc,
+    assignedPcId: row.assigned_pc_id != null ? String(row.assigned_pc_id) : (fallback.assignedPcId ?? null),
+    tacticalJson: {},
+    concentrationSpell: null,
+    portrait_thumb_storage_path: row.portrait_thumb_storage_path ?? null,
+    portrait_original_storage_path: row.portrait_original_storage_path ?? null,
+    colour: row.colour ?? null,
+  }
+}
+
+/**
+ * @param {Record<string, unknown>} base runtime row
+ * @param {Record<string, unknown>|undefined} saved character_states row
+ */
+export function mergeCharacterStateIntoRuntimeRow(base, saved) {
+  if (!saved) return base
+  const tj = parseTacticalJson(saved.tactical_json)
+  return {
+    ...base,
+    curHp: saved.cur_hp ?? base.curHp,
+    tempHp: saved.temp_hp ?? base.tempHp,
+    concentration: saved.concentration ?? base.concentration,
+    spellSlots: saved.spell_slots ?? base.spellSlots,
+    deathSaves: saved.death_saves ?? base.deathSaves,
+    conditions: saved.conditions ?? base.conditions,
+    tacticalJson: saved.tactical_json && typeof saved.tactical_json === 'object'
+      ? { .../** @type {Record<string, unknown>} */ (saved.tactical_json) }
+      : (base.tacticalJson || {}),
+    concentrationSpell: tj.concentrationSpell ?? base.concentrationSpell ?? null,
+    inspiration: tj.inspiration ?? base.inspiration ?? false,
+    classResources: tj.classResources?.length ? tj.classResources : (base.classResources || []),
   }
 }
 
@@ -140,7 +184,7 @@ export function buildPlayerRuntimeCharacters(charRows, charStateRows = [], fallb
         source: 'merged',
       })
     }
-    return {
+    const base = {
       id: row.id,
       name: row.name,
       player: row.player,
@@ -151,6 +195,9 @@ export function buildPlayerRuntimeCharacters(charRows, charStateRows = [], fallb
       curHp: saved?.cur_hp ?? fb.curHp ?? maxHp,
       tempHp: saved?.temp_hp ?? fb.tempHp ?? 0,
       ac: stats.ac ?? fb.ac,
+      speed: stats.speed ?? fb.speed ?? null,
+      abilityScores: row.ability_scores ?? fb.abilityScores ?? {},
+      savingThrows: row.saving_throws ?? fb.savingThrows ?? [],
       initiative: typeof fb.initiative === 'number' ? fb.initiative : 0,
       spellSlots: saved?.spell_slots ?? row.spell_slots ?? fb.spellSlots,
       deathSaves: saved?.death_saves ?? fb.deathSaves,
@@ -158,8 +205,53 @@ export function buildPlayerRuntimeCharacters(charRows, charStateRows = [], fallb
       conditions: saved?.conditions ?? fb.conditions,
       image: row.image || fb.image,
       contentSource: merged ? 'merged' : 'db',
+      isNPC: false,
+      assignedPcId: row.assigned_pc_id != null ? String(row.assigned_pc_id) : null,
+      portrait_thumb_storage_path: row.portrait_thumb_storage_path ?? null,
+      portrait_original_storage_path: row.portrait_original_storage_path ?? null,
+      colour: row.colour ?? null,
+      tacticalJson: {},
+      concentrationSpell: null,
+      inspiration: false,
+      classResources: [],
     }
+    return mergeCharacterStateIntoRuntimeRow(base, saved)
   })
+}
+
+/**
+ * NPC / companion rows for player Party view (is_npc DB rows + character_states).
+ * @param {Record<string, unknown>[]} charRows
+ * @param {Record<string, unknown>[]} [charStateRows]
+ * @param {typeof CHARACTERS} [fallbackCharacters]
+ */
+export function buildNpcRuntimePartyRows(charRows, charStateRows = [], fallbackCharacters = CHARACTERS) {
+  const stateMap = Object.fromEntries((charStateRows || []).map(s => [s.id, s]))
+  const fbMap = Object.fromEntries(fallbackCharacters.map(c => [c.id, c]))
+  const npcRows = (charRows || []).filter(r => r.is_npc)
+  if (!npcRows.length) return []
+
+  return npcRows.map((row) => {
+    const fb = fbMap[row.id] || {}
+    const saved = stateMap[row.id]
+    const base = runtimeRowFromDbCharacter(row, fb)
+    const mergedBase = {
+      ...base,
+      portrait_thumb_storage_path: row.portrait_thumb_storage_path ?? null,
+      portrait_original_storage_path: row.portrait_original_storage_path ?? null,
+      colour: row.colour ?? null,
+    }
+    return mergeCharacterStateIntoRuntimeRow(mergedBase, saved)
+  })
+}
+
+/**
+ * Full party board for player app: PCs first, then NPC companions.
+ */
+export function buildPlayerPartyRuntimeList(charRows, charStateRows = [], fallbackCharacters = CHARACTERS) {
+  const pcs = buildPlayerRuntimeCharacters(charRows, charStateRows, fallbackCharacters)
+  const npcs = buildNpcRuntimePartyRows(charRows, charStateRows, fallbackCharacters)
+  return [...pcs, ...npcs]
 }
 
 /**

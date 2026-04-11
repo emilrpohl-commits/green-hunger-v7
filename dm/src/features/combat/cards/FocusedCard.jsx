@@ -7,6 +7,60 @@ import ActionsList from './subcomponents/ActionsList.jsx'
 import { useCombatStore } from '../../../stores/combatStore.js'
 import { isDead, isBloodied, kindColourRaw, typeLine, HP_COLOUR } from './constants.js'
 
+const SAVE_ORDER = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
+
+function asNum(v, fallback = 0) {
+  if (v && typeof v === 'object') {
+    const fromScore = Number(v.score)
+    if (Number.isFinite(fromScore)) return fromScore
+    const fromValue = Number(v.value)
+    if (Number.isFinite(fromValue)) return fromValue
+    const fromMod = Number(v.mod)
+    if (Number.isFinite(fromMod)) return fromMod
+  }
+  const n = Number(v)
+  return Number.isFinite(n) ? n : fallback
+}
+
+function deriveSaveMap(combatant) {
+  const scoreSource = combatant.abilityScores
+    || combatant.ability_scores
+    || combatant.stats?.abilityScores
+    || combatant.stats?.ability_scores
+    || {}
+  const saveMap = {}
+
+  for (const ab of SAVE_ORDER) {
+    const score = asNum(scoreSource[ab], 10)
+    saveMap[ab] = Math.floor((score - 10) / 2)
+  }
+
+  const listed = combatant.savingThrows
+    || combatant.saving_throws
+    || combatant.stats?.savingThrows
+    || combatant.stats?.saving_throws
+    || []
+  if (Array.isArray(listed)) {
+    for (const raw of listed) {
+      if (!raw) continue
+      if (typeof raw === 'string') {
+        const m = raw.match(/(STR|DEX|CON|INT|WIS|CHA)\s*([+-]?\d+)/i)
+        if (!m) continue
+        const name = m[1].toUpperCase()
+        saveMap[name] = asNum(m[2], saveMap[name] ?? 0)
+        continue
+      }
+      if (typeof raw === 'object') {
+        const name = String(raw.name || raw.ability || '').toUpperCase()
+        if (!SAVE_ORDER.includes(name)) continue
+        const mod = raw.mod ?? raw.bonus ?? raw.value
+        saveMap[name] = asNum(mod, saveMap[name] ?? 0)
+      }
+    }
+  }
+  return saveMap
+}
+
 /**
  * FocusedCard
  *
@@ -213,7 +267,7 @@ export default function FocusedCard({ combatant, players = [] }) {
               }}
             />
           </div>
-          {combatant.ac != null && <StatPill label="AC" value={combatant.ac} />}
+          <StatPill label="AC" value={combatant.effectiveAc ?? combatant.ac ?? '—'} />
           {(combatant.speed || combatant.stats?.speed) && (
             <StatPill label="SPD" value={`${combatant.speed || combatant.stats?.speed}′`} />
           )}
@@ -230,6 +284,7 @@ export default function FocusedCard({ combatant, players = [] }) {
             <StatPill label="CR" value={combatant.challengeRating} />
           )}
         </div>
+        <SavingThrowsStrip combatant={combatant} />
 
         {/* Action economy */}
         {!dead && (
@@ -481,6 +536,19 @@ function MetaRow({ label, value, colour }) {
       <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: colour || 'var(--text-secondary)', lineHeight: 1.4 }}>
         {value}
       </span>
+    </div>
+  )
+}
+
+function SavingThrowsStrip({ combatant }) {
+  const saveMap = deriveSaveMap(combatant)
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+      {SAVE_ORDER.map((ab) => {
+        const mod = asNum(saveMap[ab], 0)
+        const text = mod >= 0 ? `+${mod}` : String(mod)
+        return <StatPill key={ab} label={ab} value={text} />
+      })}
     </div>
   )
 }

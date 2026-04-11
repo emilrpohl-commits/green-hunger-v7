@@ -1,242 +1,149 @@
 import React from 'react'
+import { BaseCharacterCard } from '@shared/components/character/index.js'
 import { usePlayerStore } from '../stores/playerStore'
 
-function CharacterRow({ char }) {
-  const hpPct = char.maxHp > 0 ? (char.curHp / char.maxHp) * 100 : 0
-  const hpColour = hpPct > 60
-    ? 'var(--green-bright)'
-    : hpPct > 30
-      ? 'var(--warning)'
-      : char.curHp === 0
-        ? 'var(--danger)'
-        : '#c46040'
-
-  const statusText = char.curHp === 0
-    ? 'Unconscious'
-    : hpPct > 60
-      ? 'Healthy'
-      : hpPct > 30
-        ? 'Wounded'
-        : 'Critical'
-
-  return (
-    <div style={{
-      padding: '14px 18px',
-      borderBottom: '1px solid var(--border)',
-    }}>
-      {/* Name row */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'baseline',
-        marginBottom: 8
-      }}>
-        <div>
-          <span style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: 14,
-            color: 'var(--text-primary)',
-            letterSpacing: '0.04em'
-          }}>
-            {char.name}
-          </span>
-          <span style={{
-            fontSize: 12,
-            color: 'var(--text-muted)',
-            marginLeft: 8,
-            fontStyle: 'italic'
-          }}>
-            {char.species} {char.class}
-          </span>
-        </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          {char.concentration && (
-            <span style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 9,
-              color: 'var(--warning)',
-              background: 'rgba(176,144,48,0.15)',
-              border: '1px solid rgba(176,144,48,0.3)',
-              borderRadius: 'var(--radius)',
-              padding: '2px 5px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em'
-            }}>
-              Concentrating
-            </span>
-          )}
-          <span style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 10,
-            color: hpColour
-          }}>
-            {statusText}
-          </span>
-        </div>
-      </div>
-
-      {/* HP bar */}
-      <div style={{ marginBottom: 8 }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'baseline',
-          marginBottom: 4
-        }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-            HP
-          </span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: hpColour }}>
-            {char.curHp}
-            {char.tempHp > 0 && (
-              <span style={{ color: 'var(--info)' }}> +{char.tempHp}</span>
-            )}
-            <span style={{ color: 'var(--text-muted)' }}> / {char.maxHp}</span>
-          </span>
-        </div>
-        <div style={{
-          height: 6,
-          background: 'var(--bg-raised)',
-          borderRadius: 3,
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            height: '100%',
-            width: `${hpPct}%`,
-            background: hpColour,
-            borderRadius: 3,
-            transition: 'width 0.5s ease, background 0.5s ease'
-          }} />
-        </div>
-        {char.tempHp > 0 && (
-          <div style={{
-            height: 3,
-            marginTop: 2,
-            background: 'var(--bg-raised)',
-            borderRadius: 2,
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              height: '100%',
-              width: `${Math.min(100, (char.tempHp / char.maxHp) * 100)}%`,
-              background: 'var(--info)',
-              borderRadius: 2,
-              opacity: 0.6
-            }} />
-          </div>
-        )}
-      </div>
-
-      {/* Death saves (only when unconscious) */}
-      {char.curHp === 0 && (
-        <div style={{
-          display: 'flex',
-          gap: 16,
-          padding: '8px 10px',
-          background: 'rgba(176,48,48,0.1)',
-          border: '1px solid rgba(176,48,48,0.25)',
-          borderRadius: 'var(--radius)',
-          marginBottom: 8
-        }}>
-          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-            <span style={{ fontSize: 11, color: 'var(--green-bright)' }}>✓</span>
-            {[0,1,2].map(i => (
-              <div key={i} style={{
-                width: 10, height: 10, borderRadius: '50%',
-                background: i < char.deathSaves.successes ? 'var(--green-bright)' : 'transparent',
-                border: '1px solid var(--green-dim)'
-              }} />
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-            <span style={{ fontSize: 11, color: 'var(--danger)' }}>✗</span>
-            {[0,1,2].map(i => (
-              <div key={i} style={{
-                width: 10, height: 10, borderRadius: '50%',
-                background: i < char.deathSaves.failures ? 'var(--danger)' : 'transparent',
-                border: '1px solid rgba(176,48,48,0.4)'
-              }} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Spell slots */}
-      {char.spellSlots && (
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-          {Object.entries(char.spellSlots).map(([level, slot]) => {
-            const remaining = slot.max - slot.used
-            return (
-              <div key={level} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 9,
-                  color: 'var(--text-muted)',
-                  textTransform: 'uppercase'
-                }}>
-                  Lvl {level}
-                </span>
-                <div style={{ display: 'flex', gap: 3 }}>
-                  {Array.from({ length: slot.max }).map((_, i) => (
-                    <div key={i} style={{
-                      width: 8, height: 8,
-                      borderRadius: '50%',
-                      background: i < remaining ? 'var(--green-mid)' : 'transparent',
-                      border: '1px solid var(--green-dim)',
-                      transition: 'background 0.3s'
-                    }} />
-                  ))}
-                </div>
-                <span style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 9,
-                  color: remaining === 0 ? 'var(--text-muted)' : 'var(--text-secondary)'
-                }}>
-                  {remaining}/{slot.max}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export default function PartyStatus() {
-  const characters = usePlayerStore(s => s.characters)
+  const characters = usePlayerStore((s) => s.characters)
+  const canEditCharacterState = usePlayerStore((s) => s.canEditCharacterState)
+  const updateMyCharacterHp = usePlayerStore((s) => s.updateMyCharacterHp)
+  const updateMyCharacterTempHp = usePlayerStore((s) => s.updateMyCharacterTempHp)
+  const setMyCharacterConditions = usePlayerStore((s) => s.setMyCharacterConditions)
+
+  const pcs = characters.filter((c) => !c.isNPC)
+  const npcs = characters.filter((c) => c.isNPC)
+
+  const byAssignee = {}
+  for (const n of npcs) {
+    const k = n.assignedPcId || '_unassigned'
+    if (!byAssignee[k]) byAssignee[k] = []
+    byAssignee[k].push(n)
+  }
+  const unassigned = byAssignee._unassigned || []
+
+  function renderCard(char) {
+    const canEdit = canEditCharacterState(char.id)
+    const hpPct = char.maxHp > 0 ? (char.curHp / char.maxHp) * 100 : 0
+    const hpColour = char.curHp === 0
+      ? 'var(--danger)'
+      : hpPct > 60
+        ? 'var(--green-bright)'
+        : hpPct > 30
+          ? 'var(--warning)'
+          : '#c46040'
+
+    return (
+      <BaseCharacterCard
+        key={char.id}
+        char={char}
+        tagLabel={char.isNPC ? (char.assignedPcId ? 'Companion' : 'NPC') : 'Player'}
+        portraitSize="sm"
+        curHp={char.curHp}
+        maxHp={char.maxHp}
+        tempHp={char.tempHp ?? 0}
+        hpColour={hpColour}
+        ac={char.ac}
+        speed={char.speed}
+        hpControlProps={canEdit ? {
+          onApplyDelta: (d) => updateMyCharacterHp(char.id, char.curHp + d),
+          onSetTempHp: (t) => updateMyCharacterTempHp(char.id, t),
+          readOnly: false,
+        } : { readOnly: true }}
+        resourceStripProps={{
+          spellSlots: char.spellSlots,
+          classResources: char.classResources || [],
+          readOnly: true,
+          compact: true,
+        }}
+        conditions={char.conditions || []}
+        onRemoveCondition={canEdit
+          ? (name) => setMyCharacterConditions(char.id, (char.conditions || []).filter((c) => c !== name))
+          : null}
+        conditionsReadOnly={!canEdit}
+        footer={char.curHp === 0 ? (
+          <div style={{
+            marginTop: 10,
+            padding: '8px 10px',
+            background: 'rgba(176,48,48,0.1)',
+            border: '1px solid rgba(176,48,48,0.25)',
+            borderRadius: 'var(--radius)',
+          }}
+          >
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--danger)', textTransform: 'uppercase', marginBottom: 6 }}>
+              Death saves
+            </div>
+            <div style={{ display: 'flex', gap: 16 }}>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, color: 'var(--green-bright)' }}>✓</span>
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: '50%',
+                      background: i < (char.deathSaves?.successes || 0) ? 'var(--green-bright)' : 'transparent',
+                      border: '1px solid var(--green-dim)',
+                    }}
+                  />
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, color: 'var(--danger)' }}>✗</span>
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: '50%',
+                      background: i < (char.deathSaves?.failures || 0) ? 'var(--danger)' : 'transparent',
+                      border: '1px solid rgba(176,48,48,0.4)',
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
+      />
+    )
+  }
 
   return (
     <div style={{
       background: 'var(--bg-card)',
       border: '1px solid var(--border)',
       borderRadius: 'var(--radius-lg)',
-      overflow: 'hidden'
-    }}>
-      {/* Header */}
+      overflow: 'hidden',
+    }}
+    >
       <div style={{
         padding: '12px 18px',
         borderBottom: '1px solid var(--border)',
-        background: 'var(--bg-surface)'
-      }}>
+        background: 'var(--bg-surface)',
+      }}
+      >
         <span style={{
           fontFamily: 'var(--font-mono)',
           fontSize: 10,
           color: 'var(--text-muted)',
           textTransform: 'uppercase',
-          letterSpacing: '0.12em'
-        }}>
+          letterSpacing: '0.12em',
+        }}
+        >
           Party Status
         </span>
       </div>
 
-      {characters.map((char, i) => (
-        <CharacterRow
-          key={char.id}
-          char={char}
-          isLast={i === characters.length - 1}
-        />
-      ))}
+      <div style={{ padding: '12px 14px 16px' }}>
+        {pcs.map((char) => (
+          <div key={char.id}>
+            {renderCard(char)}
+            {(byAssignee[char.id] || []).map((comp) => renderCard(comp))}
+          </div>
+        ))}
+        {unassigned.map((char) => renderCard(char))}
+      </div>
     </div>
   )
 }

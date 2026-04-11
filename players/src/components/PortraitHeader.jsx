@@ -19,6 +19,8 @@ export default function PortraitHeader({
   charColour,
   ilyaAssignedTo,
   loggedInAs,
+  /** When false, identity hero only — tactical strip shows AC/speed/etc. */
+  showStatBadges = true,
 }) {
   const portraitSrc = (() => {
     const p = char.portraitUrl || char.portrait_url || null
@@ -210,48 +212,49 @@ export default function PortraitHeader({
         />
       </div>
 
-      {/* ── Badges row ── */}
-      <div style={{
-        display: 'flex',
-        gap: 8,
-        padding: '10px 16px',
-        background: 'var(--bg-surface)',
-        borderBottom: '1px solid var(--border)',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-      }}>
-        <StatBadge label="AC" value={acValue} colour={charColour} />
-        <StatBadge label="Speed" value={`${char.stats.speed}′`} colour={charColour} />
-        <StatBadge label="Init" value={char.stats.initiative} colour={charColour} />
-        <StatBadge label="Prof" value={char.stats.proficiencyBonus} colour={charColour} />
-        {char.stats.spellSaveDC && (
-          <StatBadge label="Save DC" value={char.stats.spellSaveDC} colour={charColour} />
-        )}
-        {concentration && (
-          <div style={{
-            marginLeft: 'auto',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 5,
-            padding: '3px 10px',
-            borderRadius: 20,
-            background: 'rgba(176, 144, 48, 0.12)',
-            border: '1px solid rgba(176, 144, 48, 0.40)',
-            animation: 'glow-pulse 2s ease-in-out infinite',
-          }}>
-            <span style={{ fontSize: 12 }}>◈</span>
-            <span style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 9,
-              color: 'var(--warning)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
+      {showStatBadges && (
+        <div style={{
+          display: 'flex',
+          gap: 8,
+          padding: '10px 16px',
+          background: 'var(--bg-surface)',
+          borderBottom: '1px solid var(--border)',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+        }}>
+          <StatBadge label="AC" value={acValue} colour={charColour} />
+          <StatBadge label="Speed" value={`${char.stats.speed}′`} colour={charColour} />
+          <StatBadge label="Init" value={char.stats.initiative} colour={charColour} />
+          <StatBadge label="Prof" value={char.stats.proficiencyBonus} colour={charColour} />
+          {char.stats.spellSaveDC && (
+            <StatBadge label="Save DC" value={char.stats.spellSaveDC} colour={charColour} />
+          )}
+          {concentration && (
+            <div style={{
+              marginLeft: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '3px 10px',
+              borderRadius: 20,
+              background: 'rgba(176, 144, 48, 0.12)',
+              border: '1px solid rgba(176, 144, 48, 0.40)',
+              animation: 'glow-pulse 2s ease-in-out infinite',
             }}>
-              Concentration
-            </span>
-          </div>
-        )}
-      </div>
+              <span style={{ fontSize: 12 }}>◈</span>
+              <span style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 9,
+                color: 'var(--warning)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+              }}>
+                Concentration
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

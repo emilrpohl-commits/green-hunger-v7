@@ -399,3 +399,13 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 400; letter-spacing:
   border-color: var(--green-bright);
   box-shadow: 0 0 6px var(--green-glow);
 }
+
+@keyframes hp-flash {
+  0%   { background: rgba(196, 64, 64, 0.55); }
+  100% { background: transparent; }
+}
+
+@keyframes hp-heal-flash {
+  0%   { background: rgba(122, 184, 106, 0.45); }
+  100% { background: transparent; }
+}

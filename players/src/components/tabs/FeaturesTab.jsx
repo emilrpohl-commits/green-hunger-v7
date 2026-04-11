@@ -1,10 +1,20 @@
-import React from 'react'
+import React, { useMemo, useState } from 'react'
 import { Section } from '../ui/Section'
+import FilterChipRow from '../ui/FilterChipRow.jsx'
+import { ENTITY_FILTER_LABELS, matchesEntityFilter, featureToFilterTags } from '../../lib/entityFilters.js'
 
 export default function FeaturesTab({ char }) {
+  const [featFilter, setFeatFilter] = useState('all')
+  const filteredFeatures = useMemo(
+    () => (char.features || []).filter((f) => matchesEntityFilter(featFilter, featureToFilterTags(f))),
+    [char.features, featFilter]
+  )
+
   return (
     <>
-      {char.features.map(f => (
+      <FilterChipRow options={ENTITY_FILTER_LABELS} value={featFilter} onChange={setFeatFilter} accent={char.colour} />
+
+      {filteredFeatures.map(f => (
         <Section key={f.name} title={f.name}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: char.colour || 'var(--green-bright)', marginBottom: 8 }}>{f.uses}</div>
           <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7 }}>{f.description}</div>

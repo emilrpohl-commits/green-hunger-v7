@@ -323,6 +323,7 @@ create table if not exists characters (
   backstory text,
   srd_refs jsonb default '{}',
   homebrew_json jsonb default '{}',
+  assigned_pc_id text references characters(id) on delete set null,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -544,6 +545,7 @@ create table if not exists character_states (
   spell_slots jsonb default '{}',
   death_saves jsonb default '{"successes":0,"failures":0}',
   conditions text[] default '{}',
+  tactical_json jsonb default '{}',
   updated_at timestamptz default now()
 );
 
