@@ -4,6 +4,7 @@ import { BEAT_TYPES, BEAT_TYPE_COLOURS } from '@shared/lib/constants.js'
 import { mono, label9, inputBase, taBase, btnSm, btnDanger, btnGreen } from './outlinerStyles'
 import LabelField from './LabelField'
 import SkillCheckTableEditor from './SkillCheckTableEditor'
+import { BeatIllustrationUploader } from '../../components/SceneMediaUploader.jsx'
 
 export default function BeatRow({ beat, index, total, sceneId, statBlocks, expandedBeatId, setExpandedBeatId }) {
   const saveBeat = useCampaignStore(s => s.saveBeat)
@@ -78,16 +79,17 @@ export default function BeatRow({ beat, index, total, sceneId, statBlocks, expan
         {beat.mechanical_effect && beat.mechanical_effect !== '[]' && beat.mechanical_effect !== 'null' && (
           <span style={{ fontSize: 11, color: 'var(--info)' }}>🎲</span>
         )}
-        <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-          <button onClick={() => handleMove('up')} disabled={index === 0} style={{ ...btnSm, padding: '2px 5px', opacity: index === 0 ? 0.3 : 1 }}>▲</button>
-          <button onClick={() => handleMove('down')} disabled={index === total - 1} style={{ ...btnSm, padding: '2px 5px', opacity: index === total - 1 ? 0.3 : 1 }}>▼</button>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, flexShrink: 0, alignItems: 'center', justifyContent: 'flex-end' }}>
+          <button type="button" onClick={() => handleMove('up')} disabled={index === 0} style={{ ...btnSm, padding: '3px 6px', opacity: index === 0 ? 0.35 : 1, fontSize: 9, textTransform: 'uppercase' }}>Move up</button>
+          <button type="button" onClick={() => handleMove('down')} disabled={index === total - 1} style={{ ...btnSm, padding: '3px 6px', opacity: index === total - 1 ? 0.35 : 1, fontSize: 9, textTransform: 'uppercase' }}>Move down</button>
           <button
-            onClick={() => isExpanded ? handleCollapse() : setExpandedBeatId(beat.id)}
-            style={{ ...btnSm, padding: '2px 6px', color: isExpanded ? 'var(--green-bright)' : 'var(--text-muted)' }}
+            type="button"
+            onClick={() => (isExpanded ? handleCollapse() : setExpandedBeatId(beat.id))}
+            style={{ ...btnSm, padding: '3px 8px', color: isExpanded ? 'var(--green-bright)' : 'var(--text-muted)', fontSize: 9, textTransform: 'uppercase' }}
           >
-            {isExpanded ? '▴' : '▾'}
+            {isExpanded ? 'Close' : 'Edit'}
           </button>
-          <button onClick={handleDelete} style={{ ...btnDanger, padding: '2px 6px' }}>×</button>
+          <button type="button" onClick={handleDelete} style={{ ...btnDanger, padding: '3px 8px', fontSize: 9, textTransform: 'uppercase' }}>Delete</button>
         </div>
       </div>
 
@@ -131,6 +133,15 @@ export default function BeatRow({ beat, index, total, sceneId, statBlocks, expan
           <LabelField label="DM Notes">
             <textarea value={form.dm_notes || ''} onChange={e => update('dm_notes', e.target.value)} rows={3} style={taBase} />
           </LabelField>
+
+          <BeatIllustrationUploader
+            sceneId={sceneId}
+            beatId={beat.id}
+            illustrationUrl={form.illustration_url || ''}
+            onChange={(v) => update('illustration_url', v)}
+            labelStyle={label9}
+            inputStyle={inputBase}
+          />
 
           {showCheck ? (
             <LabelField label="Mechanical Effect (skill checks)">

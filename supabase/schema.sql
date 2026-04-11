@@ -149,6 +149,7 @@ create table if not exists beats (
   dm_notes text,
   mechanical_effect text,
   flavour_text text,
+  illustration_url text,                      -- optional storage path (scene-media bucket)
   stat_block_id uuid,                         -- fk to stat_blocks
   encounter_id uuid,                          -- fk to encounters
   asset_ids uuid[],                           -- maps/handouts to reveal

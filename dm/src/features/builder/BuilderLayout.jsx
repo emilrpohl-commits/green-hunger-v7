@@ -8,8 +8,6 @@ import SessionOutliner from '../sessions/SessionOutliner'
 import SessionImportModal from './SessionImportModal'
 import SpellLibrary from '../spells/SpellLibrary'
 import NpcLibrary from '../npcs/NpcLibrary'
-import ReferenceLibrary from '../reference/ReferenceLibrary'
-import CharacterPdfImport from '../characters/CharacterPdfImport'
 import CharacterEditor from '../characters/CharacterEditor'
 import EncounterLibrary from '../encounters/EncounterLibrary'
 import SoundDock from '../runtime/soundboard/SoundDock.jsx'
@@ -23,8 +21,6 @@ const NAV_ITEMS = [
   { id: 'stat-blocks', label: 'Stat Blocks', icon: '⚔️' },
   { id: 'spells', label: 'Spells', icon: '✨' },
   { id: 'npcs', label: 'NPCs', icon: '🧙' },
-  { id: 'reference', label: 'SRD Reference', icon: '📚' },
-  { id: 'character-import', label: 'Character Import', icon: '🧾' },
   { id: 'characters', label: 'Character sheets', icon: '🧝' },
   { id: 'encounters', label: 'Encounters', icon: '🎯' },
   { id: 'toolbox', label: 'DM Toolbox', icon: '🧰' },
@@ -74,10 +70,6 @@ export default function BuilderLayout() {
           <span style={{ ...mono, fontSize: 12, color: 'var(--text-muted)' }}>Loading campaign…</span>
         </div>
       )
-    }
-
-    if (activeSection === 'reference') {
-      return <ReferenceLibrary />
     }
 
     if (!campaign && !loading) {
@@ -175,8 +167,6 @@ export default function BuilderLayout() {
         return <SpellLibrary />
       case 'npcs':
         return <NpcLibrary />
-      case 'character-import':
-        return <CharacterPdfImport />
       case 'characters':
         return <CharacterEditor />
       case 'encounters':

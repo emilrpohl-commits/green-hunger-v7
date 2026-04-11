@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
 import { BEAT_TYPES, BEAT_TYPE_COLOURS } from '@shared/lib/constants.js'
-import SceneMediaUploader from '../../components/SceneMediaUploader.jsx'
+import SceneMediaUploader, { BeatIllustrationUploader } from '../../components/SceneMediaUploader.jsx'
 
 const SCENE_TYPES = ['narrative', 'combat', 'exploration', 'social', 'puzzle', 'transition']
 const BRANCH_CONDITION_TYPES = ['explicit', 'implicit', 'conditional']
@@ -175,7 +175,7 @@ export default function SceneEditor({ sceneId, sessionId, onClose }) {
             <Divider label="Scene Media" />
             <p style={{ margin: '0 0 14px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.55 }}>
               Upload a <strong style={{ color: 'var(--text-secondary)' }}>cover image</strong> for this scene (shown to players in Run mode behind beat text).{' '}
-              Session-level <strong>map videos</strong> are uploaded on the <strong>session</strong> editor (Builder → Sessions → open session → Maps), not here. Beats do not have separate image/MP4 slots yet.
+              Session-level <strong>map videos</strong> are on the <strong>session</strong> editor (Builder → Sessions → open session → Maps). Optional <strong>beat illustrations</strong> are on each beat under the Beats tab (after you save the beat once).
             </p>
             <SceneMediaUploader
               sceneId={scene.id}
@@ -251,10 +251,10 @@ function BeatsPanel({ scene, statBlocks, saveBeat, deleteBeat, reorderBeats, edi
       const found = beats.find(b => b.id === editBeat) || blankBeat(scene.id, beats.length + 1)
       setBeatForm(found)
     }
-  }, [editBeat])
+  }, [editBeat, scene.id, beats.length])
 
   function blankBeat(sceneId, order) {
-    return { scene_id: sceneId, order, title: '', type: 'narrative', content: '', player_text: '', dm_notes: '', mechanical_effect: '', flavour_text: '', stat_block_id: null }
+    return { scene_id: sceneId, order, title: '', type: 'narrative', content: '', player_text: '', dm_notes: '', mechanical_effect: '', flavour_text: '', illustration_url: '', stat_block_id: null }
   }
 
   const handleSaveBeat = async () => {
@@ -330,6 +330,15 @@ function BeatsPanel({ scene, statBlocks, saveBeat, deleteBeat, reorderBeats, edi
           rows={2}
         />
 
+        <BeatIllustrationUploader
+          sceneId={scene.id}
+          beatId={beatForm.id}
+          illustrationUrl={beatForm.illustration_url || ''}
+          onChange={(v) => setBeatForm((f) => ({ ...f, illustration_url: v }))}
+          labelStyle={labelStyle}
+          inputStyle={inputStyle}
+        />
+
         {beatForm.type === 'combat' && (
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>Stat Block</label>
@@ -367,9 +376,9 @@ function BeatsPanel({ scene, statBlocks, saveBeat, deleteBeat, reorderBeats, edi
 
       {beats.map((beat, i) => (
         <div key={beat.id} style={{ display: 'flex', gap: 10, marginBottom: 8, padding: '12px 14px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', alignItems: 'center' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <button onClick={() => handleMoveUp(beat, i)} disabled={i === 0} style={{ background: 'none', border: 'none', cursor: i === 0 ? 'default' : 'pointer', color: i === 0 ? 'var(--border)' : 'var(--text-muted)', fontSize: 10, padding: 0 }}>▲</button>
-            <button onClick={() => handleMoveDown(beat, i)} disabled={i === beats.length - 1} style={{ background: 'none', border: 'none', cursor: i === beats.length - 1 ? 'default' : 'pointer', color: i === beats.length - 1 ? 'var(--border)' : 'var(--text-muted)', fontSize: 10, padding: 0 }}>▼</button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+            <button type="button" onClick={() => handleMoveUp(beat, i)} disabled={i === 0} style={{ padding: '4px 8px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: i === 0 ? 'default' : 'pointer', color: i === 0 ? 'var(--border)' : 'var(--text-secondary)', fontFamily: 'var(--font-mono)', fontSize: 9, textTransform: 'uppercase' }}>Move up</button>
+            <button type="button" onClick={() => handleMoveDown(beat, i)} disabled={i === beats.length - 1} style={{ padding: '4px 8px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: i === beats.length - 1 ? 'default' : 'pointer', color: i === beats.length - 1 ? 'var(--border)' : 'var(--text-secondary)', fontFamily: 'var(--font-mono)', fontSize: 9, textTransform: 'uppercase' }}>Move down</button>
           </div>
           <span style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', minWidth: 16 }}>{i + 1}</span>
           <BeatTypeBadge type={beat.type} />

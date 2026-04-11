@@ -33,3 +33,28 @@ export async function uploadSceneImageFile({ file, campaignId, sceneId }) {
     publicUrl: getSceneMediaPublicUrl(storagePath),
   }
 }
+
+export async function uploadBeatImageFile({ file, campaignId, sceneId, beatId }) {
+  if (!file) throw new Error('No file provided')
+  if (!beatId) throw new Error('Save the beat first, then upload an illustration.')
+  const ext = String(file?.name || 'jpg').split('.').pop()?.toLowerCase() || 'jpg'
+  const safeCamp = String(campaignId || 'global').toLowerCase().replace(/[^a-z0-9_-]+/g, '-')
+  const safeScene = String(sceneId || 'scene').toLowerCase().replace(/[^a-z0-9_-]+/g, '-')
+  const safeBeat = String(beatId || 'beat').toLowerCase().replace(/[^a-z0-9_-]+/g, '-')
+  const filename = `illustration-${Date.now()}.${ext}`
+  const storagePath = `${safeCamp}/${safeScene}/beat-${safeBeat}/${filename}`
+
+  const { error } = await supabase.storage
+    .from(SCENE_MEDIA_BUCKET)
+    .upload(storagePath, file, {
+      upsert: true,
+      contentType: file.type || undefined,
+      cacheControl: '3600',
+    })
+  if (error) throw error
+
+  return {
+    storagePath,
+    publicUrl: getSceneMediaPublicUrl(storagePath),
+  }
+}

@@ -18,6 +18,58 @@ function profBonusForLevel(level) {
   return `+${2 + Math.floor((l - 1) / 4)}`
 }
 
+function CharacterSheetListRow({ c, mono, onEdit }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '12px 16px',
+        background: 'var(--bg-raised)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-lg)',
+      }}
+    >
+      <div
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: '50%',
+          background: c.colour || 'var(--green-mid)',
+          flexShrink: 0,
+        }}
+      />
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>{c.name}</div>
+        <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+          {c.class}
+          {c.level != null ? ` ${c.level}` : ''}
+          {c.species ? ` · ${c.species}` : ''}
+          {c.player ? ` · ${c.player}` : ''}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onEdit}
+        style={{
+          padding: '4px 10px',
+          background: 'transparent',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius)',
+          cursor: 'pointer',
+          color: 'var(--text-secondary)',
+          ...mono,
+          fontSize: 9,
+          textTransform: 'uppercase',
+        }}
+      >
+        Edit
+      </button>
+    </div>
+  )
+}
+
 export default function CharacterEditor() {
   const campaign = useCampaignStore((s) => s.campaign)
   const characters = useCampaignStore((s) => s.characters)
@@ -74,6 +126,12 @@ export default function CharacterEditor() {
       || String(c.player || '').toLowerCase().includes(search.toLowerCase())
       || String(c.class || '').toLowerCase().includes(search.toLowerCase())
   )
+
+  const isNpcSheetRow = (c) =>
+    !!c?.is_npc || String(c?.id ?? '').toLowerCase() === 'ilya'
+
+  const pcSheets = filtered.filter((c) => !isNpcSheetRow(c))
+  const npcSheets = filtered.filter((c) => isNpcSheetRow(c))
 
   const startNew = () => {
     setForm(blankDbCharacter(campaign?.id))
@@ -843,7 +901,7 @@ export default function CharacterEditor() {
           Sheet details
         </div>
         <p style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', margin: '0 0 14px', lineHeight: 1.5 }}>
-          Spell lists for the player app use the <strong>character_spells</strong> table, keyed to the full <strong>spell compendium</strong>. Link spells below or use Character Import. Slot counts below live on the character row.
+          Spell lists for the player app use the <strong>character_spells</strong> table, keyed to the full <strong>spell compendium</strong>. Link spells below. Slot counts below live on the character row.
         </p>
 
         {editing && editing !== '__new__' && <CharacterSpellLinksPanel characterId={editing} />}
@@ -1461,62 +1519,31 @@ export default function CharacterEditor() {
 
       {filtered.length === 0 && (
         <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-          No characters in this campaign yet. Create one or import a PDF from Character Import.
+          No characters in this campaign yet. Create one with <strong style={{ color: 'var(--text-secondary)' }}>New character</strong>.
         </div>
       )}
 
-      <div style={{ display: 'grid', gap: 8 }}>
-        {filtered.map((c) => (
-          <div
-            key={c.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              padding: '12px 16px',
-              background: 'var(--bg-raised)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-lg)',
-            }}
-          >
-            <div
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                background: c.colour || 'var(--green-mid)',
-                flexShrink: 0,
-              }}
-            />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>{c.name}</div>
-              <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
-                {c.class}
-                {c.level != null ? ` ${c.level}` : ''}
-                {c.species ? ` · ${c.species}` : ''}
-                {c.player ? ` · ${c.player}` : ''}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => startEdit(c)}
-              style={{
-                padding: '4px 10px',
-                background: 'transparent',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius)',
-                cursor: 'pointer',
-                color: 'var(--text-secondary)',
-                ...mono,
-                fontSize: 9,
-                textTransform: 'uppercase',
-              }}
-            >
-              Edit
-            </button>
+      {pcSheets.length > 0 && (
+        <>
+          <div style={{ ...mono, fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Player characters</div>
+          <div style={{ display: 'grid', gap: 8, marginBottom: npcSheets.length ? 20 : 0 }}>
+            {pcSheets.map((c) => (
+              <CharacterSheetListRow key={c.id} c={c} mono={mono} onEdit={() => startEdit(c)} />
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
+
+      {npcSheets.length > 0 && (
+        <>
+          <div style={{ ...mono, fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>NPCs & companions</div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {npcSheets.map((c) => (
+              <CharacterSheetListRow key={c.id} c={c} mono={mono} onEdit={() => startEdit(c)} />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }
