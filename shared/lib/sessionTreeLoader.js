@@ -4,6 +4,10 @@ import { filterValidBeatRows } from './validation/storeBoundaries.js'
  * Load scenes, beats, branches for one session row (same shape as campaignStore).
  * @param {import('@supabase/supabase-js').SupabaseClient} client
  */
+function sortByOrder(rows) {
+  return [...(rows || [])].sort((a, b) => (a.order || 0) - (b.order || 0))
+}
+
 export async function loadSessionContentTree(client, session) {
   const { data: scenes, error: sce } = await client
     .from('scenes')
@@ -15,19 +19,41 @@ export async function loadSessionContentTree(client, session) {
     return { ...session, scenes: [] }
   }
 
-  const scenesWithContent = await Promise.all(
-    (scenes || []).map(async (scene) => {
-      const [beatsRes, branchesRes] = await Promise.all([
-        client.from('beats').select('*').eq('scene_id', scene.id).order('order'),
-        client.from('scene_branches').select('*').eq('scene_id', scene.id).order('order'),
-      ])
-      return {
-        ...scene,
-        beats: filterValidBeatRows(beatsRes.data || []),
-        branches: branchesRes.data || [],
-      }
-    })
-  )
+  const sceneList = scenes || []
+  if (sceneList.length === 0) {
+    return { ...session, scenes: [] }
+  }
+
+  const sceneIds = sceneList.map((s) => s.id)
+  const [beatsRes, branchesRes] = await Promise.all([
+    client.from('beats').select('*').in('scene_id', sceneIds),
+    client.from('scene_branches').select('*').in('scene_id', sceneIds),
+  ])
+  if (beatsRes.error) {
+    console.warn('beats error:', beatsRes.error.message)
+  }
+  if (branchesRes.error) {
+    console.warn('scene_branches error:', branchesRes.error.message)
+  }
+
+  const beatsByScene = new Map()
+  for (const row of beatsRes.data || []) {
+    const sid = row.scene_id
+    if (!beatsByScene.has(sid)) beatsByScene.set(sid, [])
+    beatsByScene.get(sid).push(row)
+  }
+  const branchesByScene = new Map()
+  for (const row of branchesRes.data || []) {
+    const sid = row.scene_id
+    if (!branchesByScene.has(sid)) branchesByScene.set(sid, [])
+    branchesByScene.get(sid).push(row)
+  }
+
+  const scenesWithContent = sceneList.map((scene) => ({
+    ...scene,
+    beats: filterValidBeatRows(sortByOrder(beatsByScene.get(scene.id))),
+    branches: sortByOrder(branchesByScene.get(scene.id)),
+  }))
 
   return { ...session, scenes: scenesWithContent }
 }
