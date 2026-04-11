@@ -3,6 +3,8 @@ function parseMod(value) {
   return Number.isFinite(n) ? n : 0
 }
 
+import { normalizeStatBlockAction } from '../statBlockActions.js'
+
 function parseDiceNotation(notation) {
   if (!notation || typeof notation !== 'string') return null
   const m = notation.trim().match(/^(\d+)d(\d+)(?:\s*([+-])\s*(\d+))?$/i)
@@ -63,13 +65,16 @@ export function mapApiMonsterToCombatant(apiMonster, ordinal = 1, options = {}) 
   const bonusActions = Array.isArray(apiMonster.bonus_actions) ? apiMonster.bonus_actions : []
   const reactions = Array.isArray(apiMonster.reactions) ? apiMonster.reactions : []
 
-  const toActionOption = (a, actionType) => ({
+  const toActionOption = (a, actionType) => normalizeStatBlockAction({
     name: a.name || 'Action',
-    desc: a.desc || '',
+    desc: typeof a.desc === 'string' ? a.desc : (Array.isArray(a.desc) ? a.desc.join('\n') : ''),
     actionType,
-    attackBonus: parseMod(a.toHit ?? a.attack_bonus),
-    save: a.saveType && a.saveDC ? `${a.saveType} DC ${a.saveDC}` : null,
-    damage: a.damage || null,
+    toHit: a.toHit ?? a.attack_bonus ?? a.attackBonus,
+    to_hit: a.to_hit,
+    saveType: a.saveType ?? a.save_type,
+    saveDC: a.saveDC ?? a.save_dc,
+    dc: a.dc ?? a.DC,
+    damage: a.damage,
     source: 'stat_block',
   })
 

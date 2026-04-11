@@ -5,29 +5,28 @@ import { featureFlags } from '@shared/lib/featureFlags.js'
 import { getRulesetContext } from '@shared/lib/runtimeContext.js'
 import { normalizeConditionName } from '@shared/lib/rules/conditionCatalog.js'
 import { normalizeCombatantConditions } from '@shared/lib/rules/conditionHydration.js'
-import { applyDamageWithTraits, coerceDamageTypeForPipeline } from '@shared/lib/rules/damagePipeline.js'
+import { applyDamageComponentsBundle } from '@shared/lib/rules/damagePipeline.js'
+import { appendDamagePipelineDetail } from '@shared/lib/combat/combatFeedFormat.js'
 
 export const createActionsSlice = (set, get) => ({
   savePrompts: [],
 
-  damageCombatant: async (combatantId, amount, damageType = null) => {
+  damageCombatant: async (combatantId, amount, damageType = null, options = {}) => {
     const { combatants } = get()
     const combatant = combatants.find(c => c.id === combatantId)
     if (!combatant) return
 
-    const rawAmount = parseInt(amount, 10) || 0
-    let hpLoss = rawAmount
-    const factors = []
-    const typeForPipeline = damageType ? coerceDamageTypeForPipeline(damageType) : null
-    if (featureFlags.rulesDamagePipeline && typeForPipeline) {
-      const applied = applyDamageWithTraits(rawAmount, typeForPipeline, {
-        resistances: combatant.resistances,
-        vulnerabilities: combatant.vulnerabilities,
-        immunities: combatant.immunities,
-      })
-      hpLoss = applied.final
-      factors.push(...applied.factors)
-    }
+    const components = Array.isArray(options.components) && options.components.length > 0
+      ? options.components
+      : [{ amount: Math.max(0, Math.floor(Number(amount) || 0)), type: damageType }]
+
+    const bundle = applyDamageComponentsBundle(components, {
+      resistances: combatant.resistances,
+      vulnerabilities: combatant.vulnerabilities,
+      immunities: combatant.immunities,
+    }, { usePipeline: featureFlags.rulesDamagePipeline })
+
+    const hpLoss = bundle.totalFinal
 
     let newTempHp = combatant.tempHp
     let newHp = combatant.curHp
@@ -46,18 +45,15 @@ export const createActionsSlice = (set, get) => ({
     set({ combatants: updated })
 
     const isShared = combatant.type === 'player'
-    const typeNote = typeForPipeline ? ` [${typeForPipeline}]` : (damageType ? ` [${damageType}]` : '')
-    const factorReadable = (f) => {
-      if (f.kind === 'immunity') return `immunity${f.detail ? ` (${f.detail})` : ''} → 0`
-      if (f.kind === 'resistance') return `resistance${f.detail ? ` (${f.detail})` : ''} → half`
-      if (f.kind === 'vulnerability') return `vulnerability${f.detail ? ` (${f.detail})` : ''} → double`
-      return f.kind + (f.detail ? ` (${f.detail})` : '')
-    }
-    const factorNote = factors.length ? ` — ${factors.map(factorReadable).join('; ')}` : ''
-    const msg = newHp === 0
+    const core = newHp === 0
       ? `${combatant.name} is DOWN (0 HP).`
-      : `${combatant.name} takes ${hpLoss} damage${typeNote}${factorNote}. (${newHp}/${combatant.maxHp} HP)`
-    await get().pushFeedEvent(msg, 'damage', isShared)
+      : `${combatant.name} takes ${hpLoss} damage (${newHp}/${combatant.maxHp} HP)`
+    const msg = appendDamagePipelineDetail(core, bundle.lines)
+    await get().pushFeedEvent(msg, 'damage', isShared, {
+      kind: 'damage',
+      target_id: combatantId,
+      combat_action_id: `dmg-${Date.now()}`,
+    })
     await get().syncCombatState()
   },
 

@@ -2,7 +2,8 @@ import { supabase } from '@shared/lib/supabase.js'
 import { consumeActionEconomy, ensureActionEconomy, encodeSavePrompt, makeSavePromptEnvelope } from '@shared/lib/combatRules.js'
 import { getRulesetContext } from '@shared/lib/runtimeContext.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
-import { applyDamageWithTraits, coerceDamageTypeForPipeline } from '@shared/lib/rules/damagePipeline.js'
+import { applyDamageComponentsBundle } from '@shared/lib/rules/damagePipeline.js'
+import { appendDamagePipelineDetail } from '@shared/lib/combat/combatFeedFormat.js'
 import { formatDcWithLabel } from '@shared/lib/rules/dcDisplay.js'
 import { concentrationSaveDc } from '@shared/lib/rules/spellcastingRules.js'
 import { logCombatResolutionEvent } from '@shared/lib/logCombatResolution.js'
@@ -10,17 +11,6 @@ import { parseCombatantsArray } from '@shared/lib/validation/storeBoundaries.js'
 import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
 import { sanitizeCombatantForPlayer } from './helpers.js'
 import { normalizeCombatantConditions } from '@shared/lib/rules/conditionHydration.js'
-
-function formatDamagePipelineFactors(factors) {
-  if (!Array.isArray(factors) || !factors.length) return ''
-  const readable = factors.map((f) => {
-    if (f.kind === 'immunity') return `immunity${f.detail ? ` (${f.detail})` : ''} → 0`
-    if (f.kind === 'resistance') return `resistance${f.detail ? ` (${f.detail})` : ''} → half`
-    if (f.kind === 'vulnerability') return `vulnerability${f.detail ? ` (${f.detail})` : ''} → double`
-    return f.kind + (f.detail ? ` (${f.detail})` : '')
-  })
-  return ` — ${readable.join('; ')}`
-}
 
 export const createCombatSlice = (set, get) => ({
   combatActive: false,
@@ -99,25 +89,24 @@ export const createCombatSlice = (set, get) => ({
     }
   },
 
-  applyDamageToEnemy: async (combatantId, damage, attackerName, weaponName, damageType = null) => {
+  applyDamageToEnemy: async (combatantId, damage, attackerName, weaponName, damageType = null, options = {}) => {
     const { combatActive, combatRound, initiativePhase, ilyaAssignedTo, sessionRunId } = get()
     const rulesetContext = getRulesetContext()
     const combatCombatants = await get().fetchCombatantsForWrite()
     const target = combatCombatants.find(c => c.id === combatantId)
     if (!target) return
 
-    let hpLoss = Math.max(0, Math.floor(Number(damage) || 0))
-    const factors = []
-    const typeForPipeline = damageType ? coerceDamageTypeForPipeline(damageType) : null
-    if (featureFlags.rulesDamagePipeline && typeForPipeline) {
-      const applied = applyDamageWithTraits(hpLoss, typeForPipeline, {
-        resistances: target.resistances,
-        vulnerabilities: target.vulnerabilities,
-        immunities: target.immunities,
-      })
-      hpLoss = applied.final
-      factors.push(...applied.factors)
-    }
+    const components = Array.isArray(options.components) && options.components.length > 0
+      ? options.components
+      : [{ amount: Math.max(0, Math.floor(Number(damage) || 0)), type: damageType }]
+
+    const bundle = applyDamageComponentsBundle(components, {
+      resistances: target.resistances,
+      vulnerabilities: target.vulnerabilities,
+      immunities: target.immunities,
+    }, { usePipeline: featureFlags.rulesDamagePipeline })
+
+    const hpLoss = bundle.totalFinal
 
     let tempHp = target.tempHp || 0
     let curHp = target.curHp
@@ -145,13 +134,14 @@ export const createCombatSlice = (set, get) => ({
       })
       get().bumpCombatStateSyncedFromWrite(ts)
 
-      const factorNote = formatDamagePipelineFactors(factors)
-      const msg = curHp === 0
-        ? `${attackerName} → ${target.name} takes ${hpLoss}${factorNote} and goes DOWN!`
-        : `${attackerName} hits ${target.name} with ${weaponName} for ${hpLoss}${factorNote} (${curHp}/${target.maxHp} HP)`
+      const core = curHp === 0
+        ? `${attackerName} → ${target.name} takes ${hpLoss} and goes DOWN!`
+        : `${attackerName} hits ${target.name} with ${weaponName} for ${hpLoss} (${curHp}/${target.maxHp} HP)`
+      const msg = appendDamagePipelineDetail(core, bundle.lines)
       await supabase.from('combat_feed').insert({
         session_id: sessionRunId, round: combatRound,
-        text: msg, type: 'damage', shared: true, timestamp: new Date().toISOString()
+        text: msg, type: 'damage', shared: true, timestamp: new Date().toISOString(),
+        metadata: { kind: 'damage', target_id: combatantId },
       })
     } catch (e) {
       console.error('Failed to apply damage:', e)
@@ -263,18 +253,13 @@ export const createCombatSlice = (set, get) => ({
     const currentHp = target?.curHp ?? maxHp
     const list = await get().fetchCombatantsForWrite()
     const combatRow = list.find(c => c.id === targetId)
-    let hpLoss = Math.max(0, Math.floor(Number(amount) || 0))
-    const factors = []
-    const typeForPipeline = damageType ? coerceDamageTypeForPipeline(damageType) : null
-    if (featureFlags.rulesDamagePipeline && typeForPipeline && combatRow) {
-      const applied = applyDamageWithTraits(hpLoss, typeForPipeline, {
-        resistances: combatRow.resistances,
-        vulnerabilities: combatRow.vulnerabilities,
-        immunities: combatRow.immunities,
-      })
-      hpLoss = applied.final
-      factors.push(...applied.factors)
-    }
+    const components = [{ amount: Math.max(0, Math.floor(Number(amount) || 0)), type: damageType }]
+    const bundle = applyDamageComponentsBundle(components, {
+      resistances: combatRow?.resistances,
+      vulnerabilities: combatRow?.vulnerabilities,
+      immunities: combatRow?.immunities,
+    }, { usePipeline: featureFlags.rulesDamagePipeline })
+    const hpLoss = bundle.totalFinal
     let tempHp = combatRow?.tempHp || 0
     let remaining = hpLoss
     if (tempHp > 0) {
@@ -289,8 +274,7 @@ export const createCombatSlice = (set, get) => ({
       : characters
     set({ characters: updatedChars })
 
-    const typeStr = typeForPipeline ? ` [${typeForPipeline}]` : (damageType ? ` ${damageType}` : '')
-    const factorStr = formatDamagePipelineFactors(factors)
+    const typeStr = damageType ? ` [${damageType}]` : ''
     const displayName = staticChar?.name || target?.name || targetId
 
     try {
@@ -298,10 +282,12 @@ export const createCombatSlice = (set, get) => ({
         id: targetId, cur_hp: newHp, updated_at: new Date().toISOString(),
       })
       if (combatActive) {
-        const msg = `${sourceName}'s ${label}:${typeStr} ${hpLoss}${factorStr} → ${displayName} (${newHp}/${maxHp} HP)`
+        const core = `${sourceName}'s ${label}:${typeStr} ${hpLoss} → ${displayName} (${newHp}/${maxHp} HP)`
+        const msg = appendDamagePipelineDetail(core, bundle.lines)
         await supabase.from('combat_feed').insert({
           session_id: sessionRunId, round: combatRound,
           text: msg, type: 'damage', shared: true, timestamp: new Date().toISOString(),
+          metadata: { kind: 'damage', target_id: targetId },
         })
         const dmgToHp = remaining
         if (dmgToHp > 0 && target?.concentration) {

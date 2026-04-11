@@ -2,6 +2,8 @@ import React, { useMemo, useState, useEffect } from 'react'
 import SpellCard from '../SpellCard'
 import FilterChipRow from '../ui/FilterChipRow.jsx'
 import { ENTITY_FILTER_LABELS, matchesEntityFilter, spellToFilterTags } from '../../lib/entityFilters.js'
+import { classifySpellCombat } from '@shared/lib/combat/spellCombatClassifier.js'
+import DiceRichText from '@shared/components/combat/DiceRichText.jsx'
 
 export default function SpellsTab({
   char, spellSlots, activeSpell, spellSlotLevel, setSpellSlotLevel,
@@ -10,6 +12,7 @@ export default function SpellsTab({
   openSpell, closeSpell, castSpell, resolveSpellForCasting,
   combatActive,
   stripSignal = null,
+  pushRoll,
 }) {
   const st = char?.stats && typeof char.stats === 'object' && !Array.isArray(char.stats) ? char.stats : {}
   const [spellFilter, setSpellFilter] = useState('all')
@@ -91,6 +94,7 @@ export default function SpellsTab({
           closeSpell={closeSpell}
           castSpell={castSpell}
           combatActive={combatActive}
+          pushRoll={pushRoll}
         />
       )}
 
@@ -166,6 +170,7 @@ export default function SpellsTab({
                     onCast={() => openSpell(displaySpell)}
                     onCancel={() => closeSpell()}
                     charColour={char.colour}
+                    rollerName={char.name}
                   />
                 )
               })}
@@ -181,8 +186,9 @@ function ActiveSpellPanel({
   spell, char, spellSlots, spellSlotLevel, setSpellSlotLevel,
   spellTarget, setSpellTarget, spellTargets, setSpellTargets,
   enemies, partyChars, playerCharacters, characterId,
-  closeSpell, castSpell, combatActive,
+  closeSpell, castSpell, combatActive, pushRoll,
 }) {
+  const cls = classifySpellCombat(spell)
   const needsEnemyTarget = combatActive && (spell.target === 'enemy' || spell.target === 'any')
   const isAreaOrMulti = spell.targetMode === 'area_all' || spell.targetMode === 'area_selective' || spell.targetMode === 'area' || spell.targetMode === 'multi_select'
   const needsAllyTarget = spell.target === 'ally'
@@ -211,7 +217,17 @@ function ActiveSpellPanel({
       </div>
 
       <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 12 }}>
-        {spell.description}
+        <DiceRichText
+          text={spell.description}
+          contextLabel={spell.name}
+          onRoll={pushRoll
+            ? ({ total, rolls, mod, expr, contextLabel: ctx }) => {
+                const modStr = mod ? (mod >= 0 ? `+${mod}` : `${mod}`) : ''
+                const r = rolls.length ? `[${rolls.join('+')}]${modStr}` : ''
+                pushRoll(`${ctx || spell.name} (${expr}): ${r} = ${total}`, char.name)
+              }
+            : undefined}
+        />
       </div>
 
       <div style={{ marginBottom: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -247,6 +263,11 @@ function ActiveSpellPanel({
         {(spell.combatProfile?.rules?.needs_manual_resolution || spell.targetMode === 'special') && (
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, padding: '2px 8px', background: 'rgba(176,144,48,0.15)', border: '1px solid rgba(176,144,48,0.3)', borderRadius: 4, color: 'var(--warning)' }}>
             Manual Resolution
+          </span>
+        )}
+        {cls.confidence !== 'high' && (
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, padding: '2px 8px', background: 'rgba(100,100,120,0.12)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            {cls.confidence} confidence
           </span>
         )}
       </div>

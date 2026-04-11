@@ -1,3 +1,5 @@
+import { isMonsterSaveAction } from './combat/monsterActionAdapter.js'
+
 export function parseCastingTimeMeta(castingTime) {
   const raw = String(castingTime || '').trim().toLowerCase()
   if (!raw) {
@@ -231,7 +233,52 @@ export function decodePlayerSavePrompt(text) {
  * Parses parenthetical XdY from stat-block strings (e.g. Toll the Dead: 2d12 hurt / 2d8 full HP).
  */
 export function buildSavePromptDamageMeta(selected) {
-  if (!selected || selected.type !== 'save') return null
+  if (!selected || !isMonsterSaveAction(selected)) return null
+
+  if (Array.isArray(selected.damage) && selected.damage.length > 0) {
+    const parseNdM = (s) => {
+      const m = String(s ?? '').match(/(\d+)\s*d\s*(\d+)/i)
+      return m ? { count: Number(m[1]), sides: Number(m[2]) } : null
+    }
+    const rowDice = (row) => {
+      if (row && typeof row === 'object' && row.dice != null) return row.dice
+      if (typeof row === 'string') return row
+      return null
+    }
+    const rowType = (row) => {
+      if (row && typeof row === 'object' && row.type) return String(row.type).toLowerCase()
+      return null
+    }
+    const half =
+      selected.resolution?.on_save == null
+      || selected.resolution?.on_save === 'half_damage'
+      || selected.resolution?.on_save === 'half'
+
+    const rows = selected.damage
+    if (rows.length >= 2) {
+      const d1 = parseNdM(rowDice(rows[0]))
+      const d2 = parseNdM(rowDice(rows[1]))
+      if (d1 && d2) {
+        return {
+          variant: 'toll-the-dead',
+          diceWhenHurt: d1,
+          diceWhenFullHp: d2,
+          halfOnSuccess: half,
+          damageType: rowType(rows[0]) || rowType(rows[1]),
+        }
+      }
+    }
+    const d0 = parseNdM(rowDice(rows[0]))
+    if (d0) {
+      return {
+        variant: 'single',
+        diceOnFail: d0,
+        halfOnSuccess: half,
+        damageType: rowType(rows[0]),
+      }
+    }
+  }
+
   const raw = selected.damage
   if (raw == null) return null
   const str = String(raw)

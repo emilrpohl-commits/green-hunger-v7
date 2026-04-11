@@ -28,6 +28,7 @@ describe('rules layer golden', () => {
     const n = normalizeStatBlockAction({ name: 'Breath', saveType: 'DEX', dc: 15 })
     expect(n.resolution.kind).toBe('save')
     expect(n.resolution.dc).toBe(15)
+    expect(n.actionKind).toBe('save')
   })
 
   it('validateStatBlock warns on unnamed action', () => {

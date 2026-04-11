@@ -8,7 +8,7 @@ export const createFeedSlice = (set, get) => ({
   rollFeedChannel: null,
   feedChannel: null,
 
-  pushFeedEvent: async (text, type = 'action', shared = false) => {
+  pushFeedEvent: async (text, type = 'action', shared = false, metadata = null) => {
     const { feed, round, sessionRunId } = get()
     const event = {
       id: Date.now(),
@@ -16,19 +16,22 @@ export const createFeedSlice = (set, get) => ({
       text,
       type,
       shared,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      ...(metadata && typeof metadata === 'object' ? { metadata } : {}),
     }
     set({ feed: [event, ...feed].slice(0, 50) })
 
     try {
-      await supabase.from('combat_feed').insert({
+      const row = {
         session_id: sessionRunId,
         round,
         text,
         type,
         shared,
-        timestamp: event.timestamp
-      })
+        timestamp: event.timestamp,
+      }
+      if (metadata && typeof metadata === 'object') row.metadata = metadata
+      await supabase.from('combat_feed').insert(row)
     } catch (e) {
       console.error('Feed sync error:', e)
     }
@@ -47,7 +50,10 @@ export const createFeedSlice = (set, get) => ({
       if (data) {
         const feed = data
           .filter(d => d.type !== 'player-save-prompt')
-          .map(d => ({ id: d.id, round: d.round, text: d.text, type: d.type, shared: d.shared }))
+          .map(d => ({
+            id: d.id, round: d.round, text: d.text, type: d.type, shared: d.shared,
+            metadata: d.metadata && typeof d.metadata === 'object' ? d.metadata : undefined,
+          }))
         const savePrompts = data
           .filter(d => d.type === 'save-prompt')
           .map(d => ({ ...(decodeSavePrompt(d.text) || {}), eventId: d.id, resolved: false }))
@@ -112,7 +118,15 @@ export const createFeedSlice = (set, get) => ({
         const row = payload.new
         if (!row) return
         if (row.type === 'player-save-prompt') return
-        const event = { id: row.id || Date.now(), round: row.round, text: row.text, type: row.type, shared: row.shared, timestamp: row.timestamp }
+        const event = {
+          id: row.id || Date.now(),
+          round: row.round,
+          text: row.text,
+          type: row.type,
+          shared: row.shared,
+          timestamp: row.timestamp,
+          metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : undefined,
+        }
         set(state => ({ feed: [event, ...state.feed].slice(0, 80) }))
         if (row.type === 'save-prompt') {
           const prompt = decodeSavePrompt(row.text)

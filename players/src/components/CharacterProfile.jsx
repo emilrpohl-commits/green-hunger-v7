@@ -353,6 +353,7 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
             castSpell={actions.castSpell}
             resolveSpellForCasting={actions.resolveSpellForCasting}
             combatActive={combatActive}
+            pushRoll={actions.pushRoll}
           />
         )}
 

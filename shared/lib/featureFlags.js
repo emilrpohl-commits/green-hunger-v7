@@ -42,8 +42,8 @@ export const featureFlags = {
   /** Phase 2C: use encounters + stat_blocks from DB for quick-launch (see kill switch for rollback). */
   encountersDbOnly: asBool(env.VITE_ENCOUNTERS_DB_ONLY, false),
   encountersDbOnlyKillSwitch: asBool(env.VITE_ENCOUNTERS_DB_ONLY_KILL_SWITCH, false),
-  /** Apply resistance/vulnerability/immunity when applying typed damage (combat). */
-  rulesDamagePipeline: asBool(env.VITE_RULES_DAMAGE_PIPELINE, false),
+  /** Apply resistance/vulnerability/immunity when applying typed damage (combat). Default on; set VITE_RULES_DAMAGE_PIPELINE=false to disable. */
+  rulesDamagePipeline: asBool(env.VITE_RULES_DAMAGE_PIPELINE, true),
 }
 
 export function isFeatureEnabled(flagName) {
