@@ -1,0 +1,28 @@
+{
+  "ruleset": "2024",
+  "srdVersion": "5.2.1",
+  "entries": [
+    { "index": "blinded", "name": "Blinded", "summary": "Can't see; auto-fail sight checks; attacks vs you have advantage; yours have disadvantage.", "colour": "#b09060", "srd": true },
+    { "index": "charmed", "name": "Charmed", "summary": "Can't harm charmer; charmer has advantage on social checks with you.", "colour": "#d080a0", "srd": true },
+    { "index": "deafened", "name": "Deafened", "summary": "Can't hear; auto-fail hearing checks.", "colour": "#908070", "srd": true },
+    { "index": "exhaustion", "name": "Exhaustion", "summary": "Cumulative levels; D20 Test penalty; speed reduction; long rest removes 1 level.", "colour": "#807060", "srd": true, "supportsLevel": true },
+    { "index": "frightened", "name": "Frightened", "summary": "Disadvantage on checks and attacks while fear source in sight; can't move closer.", "colour": "#a07050", "srd": true },
+    { "index": "grappled", "name": "Grappled", "summary": "Speed 0; disadvantage on attacks vs others; grappler can drag you.", "colour": "#708090", "srd": true },
+    { "index": "incapacitated", "name": "Incapacitated", "summary": "No actions, bonus actions, or reactions; no concentration; can't speak.", "colour": "#906060", "srd": true },
+    { "index": "invisible", "name": "Invisible", "summary": "Heavily obscured; attacks vs you disadvantage; yours advantage if unseen.", "colour": "#6090a0", "srd": true },
+    { "index": "paralyzed", "name": "Paralyzed", "summary": "Incapacitated; Speed 0; auto-fail Str/Dex saves; hits adjacent are crits.", "colour": "#c08040", "srd": true },
+    { "index": "petrified", "name": "Petrified", "summary": "Transformed; incapacitated; resist all damage; immune to poisoned.", "colour": "#808090", "srd": true },
+    { "index": "poisoned", "name": "Poisoned", "summary": "Disadvantage on attack rolls and ability checks.", "colour": "#70a050", "srd": true },
+    { "index": "prone", "name": "Prone", "summary": "Crawl or stand; disadvantage on attacks; melee vs you advantage, ranged disadvantage.", "colour": "#706050", "srd": true },
+    { "index": "restrained", "name": "Restrained", "summary": "Speed 0; disadvantage on Dex saves and attacks; attacks vs you have advantage.", "colour": "#8070b0", "srd": true },
+    { "index": "stunned", "name": "Stunned", "summary": "Incapacitated; auto-fail Str/Dex saves; attacks vs you have advantage.", "colour": "#b08040", "srd": true },
+    { "index": "unconscious", "name": "Unconscious", "summary": "Incapacitated, prone, unaware; auto-fail Str/Dex; adjacent hits are crits.", "colour": "#505060", "srd": true },
+    { "index": "silenced", "name": "Silenced", "summary": "Homebrew: cannot cast spells with verbal components.", "colour": "#7090b0", "srd": false, "homebrew": true }
+  ],
+  "nameAliases": {
+    "paralysed": "Paralyzed",
+    "paralyzed": "Paralyzed",
+    "deafened": "Deafened",
+    "exhaustion": "Exhaustion"
+  }
+}

@@ -4,11 +4,11 @@ import { validateStatBlock } from '@shared/lib/statBlockActions.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
 import PortraitUploadField from '../../components/PortraitUploadField.jsx'
 import { uploadAudioFile } from '@shared/lib/audioStorage.js'
+import { CONDITIONS } from '@shared/lib/rules/conditionCatalog.js'
 
 const ABILITY_SCORES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
 const SIZES = ['Tiny', 'Small', 'Medium', 'Large', 'Huge', 'Gargantuan']
 const DAMAGE_TYPES = ['Acid', 'Bludgeoning', 'Cold', 'Fire', 'Force', 'Lightning', 'Necrotic', 'Piercing', 'Poison', 'Psychic', 'Radiant', 'Slashing', 'Thunder']
-const CONDITIONS = ['Blinded', 'Charmed', 'Deafened', 'Exhaustion', 'Frightened', 'Grappled', 'Incapacitated', 'Invisible', 'Paralyzed', 'Petrified', 'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious']
 
 function abilityMod(score) {
   return Math.floor((score - 10) / 2)

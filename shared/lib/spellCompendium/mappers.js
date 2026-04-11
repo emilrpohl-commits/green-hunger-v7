@@ -3,6 +3,36 @@
  */
 import { parseCastingTimeMeta } from '../combatRules.js'
 
+/** Coerce DB jsonb / import quirks to a plain object. */
+export function normalizeRulesJson(raw) {
+  if (raw == null || raw === '') return {}
+  if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) return raw
+  if (typeof raw === 'string') {
+    try {
+      const o = JSON.parse(raw)
+      return typeof o === 'object' && o !== null && !Array.isArray(o) ? o : {}
+    } catch {
+      return {}
+    }
+  }
+  return {}
+}
+
+/** Spell description / details for UI (never return a non-string to React). */
+export function spellDetailToString(value) {
+  if (value == null || value === '') return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value, null, 2)
+    } catch {
+      return ''
+    }
+  }
+  return String(value)
+}
+
 export function slugifyPart(value) {
   return String(value ?? '')
     .toLowerCase()
@@ -146,10 +176,11 @@ export function buildSearchText(parts) {
  */
 export function compendiumRowToPlayerEntry(row) {
   if (!row?.spell_id) return null
+  const rulesJson = normalizeRulesJson(row.rules_json)
   const castingMeta = parseCastingTimeMeta(row.casting_time)
-  const mechanic = row.rules_json?.inferred_mechanic || row.resolution_type || 'utility'
+  const mechanic = rulesJson.inferred_mechanic || row.resolution_type || 'utility'
   const targetMode = row.target_mode || 'special'
-  const target = row.rules_json?.inferred_target ?? inferTargetFromMode(targetMode)
+  const target = rulesJson.inferred_target ?? inferTargetFromMode(targetMode)
   return {
     spellId: row.spell_id,
     source_index: row.spell_id,
@@ -167,17 +198,17 @@ export function compendiumRowToPlayerEntry(row) {
     duration: row.duration,
     ritual: !!row.ritual,
     concentration: !!row.concentration,
-    description: row.details,
+    description: spellDetailToString(row.details),
     higher_levels: '',
     saveType: row.save_ability || row.save || null,
     attack_type: row.attack_type,
     targetMode,
     target,
     source: row.source || null,
-    area: row.area ? { shape: null, size: row.area, origin: null } : row.rules_json?.area_struct || null,
-    scaling: row.rules_json?.scaling || {},
+    area: row.area ? { shape: null, size: row.area, origin: null } : rulesJson.area_struct || null,
+    scaling: rulesJson.scaling || {},
     rules_json: {
-      ...(row.rules_json || {}),
+      ...rulesJson,
       damage_effect: row.damage_effect,
       summon_stat_block: row.summon_stat_block,
       targeting_label: row.targeting,
@@ -190,7 +221,7 @@ export function compendiumRowToPlayerEntry(row) {
       targetMode,
       saveAbility: row.save_ability || null,
       area: row.area ? { shape: null, size: row.area, origin: null } : {},
-      rules: row.rules_json || {},
+      rules: rulesJson,
     },
   }
 }
@@ -200,6 +231,8 @@ export function compendiumRowToPlayerEntry(row) {
  */
 export function compendiumRowToDmListRow(row) {
   if (!row) return null
+  const rulesJson = normalizeRulesJson(row.rules_json)
+  const detailsStr = spellDetailToString(row.details)
   return {
     id: row.id,
     spell_id: row.spell_id,
@@ -213,10 +246,10 @@ export function compendiumRowToDmListRow(row) {
     components: row.components || { V: !!row.verbal, S: !!row.somatic, M: row.material_text || null },
     ritual: !!row.ritual,
     concentration: !!row.concentration,
-    description: row.details,
+    description: detailsStr,
     higher_level_effect: '',
-    damage_dice: row.rules_json?.primary_damage_dice || null,
-    damage_type: row.rules_json?.primary_damage_type || parseDamageType(row.damage_effect),
+    damage_dice: rulesJson.primary_damage_dice || null,
+    damage_type: rulesJson.primary_damage_type || parseDamageType(row.damage_effect),
     healing_dice: null,
     save_type: row.save_ability,
     attack_type: row.attack_type,
@@ -224,8 +257,8 @@ export function compendiumRowToDmListRow(row) {
     target_mode: row.target_mode || 'special',
     save_ability: row.save_ability,
     area: row.area ? { shape: null, size: row.area, origin: null } : {},
-    scaling: row.rules_json?.scaling || {},
-    rules_json: row.rules_json || {},
+    scaling: rulesJson.scaling || {},
+    rules_json: rulesJson,
     tags: row.tags || [],
     source: row.source,
     source_index: row.spell_id,
@@ -235,7 +268,7 @@ export function compendiumRowToDmListRow(row) {
     sound_effect_url: row.sound_effect_url || null,
     _compendium: true,
     _sourceType: row.source_type || 'compendium',
-    _compendiumRow: row,
+    _compendiumRow: { ...row, details: detailsStr, rules_json: rulesJson },
   }
 }
 

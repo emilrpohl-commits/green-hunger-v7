@@ -1,0 +1,26 @@
+{
+  "ruleset": "2024",
+  "srdVersion": "5.2.1",
+  "shortRest": {
+    "durationMinutes": 60,
+    "summary": "Spend Hit Dice to regain HP; many class features recharge on a short rest.",
+    "hitDice": {
+      "canSpendToHeal": true,
+      "note": "Player chooses which dice to expend; roll die + Con mod per die spent."
+    }
+  },
+  "longRest": {
+    "durationHours": 8,
+    "summary": "Regain all lost HP, half spent Hit Dice (min 1), spell slots, and many features; reduces Exhaustion by 1.",
+    "restore": {
+      "hpToFull": true,
+      "hitDiceFraction": 0.5,
+      "hitDiceMinimumRestore": 1,
+      "exhaustionLevels": -1,
+      "spellSlots": true
+    }
+  },
+  "classFeatureHooks": {
+    "note": "Class-specific resets (Ki, Wild Shape, etc.) reference feature ids on the character sheet; not enumerated here."
+  }
+}

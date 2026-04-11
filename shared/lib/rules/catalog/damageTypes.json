@@ -1,0 +1,19 @@
+{
+  "ruleset": "2024",
+  "srdVersion": "5.2.1",
+  "types": [
+    { "id": "acid", "label": "Acid" },
+    { "id": "bludgeoning", "label": "Bludgeoning" },
+    { "id": "cold", "label": "Cold" },
+    { "id": "fire", "label": "Fire" },
+    { "id": "force", "label": "Force" },
+    { "id": "lightning", "label": "Lightning" },
+    { "id": "necrotic", "label": "Necrotic" },
+    { "id": "piercing", "label": "Piercing" },
+    { "id": "poison", "label": "Poison" },
+    { "id": "psychic", "label": "Psychic" },
+    { "id": "radiant", "label": "Radiant" },
+    { "id": "slashing", "label": "Slashing" },
+    { "id": "thunder", "label": "Thunder" }
+  ]
+}

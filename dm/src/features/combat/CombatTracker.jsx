@@ -1,7 +1,11 @@
 import React, { useState } from 'react'
 import { useCombatStore } from '../../stores/combatStore'
-
-const CONDITIONS = ['Blinded', 'Charmed', 'Frightened', 'Poisoned', 'Prone', 'Restrained', 'Stunned']
+import { CONDITIONS } from '@shared/lib/rules/conditionCatalog.js'
+import { DAMAGE_TYPE_SELECT_OPTIONS } from '@shared/lib/rules/damagePipeline.js'
+import {
+  readLastManualDamageType,
+  writeLastManualDamageType,
+} from './lastManualDamageTypeStorage.js'
 
 function CombatantRow({ combatant, isActive, index }) {
   const damageCombatant = useCombatStore(s => s.damageCombatant)
@@ -10,6 +14,7 @@ function CombatantRow({ combatant, isActive, index }) {
   const setInitiative = useCombatStore(s => s.setInitiative)
 
   const [amount, setAmount] = useState('')
+  const [damageTypeId, setDamageTypeId] = useState(readLastManualDamageType)
   const [showConditions, setShowConditions] = useState(false)
 
   const hpPct = combatant.maxHp > 0 ? (combatant.curHp / combatant.maxHp) * 100 : 0
@@ -23,7 +28,8 @@ function CombatantRow({ combatant, isActive, index }) {
 
   const applyDamage = () => {
     if (!amount) return
-    damageCombatant(combatant.id, parseInt(amount))
+    writeLastManualDamageType(damageTypeId)
+    damageCombatant(combatant.id, parseInt(amount), damageTypeId || null)
     setAmount('')
   }
 
@@ -137,6 +143,27 @@ function CombatantRow({ combatant, isActive, index }) {
             outline: 'none'
           }}
         />
+        <select
+          value={damageTypeId}
+          onChange={(e) => setDamageTypeId(e.target.value)}
+          title="Damage type"
+          style={{
+            maxWidth: 96,
+            padding: '3px 4px',
+            fontSize: 10,
+            fontFamily: 'var(--font-mono)',
+            background: 'var(--bg-raised)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            color: 'var(--text-muted)',
+          }}
+        >
+          {DAMAGE_TYPE_SELECT_OPTIONS.map((o) => (
+            <option key={o.value || 'untyped'} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
         <button onClick={applyDamage} style={{
           padding: '4px 8px', fontSize: 11,
           background: 'rgba(196,64,64,0.15)',
@@ -158,7 +185,7 @@ function CombatantRow({ combatant, isActive, index }) {
       {/* Quick damage buttons */}
       <div style={{ display: 'flex', gap: 3, marginBottom: 6, flexWrap: 'wrap' }}>
         {[1, 2, 3, 5, 8, 10].map(n => (
-          <button key={n} onClick={() => damageCombatant(combatant.id, n)} style={{
+          <button key={n} onClick={() => { writeLastManualDamageType(damageTypeId); damageCombatant(combatant.id, n, damageTypeId || null) }} style={{
             padding: '2px 6px', fontSize: 10,
             fontFamily: 'var(--font-mono)',
             background: 'var(--bg-raised)',

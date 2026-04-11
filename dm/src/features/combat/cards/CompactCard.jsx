@@ -6,6 +6,11 @@ import {
   isDead, isBloodied, kindColourRaw, typeLine, HP_COLOUR,
 } from './constants.js'
 import { greenMarkCombatTags } from '@shared/lib/greenMarks.js'
+import { DAMAGE_TYPE_SELECT_OPTIONS } from '@shared/lib/rules/damagePipeline.js'
+import {
+  readLastManualDamageType,
+  writeLastManualDamageType,
+} from '../lastManualDamageTypeStorage.js'
 
 const safeHp = (n) => (typeof n === 'number' && isFinite(n) ? n : 0)
 const SAVE_ORDER = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
@@ -183,6 +188,7 @@ function QuickHp({ combatant }) {
   const setTempHp       = useCombatStore(s => s.setTempHp)
 
   const [amt, setAmt]   = useState('')
+  const [damageTypeId, setDamageTypeId] = useState(readLastManualDamageType)
   const [flash, setFlash] = useState(null)
   const timerRef = useRef(null)
 
@@ -195,7 +201,8 @@ function QuickHp({ combatant }) {
   function applyDmg(n) {
     const v = n != null ? n : parseInt(amt)
     if (!v || v <= 0) return
-    damageCombatant(combatant.id, v)
+    writeLastManualDamageType(damageTypeId)
+    damageCombatant(combatant.id, v, damageTypeId || null)
     setAmt('')
     triggerFlash('dmg')
   }
@@ -248,6 +255,28 @@ function QuickHp({ combatant }) {
         <ActionBtn onClick={() => applyDmg()} label="−DMG" colour="var(--danger)" bg="rgba(196,64,64,0.12)" border="rgba(196,64,64,0.4)" />
         <ActionBtn onClick={() => applyHeal()} label="+Heal" colour="var(--green-bright)" bg="rgba(122,184,106,0.08)" border="rgba(122,184,106,0.3)" />
         <ActionBtn onClick={applyTemp} label="+Temp" colour="var(--info)" bg="rgba(64,128,196,0.10)" border="rgba(64,128,196,0.35)" />
+        <select
+          value={damageTypeId}
+          onChange={(e) => setDamageTypeId(e.target.value)}
+          title="Damage type (R/V/I when rules pipeline flag is on)"
+          style={{
+            maxWidth: 100,
+            padding: '3px 5px',
+            fontSize: 9.5,
+            fontFamily: 'var(--font-mono)',
+            background: 'var(--bg-raised)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+          }}
+        >
+          {DAMAGE_TYPE_SELECT_OPTIONS.map((o) => (
+            <option key={o.value || 'untyped'} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       </div>
       {/* Quick chips */}
       <div style={{ display: 'flex', gap: 3, marginTop: 4, flexWrap: 'wrap' }}>

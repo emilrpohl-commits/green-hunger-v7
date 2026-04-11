@@ -67,14 +67,9 @@ export const OBJECT_HP = {
   huge: { fragile: { avg: 6, dice: '1d12' }, resilient: { avg: 40, dice: '5d12' } },
 }
 
-export const DC_TABLE = [
-  { id: 'veryEasy', label: 'Very easy', dc: 5, hint: 'Routine for almost anyone.' },
-  { id: 'easy', label: 'Easy', dc: 10, hint: 'A relaxed challenge for a capable person.' },
-  { id: 'medium', label: 'Medium', dc: 15, hint: 'Typical trained adventurer benchmark.' },
-  { id: 'hard', label: 'Hard', dc: 20, hint: 'Demanding even for veterans.' },
-  { id: 'veryHard', label: 'Very hard', dc: 25, hint: 'Exceptional effort or luck.' },
-  { id: 'nearlyImpossible', label: 'Nearly impossible', dc: 30, hint: 'Legendary; failure is expected.' },
-]
+/** @see shared/lib/rules/catalog/dcTables.json */
+export { DC_TABLE, DC_STANDARD_LADDER } from '../rules/dcTable.js'
+export { CONDITIONS_REFERENCE } from '../rules/conditionCatalog.js'
 
 /**
  * DMG-style adjusted XP multiplier from monster count.
@@ -121,76 +116,3 @@ export function rollChaseComplication() {
   return { index: i + 1, text: CHASE_COMPLICATIONS[i] }
 }
 
-/** SRD-aligned summaries for quick lookup */
-export const CONDITIONS_REFERENCE = [
-  {
-    name: 'Blinded',
-    summary: 'Can’t see; attacks have disadvantage; attacks against it have advantage.',
-    full: 'A blinded creature can’t see and automatically fails any ability check that requires sight. Attack rolls against the creature have advantage, and the creature’s attack rolls have disadvantage.',
-  },
-  {
-    name: 'Charmed',
-    summary: 'Can’t attack the charmer; charmer has advantage on social checks.',
-    full: 'A charmed creature can’t attack the charmer or target the charmer with harmful abilities. The charmer has advantage on ability checks to interact socially with the creature.',
-  },
-  {
-    name: 'Deafened',
-    summary: 'Can’t hear; fails checks that require hearing.',
-    full: 'A deafened creature can’t hear and automatically fails any ability check that requires hearing.',
-  },
-  {
-    name: 'Frightened',
-    summary: 'Disadvantage while source in sight; can’t willingly move closer.',
-    full: 'A frightened creature has disadvantage on ability checks and attack rolls while the source of its fear is within line of sight. The creature can’t willingly move closer to that source.',
-  },
-  {
-    name: 'Grappled',
-    summary: 'Speed 0; ends if grappler is incapacitated or separated.',
-    full: 'A grappled creature’s speed becomes 0, and it can’t benefit from any bonus to its speed. The condition ends if the grappler is incapacitated or if an effect removes the grappled creature from the grappler’s reach.',
-  },
-  {
-    name: 'Incapacitated',
-    summary: 'Can’t take actions or reactions.',
-    full: 'An incapacitated creature can’t take actions or reactions.',
-  },
-  {
-    name: 'Invisible',
-    summary: 'Heavily obscured for sight; attacks against it have disadvantage; its attacks have advantage.',
-    full: 'An invisible creature is impossible to see without special senses; it’s heavily obscured for sight. Attack rolls against it have disadvantage, and its attack rolls have advantage.',
-  },
-  {
-    name: 'Paralyzed',
-    summary: 'Incapacitated; auto-fail Str/Dex saves; melee hits crit within 5 ft.',
-    full: 'A paralyzed creature is incapacitated and can’t move or speak. It automatically fails Strength and Dexterity saving throws. Attack rolls against it have advantage. Any attack that hits from within 5 feet is a critical hit.',
-  },
-  {
-    name: 'Petrified',
-    summary: 'Turned to stone; weight ×10; resistant to damage; immune to poison/poisoned.',
-    full: 'A petrified creature is transformed to solid inanimate material; its weight increases by a factor of ten. It is incapacitated, can’t move or speak, and is unaware. Attack rolls against it have advantage. It has resistance to all damage; immunity to poison and poisoned.',
-  },
-  {
-    name: 'Poisoned',
-    summary: 'Disadvantage on attacks and ability checks.',
-    full: 'A poisoned creature has disadvantage on attack rolls and ability checks.',
-  },
-  {
-    name: 'Prone',
-    summary: 'Disadvantage on attacks; melee vs prone has advantage; ranged disadvantage.',
-    full: 'A prone creature’s only movement option is to crawl unless it stands up. It has disadvantage on attack rolls. An attack roll against it has advantage if the attacker is within 5 feet; otherwise disadvantage.',
-  },
-  {
-    name: 'Restrained',
-    summary: 'Speed 0; disadvantage on Dex saves and attacks; attacks against have advantage.',
-    full: 'A restrained creature’s speed becomes 0, and it can’t benefit from bonuses to speed. Attack rolls against it have advantage, and its attack rolls have disadvantage. It has disadvantage on Dexterity saving throws.',
-  },
-  {
-    name: 'Stunned',
-    summary: 'Incapacitated; can’t move; auto-fail Str/Dex saves; attacks against have advantage.',
-    full: 'A stunned creature is incapacitated, can’t move, and can speak only falteringly. It automatically fails Strength and Dexterity saving throws. Attack rolls against it have advantage.',
-  },
-  {
-    name: 'Unconscious',
-    summary: 'Incapacitated; drops held; prone; auto-fail Str/Dex; melee hits crit within 5 ft.',
-    full: 'An unconscious creature is incapacitated, can’t move or speak, and is unaware. It drops whatever it’s holding and falls prone. It automatically fails Strength and Dexterity saving throws. Attack rolls against it have advantage. Hits from within 5 feet are critical hits.',
-  },
-]

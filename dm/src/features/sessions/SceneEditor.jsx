@@ -173,6 +173,10 @@ export default function SceneEditor({ sceneId, sessionId, onClose }) {
             <TextareaField label="Summary (DM only)" value={sceneForm.summary} onChange={v => updateForm('summary', v)} labelStyle={labelStyle} taStyle={taStyle} rows={3} />
 
             <Divider label="Scene Media" />
+            <p style={{ margin: '0 0 14px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.55 }}>
+              Upload a <strong style={{ color: 'var(--text-secondary)' }}>cover image</strong> for this scene (shown to players in Run mode behind beat text).{' '}
+              Session-level <strong>map videos</strong> are uploaded on the <strong>session</strong> editor (Builder → Sessions → open session → Maps), not here. Beats do not have separate image/MP4 slots yet.
+            </p>
             <SceneMediaUploader
               sceneId={scene.id}
               imageUrl={sceneForm.image_url}

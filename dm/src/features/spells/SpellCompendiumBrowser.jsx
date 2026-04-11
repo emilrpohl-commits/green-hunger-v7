@@ -1,5 +1,27 @@
 import React, { useDeferredValue, useMemo, useState, useCallback } from 'react'
 
+/** Avoid React "objects are not valid as a React child" from odd DB/import shapes. */
+function safeSpellText(value, maxLen = 24000) {
+  if (value == null || value === '') return ''
+  if (typeof value === 'string') return value.length > maxLen ? `${value.slice(0, maxLen)}…` : value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (typeof value === 'object') {
+    try {
+      const s = JSON.stringify(value, null, 2)
+      return s.length > maxLen ? `${s.slice(0, maxLen)}…` : s
+    } catch {
+      return '[Undisplayable value]'
+    }
+  }
+  return String(value).slice(0, maxLen)
+}
+
+function safeExternalUrl(raw) {
+  const s = typeof raw === 'string' ? raw.trim() : ''
+  if (!s || !/^https?:\/\//i.test(s)) return null
+  return s
+}
+
 const PAGE = 60
 const SCHOOLS = ['', 'Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation']
 
@@ -37,9 +59,10 @@ function DetailPanel({ spell, onClose }) {
   const h2 = { fontFamily: 'var(--font-display)', fontSize: 20, color: 'var(--text-primary)', margin: '0 0 4px' }
   const sub = { ...mono, fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }
 
-  const levelLabel = r.level === 0 ? 'Cantrip' : `Level ${r.level}`
-  const detailsText = r.details || spell.description || ''
-  const link = r.source_link || spell.source_url
+  const lv = Number(r.level ?? spell.level)
+  const levelLabel = !Number.isFinite(lv) ? 'Level —' : lv === 0 ? 'Cantrip' : `Level ${lv}`
+  const detailsText = safeSpellText(r.details ?? spell.description ?? '')
+  const link = safeExternalUrl(r.source_link ?? spell.source_url)
 
   return (
     <div
@@ -53,7 +76,7 @@ function DetailPanel({ spell, onClose }) {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
-          <h2 style={h2}>{r.name || spell.name}</h2>
+          <h2 style={h2}>{safeSpellText(r.name || spell.name, 500)}</h2>
           <div style={sub}>
             {levelLabel}
             {r.school ? ` · ${r.school}` : ''}
@@ -84,13 +107,13 @@ function DetailPanel({ spell, onClose }) {
       <div style={block}>
         <div style={{ ...mono, fontSize: 9, color: 'var(--text-muted)', marginBottom: 8 }}>Summary</div>
         <div style={{ display: 'grid', gap: 8, fontSize: 13, color: 'var(--text-secondary)' }}>
-          <div><strong style={{ color: 'var(--text-primary)' }}>Casting time</strong> — {r.casting_time || spell.casting_time || '—'}</div>
-          <div><strong style={{ color: 'var(--text-primary)' }}>Range</strong> — {r.range || spell.range || '—'}</div>
-          <div><strong style={{ color: 'var(--text-primary)' }}>Duration</strong> — {r.duration || spell.duration || '—'}</div>
-          <div><strong style={{ color: 'var(--text-primary)' }}>Area</strong> — {r.area || '—'}</div>
-          <div><strong style={{ color: 'var(--text-primary)' }}>Attack</strong> — {r.attack || spell.attack_type || '—'}</div>
-          <div><strong style={{ color: 'var(--text-primary)' }}>Save</strong> — {r.save || spell.save_type || '—'}</div>
-          <div><strong style={{ color: 'var(--text-primary)' }}>Damage / effect</strong> — {r.damage_effect || spell.damage_dice || '—'}</div>
+          <div><strong style={{ color: 'var(--text-primary)' }}>Casting time</strong> — {safeSpellText(r.casting_time || spell.casting_time || '—', 400)}</div>
+          <div><strong style={{ color: 'var(--text-primary)' }}>Range</strong> — {safeSpellText(r.range || spell.range || '—', 400)}</div>
+          <div><strong style={{ color: 'var(--text-primary)' }}>Duration</strong> — {safeSpellText(r.duration || spell.duration || '—', 400)}</div>
+          <div><strong style={{ color: 'var(--text-primary)' }}>Area</strong> — {safeSpellText(r.area ?? '—', 400)}</div>
+          <div><strong style={{ color: 'var(--text-primary)' }}>Attack</strong> — {safeSpellText(r.attack || spell.attack_type || '—', 400)}</div>
+          <div><strong style={{ color: 'var(--text-primary)' }}>Save</strong> — {safeSpellText(r.save || spell.save_type || '—', 400)}</div>
+          <div><strong style={{ color: 'var(--text-primary)' }}>Damage / effect</strong> — {safeSpellText(r.damage_effect || spell.damage_dice || '—', 800)}</div>
         </div>
         <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {boolChip(!!r.ritual || !!spell.ritual, 'Ritual')}
@@ -104,24 +127,27 @@ function DetailPanel({ spell, onClose }) {
       {(r.material_text || (typeof spell.components?.M === 'string' && spell.components.M)) && (
         <div style={block}>
           <div style={{ ...mono, fontSize: 9, color: 'var(--text-muted)', marginBottom: 6 }}>Material</div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{r.material_text || spell.components?.M}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{safeSpellText(r.material_text || spell.components?.M, 2000)}</div>
         </div>
       )}
 
       <div style={block}>
         <div style={{ ...mono, fontSize: 9, color: 'var(--text-muted)', marginBottom: 6 }}>Targeting</div>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{r.targeting || spell.target_mode || '—'}</div>
-        {(r.max_targets || r.rules_json?.max_targets_raw) && (
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{safeSpellText(r.targeting || spell.target_mode || '—', 800)}</div>
+        {(r.max_targets != null && r.max_targets !== '') || (r.rules_json && r.rules_json.max_targets_raw != null && r.rules_json.max_targets_raw !== '') ? (
           <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-            Max targets: <span style={{ color: 'var(--text-primary)' }}>{r.max_targets || r.rules_json?.max_targets_raw}</span>
+            Max targets:{' '}
+            <span style={{ color: 'var(--text-primary)' }}>
+              {safeSpellText(r.max_targets ?? r.rules_json?.max_targets_raw ?? '', 200)}
+            </span>
           </div>
-        )}
+        ) : null}
       </div>
 
-      {r.summon_stat_block && (
+      {r.summon_stat_block != null && String(r.summon_stat_block).trim() !== '' && (
         <div style={block}>
           <div style={{ ...mono, fontSize: 9, color: 'var(--text-muted)', marginBottom: 6 }}>Summon stat block</div>
-          <div style={{ fontSize: 13, color: 'var(--amber, #c9a227)' }}>{r.summon_stat_block}</div>
+          <div style={{ fontSize: 13, color: 'var(--amber, #c9a227)' }}>{safeSpellText(r.summon_stat_block, 2000)}</div>
         </div>
       )}
 
@@ -134,17 +160,17 @@ function DetailPanel({ spell, onClose }) {
 
       <div style={{ ...block, opacity: 0.85 }}>
         <div style={{ ...mono, fontSize: 9, color: 'var(--text-muted)', marginBottom: 6 }}>Source</div>
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{r.source || spell.source || '—'}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{safeSpellText(r.source || spell.source || '—', 500)}</div>
         {link && (
           <a href={link} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'var(--green-bright)', marginTop: 8, display: 'inline-block' }}>
             Open link
           </a>
         )}
         <div style={{ ...mono, fontSize: 9, color: 'var(--text-muted)', marginTop: 10 }}>spell_id</div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', wordBreak: 'break-all' }}>{r.spell_id || spell.spell_id}</div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', wordBreak: 'break-all' }}>{safeSpellText(r.spell_id || spell.spell_id || '—', 300)}</div>
         {(r.sound_effect_url || spell.sound_effect_url) && (
           <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
-            SFX hook: {r.sound_effect_url || spell.sound_effect_url}
+            SFX hook: {safeSpellText(r.sound_effect_url || spell.sound_effect_url, 2000)}
           </div>
         )}
       </div>

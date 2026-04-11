@@ -19,6 +19,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@shared': path.join(root, 'shared'),
+      '@rules-data': path.join(root, 'data', 'rules'),
       '@supabase/supabase-js': path.join(__dirname, 'node_modules/@supabase/supabase-js'),
       zod: path.join(__dirname, 'node_modules/zod'),
     },

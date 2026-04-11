@@ -6,7 +6,8 @@
     "dev": "vite --port 5174",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "rules:smoke": "node ../tools/rulesLayerSmokeCheck.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

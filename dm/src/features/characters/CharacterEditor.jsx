@@ -11,6 +11,7 @@ import PortraitUploadField from '../../components/PortraitUploadField.jsx'
 import CharacterSpellLinksPanel from './CharacterSpellLinksPanel.jsx'
 import SRD_RACES from '../../../../docs/5e-database-main/src/2014/5e-SRD-Races.json'
 import SRD_BACKGROUNDS from '../../../../docs/5e-database-main/src/2014/5e-SRD-Backgrounds.json'
+import { formatDcWithLabel } from '@shared/lib/rules/dcDisplay.js'
 
 function profBonusForLevel(level) {
   const l = Math.min(20, Math.max(1, Number(level) || 1))
@@ -774,6 +775,11 @@ export default function CharacterEditor() {
               onChange={(e) => setStatField('spellSaveDC', e.target.value === '' ? '' : Number(e.target.value))}
               placeholder="—"
             />
+            {form.stats?.spellSaveDC !== '' && form.stats?.spellSaveDC != null && (
+              <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
+                {formatDcWithLabel(form.stats.spellSaveDC)}
+              </div>
+            )}
           </div>
           <div>
             <label style={labelStyle}>Spellcasting ability</label>

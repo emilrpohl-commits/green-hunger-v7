@@ -23,7 +23,7 @@ This document inventories bundled Green Hunger / static runtime dependencies and
 | [`session3.js`](../../shared/content/session3.js) | Session 3 narrative | **gate** / **migrate-only** |
 | [`playerCharacters.js`](../../shared/content/playerCharacters.js) | `PLAYER_CHARACTERS` full sheets | **remove** from runtime (replace with DB + empty states) |
 | [`statblocks.js`](../../shared/content/statblocks.js) | `STAT_BLOCKS` static monsters | **remove** from runtime (replace with `stat_blocks` + reference library) |
-| [`rules-glossary.json`](../../shared/content/rules-glossary.json) | Glossary data | **review** — may become reference library or stay as static helper |
+| [`rules-glossary.json`](../../shared/content/rules-glossary.json) | Deprecated empty stub | **remove** — canonical glossary is [`data/rules/rules-glossary.json`](../../data/rules/rules-glossary.json) (`@rules-data` in Vite) |
 
 ---
 

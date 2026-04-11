@@ -3,49 +3,12 @@
  * No React, no store imports — safe to use in any component.
  */
 
-// ── Condition lists ────────────────────────────────────────────────────────
-
-export const CONDITIONS = [
-  'Blinded', 'Charmed', 'Frightened', 'Poisoned', 'Prone',
-  'Restrained', 'Stunned', 'Unconscious', 'Grappled', 'Paralysed',
-  'Incapacitated', 'Invisible', 'Petrified', 'Silenced',
-]
-
-/** Short descriptions shown in tooltip / chip label */
-export const CONDITION_DESC = {
-  Blinded:       'Cannot see; attacks have disadvantage',
-  Charmed:       'Cannot attack the charmer; charmer has adv. on social checks',
-  Frightened:    'Disadvantage on checks/attacks while source is visible',
-  Poisoned:      'Disadvantage on attack rolls and ability checks',
-  Prone:         'Attacks within 5ft have adv.; ranged attacks have disadv.',
-  Restrained:    'Speed 0; attacks against have adv.; own attacks disadv.',
-  Stunned:       'Incapacitated; auto-fails STR/DEX saves; attacks have adv.',
-  Unconscious:   'Incapacitated, prone; attacks have adv. and crit within 5ft',
-  Grappled:      'Speed 0',
-  Paralysed:     'Incapacitated, auto-fails STR/DEX; attacks crit within 5ft',
-  Incapacitated: 'Cannot take actions or reactions',
-  Invisible:     'Advantage on attacks; attacks against have disadvantage',
-  Petrified:     'Transformed to stone; incapacitated; resistances',
-  Silenced:      'Cannot cast spells with verbal components',
-}
-
-// Colour coding for common conditions
-export const CONDITION_COLOUR = {
-  Blinded:       '#b09060',
-  Charmed:       '#d080a0',
-  Frightened:    '#a07050',
-  Poisoned:      '#70a050',
-  Prone:         '#706050',
-  Restrained:    '#8070b0',
-  Stunned:       '#b08040',
-  Unconscious:   '#505060',
-  Grappled:      '#708090',
-  Paralysed:     '#c08040',
-  Incapacitated: '#906060',
-  Invisible:     '#6090a0',
-  Petrified:     '#808090',
-  Silenced:      '#7090b0',
-}
+// ── Condition lists (SRD 5.2.1 catalog + homebrew tags) ─────────────────────
+export {
+  CONDITIONS,
+  CONDITION_DESC,
+  CONDITION_COLOUR,
+} from '@shared/lib/rules/conditionCatalog.js'
 
 // ── Spell effects ──────────────────────────────────────────────────────────
 
@@ -55,7 +18,7 @@ export const HOSTILE_SPELL_EFFECTS = [
   { name: 'Hex',                 colour: '#8040a0', mechanic: '−1d4 ability checks',      concentration: true  },
   { name: 'Faerie Fire',         colour: '#80c0ff', mechanic: 'Advantage on attacks vs.', concentration: true  },
   { name: 'Guiding Bolt',        colour: '#ffd080', mechanic: 'Adv. on next attack vs.',  concentration: false },
-  { name: 'Hold Person',         colour: '#c08040', mechanic: 'Paralysed, attacks crit',  concentration: true  },
+  { name: 'Hold Person',         colour: '#c08040', mechanic: 'Paralyzed, attacks crit',  concentration: true  },
   { name: 'Ray of Enfeeblement', colour: '#906040', mechanic: 'Half dmg STR attacks',     concentration: true  },
   { name: "Hunter's Mark",       colour: '#c04040', mechanic: '+1d6 damage from hunter',  concentration: true  },
   { name: 'Silvery Barbs',       colour: '#c0c0ff', mechanic: 'Reroll next success',      concentration: false },
