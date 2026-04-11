@@ -6,6 +6,11 @@
 import { CHARACTERS } from '@shared/content/session1.js'
 import { warnFallback } from './fallbackTelemetry.js'
 import { parseTacticalJson } from './tacticalCharacterShape.js'
+import {
+  effectiveGreenMarkCap,
+  parseGreenMarksMeta,
+  resolveGreenMarksCurrent,
+} from './greenMarks.js'
 
 /** @param {Record<string, unknown>} c session1.CHARACTERS entry */
 export function runtimeRowFromSessionCharacter(c) {
@@ -37,6 +42,8 @@ export function runtimeRowFromSessionCharacter(c) {
     portrait_thumb_storage_path: null,
     portrait_original_storage_path: null,
     colour: c.colour ?? null,
+    greenMarks: 0,
+    greenMarkCap: undefined,
   }
 }
 
@@ -94,6 +101,8 @@ export function runtimeRowFromDbCharacter(row, fallback = {}) {
     portrait_thumb_storage_path: row.portrait_thumb_storage_path ?? null,
     portrait_original_storage_path: row.portrait_original_storage_path ?? null,
     colour: row.colour ?? null,
+    greenMarks: 0,
+    greenMarkCap: undefined,
   }
 }
 
@@ -103,7 +112,14 @@ export function runtimeRowFromDbCharacter(row, fallback = {}) {
  */
 export function mergeCharacterStateIntoRuntimeRow(base, saved) {
   if (!saved) return base
-  const tj = parseTacticalJson(saved.tactical_json)
+  const tacticalJson = {
+    ...(base.tacticalJson && typeof base.tacticalJson === 'object' ? /** @type {Record<string, unknown>} */ (base.tacticalJson) : {}),
+    ...(saved.tactical_json && typeof saved.tactical_json === 'object' ? /** @type {Record<string, unknown>} */ (saved.tactical_json) : {}),
+  }
+  const tj = parseTacticalJson(tacticalJson)
+  const greenMarkCap = effectiveGreenMarkCap(tacticalJson)
+  const greenMarks = resolveGreenMarksCurrent(saved.green_marks, tacticalJson, base.greenMarks ?? 0)
+  const gmMeta = parseGreenMarksMeta(tacticalJson.greenMarksState)
   return {
     ...base,
     curHp: saved.cur_hp ?? base.curHp,
@@ -112,12 +128,13 @@ export function mergeCharacterStateIntoRuntimeRow(base, saved) {
     spellSlots: saved.spell_slots ?? base.spellSlots,
     deathSaves: saved.death_saves ?? base.deathSaves,
     conditions: saved.conditions ?? base.conditions,
-    tacticalJson: saved.tactical_json && typeof saved.tactical_json === 'object'
-      ? { .../** @type {Record<string, unknown>} */ (saved.tactical_json) }
-      : (base.tacticalJson || {}),
+    tacticalJson,
     concentrationSpell: tj.concentrationSpell ?? base.concentrationSpell ?? null,
     inspiration: tj.inspiration ?? base.inspiration ?? false,
     classResources: tj.classResources?.length ? tj.classResources : (base.classResources || []),
+    greenMarks,
+    greenMarkCap,
+    greenMarksLastTriggeredAt: gmMeta.lastTriggeredAt ?? base.greenMarksLastTriggeredAt,
   }
 }
 
@@ -214,6 +231,8 @@ export function buildPlayerRuntimeCharacters(charRows, charStateRows = [], fallb
       concentrationSpell: null,
       inspiration: false,
       classResources: [],
+      greenMarks: 0,
+      greenMarkCap: undefined,
     }
     return mergeCharacterStateIntoRuntimeRow(base, saved)
   })

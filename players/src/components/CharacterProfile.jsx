@@ -14,6 +14,7 @@ import EquipmentTab from './tabs/EquipmentTab'
 import SheetEditTab from './tabs/SheetEditTab.jsx'
 import StickySummaryBar, { useStickySummaryVisibility } from './StickySummaryBar.jsx'
 import PlayerTacticalSection from './PlayerTacticalSection.jsx'
+import { GreenMarkTracker } from '@shared/components/greenMarks/index.js'
 
 export default function CharacterProfile({ characterId, onBackToLogin }) {
   const actions = useCharacterActions(characterId)
@@ -71,7 +72,7 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
   }
 
   const {
-    char, curHp, tempHp, concentration, concentrationSpell, conditionsLive, inspiration, classResources,
+    char, liveChar, curHp, tempHp, concentration, concentrationSpell, conditionsLive, inspiration, classResources,
     canEditState, myCombatant,
     combatActive, combatCombatants, combatActiveCombatantIndex,
     myTurnActive, myEconomy, ilyaAssignedTo,
@@ -166,6 +167,8 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
       <div ref={sentinelRef} style={{ height: 1, marginTop: -1 }} aria-hidden />
 
       <div style={{ padding: '12px 16px 0' }}>
+
+        <GreenMarkTracker current={liveChar?.greenMarks ?? 0} />
 
         <PlayerTacticalSection
           char={char}

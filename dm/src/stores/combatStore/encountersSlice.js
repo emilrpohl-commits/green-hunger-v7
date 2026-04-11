@@ -1,6 +1,7 @@
 import { supabase } from '@shared/lib/supabase.js'
 import { SESSION_2_ENEMIES } from '@shared/content/session2.js'
 import { fetchPartyRosterForCombat } from '@shared/lib/partyRoster.js'
+import { resolveGreenMarksCurrent } from '@shared/lib/greenMarks.js'
 import { normalizeStatBlockAction } from '@shared/lib/statBlockActions.js'
 import { makeActionEconomy } from '@shared/lib/combatRules.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
@@ -86,7 +87,7 @@ export const createEncountersSlice = (set, get) => ({
     try {
       const { data, error } = await supabase
         .from('character_states')
-        .select('id, cur_hp, temp_hp')
+        .select('id, cur_hp, temp_hp, green_marks, tactical_json')
         .in('id', pcIds)
       if (error) {
         console.warn('startEncounter character_states lookup failed:', error)
@@ -99,8 +100,10 @@ export const createEncountersSlice = (set, get) => ({
     const stateMap = {}
     if (charStates) charStates.forEach(s => { stateMap[s.id] = s })
 
-    const playerCombatants = effectivePlayers.map(c => {
+    const playerCombatants = effectivePlayers.map((c) => {
       const saved = stateMap[c.id]
+      const tj = saved?.tactical_json && typeof saved.tactical_json === 'object' ? saved.tactical_json : {}
+      const greenMarks = resolveGreenMarksCurrent(saved?.green_marks, tj, c.greenMarks ?? 0)
       return {
         id: c.id,
         name: c.name,
@@ -120,6 +123,7 @@ export const createEncountersSlice = (set, get) => ({
         savingThrows: c.savingThrows || [],
         actionEconomy: makeActionEconomy(),
         rosterContentSource: c.contentSource || rosterSource,
+        greenMarks,
       }
     })
 

@@ -15,6 +15,7 @@ const characterStateRowSchema = z.object({
   death_saves: z.record(z.string(), z.any()).optional().nullable(),
   conditions: z.array(z.string()).optional().nullable(),
   tactical_json: z.unknown().optional().nullable(),
+  green_marks: z.number().optional().nullable(),
 }).passthrough()
 
 const dbCharacterRowSchema = z.object({

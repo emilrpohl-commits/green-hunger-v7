@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { supabase } from '@shared/lib/supabase.js'
 import { CHARACTERS } from '@shared/content/session1.js'
-import { fetchPartyRosterForCombat } from '@shared/lib/partyRoster.js'
+import { fetchPartyRosterForCombat, mergeCharacterStateIntoRuntimeRow } from '@shared/lib/partyRoster.js'
 import { getSessionRunId, getRulesetContext } from '@shared/lib/runtimeContext.js'
 import { normalizeSessionsFromDb } from '@shared/lib/sessionContentNormalize.js'
 import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
@@ -244,6 +244,7 @@ export const useSessionStore = create((set, get) => ({
         spell_slots: char.spellSlots,
         death_saves: char.deathSaves,
         conditions: char.conditions,
+        green_marks: Math.max(0, Math.floor(Number(char.greenMarks) || 0)),
         tactical_json: char.tacticalJson && typeof char.tacticalJson === 'object' ? char.tacticalJson : {},
         updated_at: new Date().toISOString()
       })
@@ -262,6 +263,39 @@ export const useSessionStore = create((set, get) => ({
     })
     set({ characters: updated })
     await get().syncCharacterState(characterId)
+  },
+
+  /** Adjust Green Mark count (clamped by greenMarkCap, default 10). */
+  adjustCharacterGreenMarks: async (characterId, delta) => {
+    const d = Number(delta)
+    if (!Number.isFinite(d) || d === 0) return
+    const { characters } = get()
+    const c = characters.find((x) => x.id === characterId)
+    if (!c) return
+    const cap = c.greenMarkCap != null ? Number(c.greenMarkCap) : 10
+    const safeCap = Number.isFinite(cap) && cap > 0 ? Math.floor(cap) : 10
+    const cur = Math.max(0, Math.floor(Number(c.greenMarks) || 0))
+    const next = Math.max(0, Math.min(safeCap, cur + Math.trunc(d)))
+    const updated = characters.map((ch) =>
+      ch.id === characterId ? { ...ch, greenMarks: next } : ch
+    )
+    set({ characters: updated })
+    await get().syncCharacterState(characterId)
+  },
+
+  /** Record last DM-triggered Green Mark effect (stored in tactical_json.greenMarksState). */
+  touchGreenMarkTriggered: async (characterId) => {
+    const { characters } = get()
+    const c = characters.find((x) => x.id === characterId)
+    if (!c) return
+    const prev = c.tacticalJson && typeof c.tacticalJson === 'object' ? c.tacticalJson : {}
+    const prevGm = prev.greenMarksState && typeof prev.greenMarksState === 'object' ? prev.greenMarksState : {}
+    await get().patchCharacterTacticalJson(characterId, {
+      greenMarksState: {
+        ...prevGm,
+        lastTriggeredAt: new Date().toISOString(),
+      },
+    })
   },
 
   setCharacterConcentration: async (characterId, active, spellName = null) => {
@@ -321,23 +355,10 @@ export const useSessionStore = create((set, get) => ({
 
       if (charData && charData.length > 0) {
         const { characters } = get()
-        const updated = characters.map(c => {
-          const saved = charData.find(d => d.id === c.id)
+        const updated = characters.map((c) => {
+          const saved = charData.find((d) => d.id === c.id)
           if (!saved) return c
-          const tj = saved.tactical_json && typeof saved.tactical_json === 'object' ? saved.tactical_json : {}
-          return {
-            ...c,
-            curHp: saved.cur_hp ?? c.curHp,
-            tempHp: saved.temp_hp ?? c.tempHp,
-            concentration: saved.concentration ?? c.concentration,
-            spellSlots: saved.spell_slots ?? c.spellSlots,
-            deathSaves: saved.death_saves ?? c.deathSaves,
-            conditions: saved.conditions ?? c.conditions,
-            tacticalJson: { ...(c.tacticalJson || {}), ...tj },
-            concentrationSpell: tj.concentrationSpell ?? c.concentrationSpell ?? null,
-            inspiration: typeof tj.inspiration === 'boolean' ? tj.inspiration : c.inspiration,
-            classResources: Array.isArray(tj.classResources) ? tj.classResources : (c.classResources || []),
-          }
+          return mergeCharacterStateIntoRuntimeRow({ ...c }, saved)
         })
         set({ characters: updated })
       }

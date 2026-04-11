@@ -13,6 +13,7 @@ import CharacterPdfImport from '../characters/CharacterPdfImport'
 import CharacterEditor from '../characters/CharacterEditor'
 import EncounterLibrary from '../encounters/EncounterLibrary'
 import SoundDock from '../runtime/soundboard/SoundDock.jsx'
+import DmToolboxShell from '../toolbox/DmToolboxShell.jsx'
 
 // Keep the syncContentFromDb call available in Build mode too
 import { useSessionStore } from '../../stores/sessionStore'
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { id: 'character-import', label: 'Character Import', icon: '🧾' },
   { id: 'characters', label: 'Character sheets', icon: '🧝' },
   { id: 'encounters', label: 'Encounters', icon: '🎯' },
+  { id: 'toolbox', label: 'DM Toolbox', icon: '🧰' },
 ]
 
 export default function BuilderLayout() {
@@ -179,6 +181,18 @@ export default function BuilderLayout() {
         return <CharacterEditor />
       case 'encounters':
         return <EncounterLibrary />
+      case 'toolbox':
+        return (
+          <div style={{ padding: '20px 24px 40px', maxWidth: 900 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, color: 'var(--green-bright)', marginBottom: 8, letterSpacing: '0.06em' }}>
+              DM Toolbox
+            </div>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, maxWidth: 560 }}>
+              Operational tools for the table: mob math, AoE estimates, encounter XP budgets, and a rollable Wild Magic engine with active-effect tracking.
+            </p>
+            <DmToolboxShell />
+          </div>
+        )
       default:
         return null
     }

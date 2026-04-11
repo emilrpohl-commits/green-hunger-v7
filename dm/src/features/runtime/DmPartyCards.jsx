@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { BaseCharacterCard } from '@shared/components/character/index.js'
+import { GreenMarkPanel } from '@shared/components/greenMarks/index.js'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useCombatStore } from '../../stores/combatStore'
 import { useCampaignStore } from '../../stores/campaignStore'
@@ -76,6 +77,8 @@ export function DmRuntimeCharacterCard({ char, tagLabel, assignmentSlot = null }
   const restoreSpellSlot = useSessionStore((s) => s.restoreSpellSlot)
   const markDeathSave = useSessionStore((s) => s.markDeathSave)
   const setCharacterConditions = useSessionStore((s) => s.setCharacterConditions)
+  const adjustCharacterGreenMarks = useSessionStore((s) => s.adjustCharacterGreenMarks)
+  const touchGreenMarkTriggered = useSessionStore((s) => s.touchGreenMarkTriggered)
 
   const [concSpellDraft, setConcSpellDraft] = useState(
     () => char.tacticalJson?.concentrationSpell || char.concentrationSpell || ''
@@ -206,6 +209,16 @@ export function DmRuntimeCharacterCard({ char, tagLabel, assignmentSlot = null }
       conditionsReadOnly={false}
       footer={(
         <>
+          {!char.isNPC && (
+            <GreenMarkPanel
+              characterId={char.id}
+              characterName={char.name}
+              current={char.greenMarks ?? 0}
+              maxMarks={char.greenMarkCap ?? 10}
+              onAdjust={adjustCharacterGreenMarks}
+              onMarkLastTriggered={touchGreenMarkTriggered}
+            />
+          )}
           <DeathSavesBlock char={char} markDeathSave={markDeathSave} />
         </>
       )}
