@@ -1,0 +1,339 @@
+{
+    "srdMetadata": {
+      "source": "System Reference Document 5.2.1",
+      "version": "5.2.1",
+      "license": "CC-BY-4.0",
+      "requiredAttribution": "This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode."
+    },
+    "rulesEngine": {
+      "globalPrinciples": {
+        "exceptionsSupersedeGeneral": true,
+        "roundFractionsDown": true
+      },
+      "playLoop": {
+        "pillars": ["social_interaction", "exploration", "combat"],
+        "steps": [
+          "gm_describes_scene",
+          "players_describe_actions",
+          "gm_narrates_results"
+        ]
+      },
+      "abilities": [
+        {
+          "key": "str",
+          "name": "Strength",
+          "measures": "Physical might",
+          "checkExample": "Lift, push, pull, or break something",
+          "saveExample": "Physically resist direct force"
+        },
+        {
+          "key": "dex",
+          "name": "Dexterity",
+          "measures": "Agility, reflexes, and balance",
+          "checkExample": "Move nimbly, quickly, or quietly",
+          "saveExample": "Dodge out of harm's way"
+        },
+        {
+          "key": "con",
+          "name": "Constitution",
+          "measures": "Health and stamina",
+          "checkExample": "Push your body beyond normal limits",
+          "saveExample": "Endure a toxic hazard"
+        },
+        {
+          "key": "int",
+          "name": "Intelligence",
+          "measures": "Reasoning and memory",
+          "checkExample": "Reason or remember",
+          "saveExample": "Recognize an illusion as fake"
+        },
+        {
+          "key": "wis",
+          "name": "Wisdom",
+          "measures": "Perceptiveness and mental fortitude",
+          "checkExample": "Notice things in the environment or in creatures' behavior",
+          "saveExample": "Resist a mental assault"
+        },
+        {
+          "key": "cha",
+          "name": "Charisma",
+          "measures": "Confidence, poise, and charm",
+          "checkExample": "Influence, entertain, or deceive",
+          "saveExample": "Assert your identity"
+        }
+      ],
+      "abilityScoreBands": [
+        { "min": 1, "max": 1, "meaning": "Lowest normal score" },
+        { "min": 2, "max": 9, "meaning": "Weak capability" },
+        { "min": 10, "max": 11, "meaning": "Human average" },
+        { "min": 12, "max": 19, "meaning": "Strong capability" },
+        { "min": 20, "max": 20, "meaning": "Highest normal adventurer score unless a feature says otherwise" },
+        { "min": 21, "max": 29, "meaning": "Extraordinary capability" },
+        { "min": 30, "max": 30, "meaning": "Highest possible score" }
+      ],
+      "abilityModifiers": [
+        { "min": 1, "max": 1, "modifier": -5 },
+        { "min": 2, "max": 3, "modifier": -4 },
+        { "min": 4, "max": 5, "modifier": -3 },
+        { "min": 6, "max": 7, "modifier": -2 },
+        { "min": 8, "max": 9, "modifier": -1 },
+        { "min": 10, "max": 11, "modifier": 0 },
+        { "min": 12, "max": 13, "modifier": 1 },
+        { "min": 14, "max": 15, "modifier": 2 },
+        { "min": 16, "max": 17, "modifier": 3 },
+        { "min": 18, "max": 19, "modifier": 4 },
+        { "min": 20, "max": 21, "modifier": 5 },
+        { "min": 22, "max": 23, "modifier": 6 },
+        { "min": 24, "max": 25, "modifier": 7 },
+        { "min": 26, "max": 27, "modifier": 8 },
+        { "min": 28, "max": 29, "modifier": 9 },
+        { "min": 30, "max": 30, "modifier": 10 }
+      ],
+      "d20Tests": {
+        "types": ["ability_check", "saving_throw", "attack_roll"],
+        "steps": [
+          "roll_d20",
+          "apply_ability_modifier",
+          "apply_proficiency_if_relevant",
+          "apply_circumstantial_bonuses_or_penalties",
+          "compare_against_target_number"
+        ],
+        "targetNumbers": {
+          "ability_check": "dc",
+          "saving_throw": "dc",
+          "attack_roll": "ac"
+        }
+      },
+      "difficultyClasses": [
+        { "label": "Very easy", "dc": 5 },
+        { "label": "Easy", "dc": 10 },
+        { "label": "Medium", "dc": 15 },
+        { "label": "Hard", "dc": 20 },
+        { "label": "Very hard", "dc": 25 },
+        { "label": "Nearly impossible", "dc": 30 }
+      ],
+      "attackRollAbilities": [
+        {
+          "attackType": "melee_weapon_or_unarmed",
+          "ability": "str",
+          "notes": "Finesse can allow Strength or Dexterity"
+        },
+        {
+          "attackType": "ranged_weapon",
+          "ability": "dex"
+        },
+        {
+          "attackType": "spell_attack",
+          "ability": "varies",
+          "notes": "Determined by spellcasting feature"
+        }
+      ],
+      "armorClass": {
+        "baseFormula": "10 + dexterity_modifier",
+        "rules": [
+          "armor_magic_and_spells_can_modify_ac",
+          "only_one_base_ac_calculation_applies_at_a_time"
+        ],
+        "attackRollSpecials": {
+          "natural20": "always_hits_and_is_critical_hit",
+          "natural1": "always_misses"
+        }
+      },
+      "advantageDisadvantage": {
+        "rollTwoD20s": true,
+        "advantageUses": "higher",
+        "disadvantageUses": "lower",
+        "doesNotStack": true,
+        "advantageAndDisadvantageCancel": true,
+        "rerollRule": "when rerolling with advantage or disadvantage, reroll only one die"
+      },
+      "heroicInspiration": {
+        "maxInstances": 1,
+        "effect": "reroll_any_die_immediately_after_rolling_it_and_use_new_roll",
+        "canGiftIfAlreadyHaveIt": true
+      },
+      "proficiencyBonus": [
+        { "minLevelOrCR": 0, "maxLevelOrCR": 4, "bonus": 2 },
+        { "minLevelOrCR": 5, "maxLevelOrCR": 8, "bonus": 3 },
+        { "minLevelOrCR": 9, "maxLevelOrCR": 12, "bonus": 4 },
+        { "minLevelOrCR": 13, "maxLevelOrCR": 16, "bonus": 5 },
+        { "minLevelOrCR": 17, "maxLevelOrCR": 20, "bonus": 6 },
+        { "minLevelOrCR": 21, "maxLevelOrCR": 24, "bonus": 7 },
+        { "minLevelOrCR": 25, "maxLevelOrCR": 28, "bonus": 8 },
+        { "minLevelOrCR": 29, "maxLevelOrCR": 30, "bonus": 9 }
+      ],
+      "actions": [
+        {
+          "key": "attack",
+          "label": "Attack",
+          "summary": "Attack with a weapon or an Unarmed Strike."
+        },
+        {
+          "key": "dash",
+          "label": "Dash",
+          "summary": "For the rest of the turn, give yourself extra movement equal to your Speed."
+        },
+        {
+          "key": "disengage",
+          "label": "Disengage",
+          "summary": "Your movement doesn't provoke Opportunity Attacks for the rest of the turn."
+        },
+        {
+          "key": "dodge",
+          "label": "Dodge",
+          "summary": "Until the start of your next turn, attack rolls against you have Disadvantage and you make Dexterity saving throws with Advantage. You lose this benefit if you have the Incapacitated condition or if your Speed is 0."
+        },
+        {
+          "key": "help",
+          "label": "Help",
+          "summary": "Help another creature's ability check or attack roll, or administer first aid."
+        },
+        {
+          "key": "hide",
+          "label": "Hide",
+          "summary": "Make a Dexterity (Stealth) check."
+        },
+        {
+          "key": "influence",
+          "label": "Influence",
+          "summary": "Make a Charisma (Deception, Intimidation, Performance, or Persuasion) or Wisdom (Animal Handling) check to alter a creature's attitude."
+        },
+        {
+          "key": "magic",
+          "label": "Magic",
+          "summary": "Cast a spell, use a magic item, or use a magical feature."
+        },
+        {
+          "key": "ready",
+          "label": "Ready",
+          "summary": "Prepare to take an action in response to a trigger you define."
+        },
+        {
+          "key": "search",
+          "label": "Search",
+          "summary": "Make a Wisdom (Insight, Medicine, Perception, or Survival) check."
+        },
+        {
+          "key": "study",
+          "label": "Study",
+          "summary": "Make an Intelligence (Arcana, History, Investigation, Nature, or Religion) check."
+        },
+        {
+          "key": "utilize",
+          "label": "Utilize",
+          "summary": "Use a nonmagical object."
+        }
+      ],
+      "bonusActions": {
+        "maxPerTurn": 1,
+        "requiresSpecificFeature": true
+      },
+      "reactions": {
+        "maxPerRoundCycle": 1,
+        "refresh": "start_of_your_next_turn"
+      },
+      "travelPace": [
+        {
+          "pace": "fast",
+          "feetPerMinute": 400,
+          "milesPerHour": 4,
+          "milesPerDay": 30,
+          "effects": [
+            "disadvantage_on_wisdom_perception_checks",
+            "disadvantage_on_wisdom_survival_checks",
+            "disadvantage_on_dexterity_stealth_checks"
+          ]
+        },
+        {
+          "pace": "normal",
+          "feetPerMinute": 300,
+          "milesPerHour": 3,
+          "milesPerDay": 24,
+          "effects": [
+            "disadvantage_on_dexterity_stealth_checks"
+          ]
+        },
+        {
+          "pace": "slow",
+          "feetPerMinute": 200,
+          "milesPerHour": 2,
+          "milesPerDay": 18,
+          "effects": [
+            "advantage_on_wisdom_perception_checks",
+            "advantage_on_wisdom_survival_checks"
+          ]
+        }
+      ],
+      "hazardsIndex": [
+        "burning",
+        "dehydration",
+        "falling",
+        "malnutrition",
+        "suffocation"
+      ],
+      "gameplayToolboxIndex": [
+        "travel_pace",
+        "creating_a_background",
+        "curses_and_magical_contagions",
+        "environmental_effects",
+        "fear_and_mental_stress",
+        "poison",
+        "traps",
+        "combat_encounters"
+      ],
+      "fearAndMentalStress": {
+        "fearBaseline": "frightened_condition",
+        "sampleFearDCs": [
+          {
+            "example": "Terrifying apparition appears when characters open a sarcophagus",
+            "dc": 10
+          },
+          {
+            "example": "Illusory manifestation of a character's worst fears",
+            "dc": 15
+          },
+          {
+            "example": "Portal to the Abyss opens",
+            "dc": 20
+          }
+        ],
+        "fearFollowupExamples": [
+          "must_dash_away_each_turn",
+          "attack_rolls_against_frightened_creature_have_advantage",
+          "on_each_turn_can_only_move_or_take_action_or_take_bonus_action"
+        ],
+        "sampleMentalStressEffects": [
+          {
+            "example": "Hallucinogenic substance distorts perception of reality",
+            "dc": 10,
+            "psychicDamage": "1d6"
+          }
+        ]
+      }
+    },
+    "implementationTargets": {
+      "tooltips": [
+        "actions",
+        "bonus_actions",
+        "reactions",
+        "advantage_disadvantage",
+        "heroic_inspiration",
+        "proficiency_bonus",
+        "difficulty_classes",
+        "travel_pace"
+      ],
+      "dmToolbox": [
+        "travel_pace_reference",
+        "fear_dc_reference",
+        "mental_stress_reference",
+        "hazards_index",
+        "quick_dc_tool"
+      ],
+      "validationHelpers": [
+        "attack_ability_lookup",
+        "ability_modifier_lookup",
+        "proficiency_bonus_lookup",
+        "ac_base_formula"
+      ]
+    }
+  }

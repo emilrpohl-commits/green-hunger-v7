@@ -1,0 +1,397 @@
+{
+    "meta": {
+      "id": "gameplay-toolbox",
+      "title": "Gameplay Toolbox",
+      "source": "SRD 5.2.1",
+      "version": "5.2.1",
+      "license": "CC-BY-4.0",
+      "requiredAttribution": "This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode."
+    },
+    "sections": [
+      "travel_pace",
+      "creating_a_background",
+      "curses_and_magical_contagions",
+      "environmental_effects",
+      "fear_and_mental_stress",
+      "poison",
+      "traps",
+      "combat_encounters"
+    ],
+    "travelPaceToolbox": {
+      "summary": "Terrain and circumstances can limit or improve overland travel pace.",
+      "rules": {
+        "goodRoads": {
+          "effect": "increase_maximum_pace_by_one_step",
+          "steps": ["slow_to_normal", "normal_to_fast"]
+        },
+        "slowerTravelers": {
+          "effect": "group_must_move_at_slow_pace_if_any_member_speed_is_half_or_less_of_normal"
+        },
+        "extendedTravel": {
+          "baseHours": 8,
+          "save": {
+            "ability": "con",
+            "dcFormula": "10 + hours_past_8"
+          },
+          "failureEffect": "gain_1_exhaustion_level_per_failed_hourly_save"
+        },
+        "specialMovement": {
+          "milesPerHourFormula": "speed / 10",
+          "milesPerDayNormalFormula": "miles_per_hour * hours_traveled",
+          "fastPaceFormula": "floor(miles_per_day_normal * 4 / 3)",
+          "slowPaceFormula": "floor(miles_per_day_normal * 2 / 3)",
+          "flyingOrIgnoreDifficultTerrain": "can_move_at_fast_pace_regardless_of_terrain"
+        },
+        "vehicles": {
+          "usesVehicleSpeed": true,
+          "doesNotChooseTravelPace": true
+        }
+      },
+      "travelTerrain": [
+        {
+          "terrain": "desert_sand",
+          "maximumPace": "slow"
+        },
+        {
+          "terrain": "forest",
+          "maximumPace": "normal"
+        },
+        {
+          "terrain": "hills",
+          "maximumPace": "normal"
+        },
+        {
+          "terrain": "mountains",
+          "maximumPace": "slow"
+        },
+        {
+          "terrain": "open_road",
+          "maximumPace": "fast"
+        },
+        {
+          "terrain": "swamp",
+          "maximumPace": "slow"
+        },
+        {
+          "terrain": "tundra",
+          "maximumPace": "normal"
+        }
+      ]
+    },
+    "backgroundCreation": {
+      "summary": "A custom background can be built to match the campaign world or a player’s concept.",
+      "steps": [
+        {
+          "step": 1,
+          "key": "choose_abilities",
+          "summary": "Choose three abilities appropriate to the background.",
+          "guidance": [
+            {
+              "abilities": ["str", "dex"],
+              "use": "physical_exertion"
+            },
+            {
+              "abilities": ["con"],
+              "use": "endurance_or_long_hours_of_activity"
+            },
+            {
+              "abilities": ["int", "wis"],
+              "use": "cerebral_or_spiritual_matters"
+            },
+            {
+              "abilities": ["cha"],
+              "use": "performance_or_social_interaction"
+            }
+          ]
+        },
+        {
+          "step": 2,
+          "key": "choose_feat",
+          "summary": "Choose one feat from the Origin category."
+        },
+        {
+          "step": 3,
+          "key": "choose_skill_proficiencies",
+          "summary": "Choose two skills appropriate for the background."
+        },
+        {
+          "step": 4,
+          "key": "choose_tool_proficiency",
+          "summary": "Choose one tool associated with the background."
+        },
+        {
+          "step": 5,
+          "key": "choose_equipment",
+          "summary": "Assemble a package of equipment worth 50 GP, including unspent gold. Do not include Martial weapons or armor."
+        }
+      ]
+    },
+    "cursesAndMagicalContagions": {
+      "summary": "A curse is a magical burden; a magical contagion is an adverse effect of magical origin that is contagious by definition.",
+      "curseTypes": [
+        {
+          "key": "bestow_curse",
+          "label": "Bestow Curse",
+          "summary": "A straightforward benchmark curse with limited effects, removable by Remove Curse.",
+          "benchmarks": {
+            "oneMinuteDuration": "equivalent_to_level_3_spell",
+            "untilDispelled": "equivalent_to_level_9_spell"
+          }
+        },
+        {
+          "key": "cursed_creatures",
+          "label": "Cursed Creatures",
+          "summary": "Some monsters are defined by or spread curses. Remove Curse interaction is up to the GM."
+        },
+        {
+          "key": "cursed_magic_items",
+          "label": "Cursed Magic Items",
+          "summary": "Some magic items are cursed by design or supernatural origin."
+        },
+        {
+          "key": "narrative_curses",
+          "label": "Narrative Curses",
+          "summary": "Story-driven curses tied to taboos, sacrilege, betrayal, or similar wrongs.",
+          "gmGuidance": [
+            "affected_creature_should_know_why_theyre_punished",
+            "there_should_be_a_way_to_learn_how_to_end_the_curse",
+            "remove_curse_may_only_suppress_effects_temporarily",
+            "should_feel_rare_potent_and_rooted_in_campaign_lore"
+          ]
+        },
+        {
+          "key": "environmental_curses",
+          "label": "Environmental Curses",
+          "summary": "Some places are so saturated with malign power that those who remain there become cursed."
+        }
+      ],
+      "magicalContagion": {
+        "summary": "Adverse magical effects that spread contagiously.",
+        "tags": ["curse", "contagion", "gm-tool"]
+      }
+    },
+    "environmentalEffects": {
+      "summary": "Environmental conditions can alter checks, movement, attacks, and survival pressure.",
+      "effects": [
+        {
+          "key": "frigid_water",
+          "label": "Frigid Water",
+          "summary": "Falling into or remaining in dangerously cold water is hazardous.",
+          "tags": ["cold", "hazard", "survival"]
+        },
+        {
+          "key": "heavy_precipitation",
+          "label": "Heavy Precipitation",
+          "summary": "Can obscure vision and worsen perception and movement conditions.",
+          "tags": ["weather", "visibility", "travel"]
+        },
+        {
+          "key": "strong_wind",
+          "label": "Strong Wind",
+          "summary": "Imposes Disadvantage on ranged weapon attacks, extinguishes open flames, disperses fog, and forces flying creatures to land or fall at the end of their turn.",
+          "mechanics": {
+            "rangedWeaponAttacks": "disadvantage",
+            "extinguishesOpenFlames": true,
+            "dispersesFog": true,
+            "flyingCreatureMustLandOrFallAtTurnEnd": true
+          },
+          "extraDesertEffect": "sandstorm_can_impose_disadvantage_on_wisdom_perception_checks",
+          "tags": ["weather", "combat", "visibility"]
+        },
+        {
+          "key": "thin_ice",
+          "label": "Thin Ice",
+          "summary": "Thin ice has a variable weight tolerance; exceeding it breaks the ice and drops creatures through into frigid water.",
+          "mechanics": {
+            "weightToleranceFormula": "3d10 * 10 pounds per 10-foot-square area",
+            "onBreak": "all_creatures_on_broken_ice_fall_through"
+          },
+          "tags": ["terrain", "hazard", "cold"]
+        }
+      ]
+    },
+    "fearAndMentalStress": {
+      "summary": "Fear effects use Frightened as a baseline. Mental stress is usually best represented by Psychic damage.",
+      "fear": {
+        "baselineCondition": "frightened",
+        "saveAbilityDefault": "wis",
+        "sampleFearDCs": [
+          {
+            "example": "A harmless yet terrifying apparition appears when the characters open a sarcophagus.",
+            "dc": 10
+          },
+          {
+            "example": "A magical trap creates an illusory manifestation of a character’s worst fears, visible only to that character.",
+            "dc": 15
+          },
+          {
+            "example": "A portal to the Abyss opens, revealing a nightmarish realm of torment and slaughter.",
+            "dc": 20
+          }
+        ],
+        "defaultEnding": "repeat_save_at_end_of_each_turn",
+        "optionalExtraEffects": [
+          "must_dash_away_each_turn",
+          "attack_rolls_against_frightened_creature_have_advantage",
+          "can_only_move_or_take_action_or_take_bonus_action_each_turn"
+        ]
+      },
+      "mentalStress": {
+        "defaultDamageType": "psychic",
+        "saveAbilityDefault": "wis",
+        "otherPossibleSaveAbilities": ["int", "cha"],
+        "successfulSaveOutcome": "half_or_no_damage_at_gm_discretion",
+        "sampleEffects": [
+          {
+            "example": "A character ingests a hallucinogenic substance that distorts perception of reality.",
+            "saveDc": 10,
+            "psychicDamage": "1d6"
+          },
+          {
+            "example": "A character touches a fiendish idol that tears at the mind, threatening to shatter it.",
+            "saveDc": 15,
+            "psychicDamage": "3d6"
+          },
+          {
+            "example": "A magical trap flings a character into the Far Realm until the end of that character’s next turn.",
+            "saveDc": 20,
+            "psychicDamage": "9d6"
+          }
+        ],
+        "prolongedEffects": {
+          "shortTerm": {
+            "duration": "1d10 minutes",
+            "possibleConditions": ["frightened", "incapacitated", "stunned"],
+            "suppressedBy": ["calm_emotions"],
+            "removedBy": ["lesser_restoration"]
+          },
+          "longTerm": {
+            "duration": "1d10 * 10 hours",
+            "effect": "disadvantage_on_some_or_all_ability_checks",
+            "suppressedBy": ["calm_emotions"],
+            "removedBy": ["lesser_restoration"]
+          },
+          "indefinite": {
+            "effect": "long_term_effect_until_removed",
+            "suppressedBy": ["calm_emotions"],
+            "removedBy": ["greater_restoration"]
+          }
+        }
+      }
+    },
+    "poison": {
+      "summary": "Poisons are dangerous special substances with different delivery methods.",
+      "types": [
+        {
+          "key": "contact",
+          "label": "Contact",
+          "summary": "Smeared on an object and remains potent until touched or washed off."
+        },
+        {
+          "key": "ingested",
+          "label": "Ingested",
+          "summary": "A creature must swallow an entire dose to suffer the effects."
+        },
+        {
+          "key": "inhaled",
+          "label": "Inhaled",
+          "summary": "Delivered through breathing in powder, vapor, gas, or similar poison."
+        },
+        {
+          "key": "injury",
+          "label": "Injury",
+          "summary": "Applied through a wound, often via a weapon, trap, bite, or sting."
+        }
+      ]
+    },
+    "traps": {
+      "summary": "Traps work best as brief obstacles or tense puzzles rather than unfair, inescapable punishment.",
+      "designGuidance": [
+        "use_sparingly",
+        "prefer_short_overcomeable_or_teamwork_based_traps",
+        "avoid_undetectable_inescapable_traps"
+      ],
+      "schema": {
+        "parts": [
+          "severity_and_levels",
+          "trigger",
+          "duration"
+        ]
+      },
+      "severity": [
+        {
+          "key": "nuisance",
+          "label": "Nuisance",
+          "summary": "Unlikely to seriously harm characters of the indicated levels."
+        },
+        {
+          "key": "deadly",
+          "label": "Deadly",
+          "summary": "Can grievously damage characters of the indicated levels."
+        }
+      ],
+      "triggerExamples": [
+        "stepping_on_pressure_plate",
+        "crossing_trip_wire",
+        "turning_doorknob",
+        "using_wrong_key_in_lock"
+      ],
+      "durationRules": [
+        "instantaneous_effects_resolve_immediately",
+        "some_traps_reset_after_activation",
+        "if_no_reset_is_noted_trap_is_inert_after_activation"
+      ],
+      "gmWarning": "A trap that is a nuisance at one level range might be deadly to characters below that range.",
+      "exampleTrap": {
+        "name": "Collapsing Roof",
+        "severity": "deadly",
+        "levelRange": "1-4",
+        "trigger": "a creature crosses a trip wire",
+        "duration": "instantaneous",
+        "save": {
+          "ability": "dex",
+          "dc": 13
+        },
+        "damage": {
+          "dice": "2d10",
+          "type": "bludgeoning",
+          "average": 11
+        },
+        "onSuccess": "half_damage",
+        "secondaryEffect": "rubble_turns_area_into_difficult_terrain",
+        "detectAndDisarm": {
+          "action": "search",
+          "check": {
+            "ability": "wis",
+            "skill": "perception",
+            "dc": 11
+          },
+          "onSuccess": "detect_trip_wire_and_unstable_ceiling",
+          "afterDetection": "trip_wire_can_be_cut_or_avoided_without_check"
+        }
+      }
+    },
+    "combatEncounters": {
+      "summary": "This section exists in the Gameplay Toolbox and should be expanded later into structured encounter-building support.",
+      "status": "scaffold_only_for_now"
+    },
+    "implementationTargets": {
+      "dmToolbox": [
+        "travel_toolbox_panel",
+        "background_builder_helper",
+        "curse_and_contagion_reference",
+        "environmental_effects_reference",
+        "fear_dc_quick_tool",
+        "mental_stress_quick_tool",
+        "poison_type_reference",
+        "trap_builder_schema"
+      ],
+      "futureSystems": [
+        "rest_resolution_hooks",
+        "green_mark_narrative_hazards",
+        "scene_environment_modifiers",
+        "fear_and_stress_event_prompts",
+        "trap_templates"
+      ]
+    }
+  }
