@@ -159,18 +159,45 @@ export function createDataSlice(set, get) {
           console.warn('characters load:', chErr.message)
         }
 
-        const { data: adventures } = await supabase
-          .from('adventures')
-          .select('id')
-          .order('created_at', { ascending: true })
-          .limit(1)
-        const adventureId = adventures?.[0]?.id || null
+        const { data: arcs, error: arcErr } = await supabase
+          .from('arcs')
+          .select('id, order')
+          .eq('campaign_id', campaign.id)
+          .order('order', { ascending: true })
+        if (arcErr) throw new Error(`arcs: ${arcErr.message}`)
 
-        const { data: sessionsRaw, error: se } = await supabase
-          .from('sessions')
-          .select('*')
-          .order('session_number, order, created_at')
-        if (se) throw new Error(`sessions: ${se.message}`)
+        const arcRows = arcs || []
+        const arcIds = arcRows.map((a) => a.id)
+        const arcOrder = new Map(arcRows.map((a) => [a.id, a.order ?? 0]))
+
+        let adventureId = null
+        let sessionsRaw = []
+        if (arcIds.length > 0) {
+          const { data: adventures, error: advErr } = await supabase
+            .from('adventures')
+            .select('id, order, arc_id')
+            .in('arc_id', arcIds)
+          if (advErr) throw new Error(`adventures: ${advErr.message}`)
+          const advSorted = [...(adventures || [])].sort((a, b) => {
+            const ao = arcOrder.get(a.arc_id) ?? 0
+            const bo = arcOrder.get(b.arc_id) ?? 0
+            if (ao !== bo) return ao - bo
+            return (a.order || 0) - (b.order || 0)
+          })
+          adventureId = advSorted[0]?.id || null
+          const adventureIds = advSorted.map((a) => a.id)
+          if (adventureIds.length > 0) {
+            const { data: sessRows, error: se } = await supabase
+              .from('sessions')
+              .select('*')
+              .in('adventure_id', adventureIds)
+              .order('session_number', { ascending: true })
+              .order('order', { ascending: true })
+              .order('created_at', { ascending: true })
+            if (se) throw new Error(`sessions: ${se.message}`)
+            sessionsRaw = sessRows || []
+          }
+        }
 
         const seen = new Set()
         const sessions = (sessionsRaw || []).filter(s => {
