@@ -37,6 +37,7 @@ export default function useCharacterActions(characterId) {
   const setMyCharacterConcentration = usePlayerStore(s => s.setMyCharacterConcentration)
   const patchMyCharacterTacticalJson = usePlayerStore(s => s.patchMyCharacterTacticalJson)
   const setMyCharacterConditions = usePlayerStore(s => s.setMyCharacterConditions)
+  const saveMyCharacterSheet = usePlayerStore(s => s.saveMyCharacterSheet)
 
   const char = playerCharacters[characterId]
   const liveChar = characters.find(c => c.id === characterId)
@@ -511,6 +512,7 @@ export default function useCharacterActions(characterId) {
 
     updateMyCharacterHp, updateMyCharacterTempHp,
     setMyCharacterConcentration, patchMyCharacterTacticalJson, setMyCharacterConditions,
+    saveMyCharacterSheet,
     toggleMyActionEconomyField, useSpellSlot,
 
     rollResult, pendingAttack, pendingSpellDmg,

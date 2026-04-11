@@ -11,6 +11,7 @@ import SpellsTab from './tabs/SpellsTab'
 import ActionsTab from './tabs/ActionsTab'
 import FeaturesTab from './tabs/FeaturesTab'
 import EquipmentTab from './tabs/EquipmentTab'
+import SheetEditTab from './tabs/SheetEditTab.jsx'
 import StickySummaryBar, { useStickySummaryVisibility } from './StickySummaryBar.jsx'
 import PlayerTacticalSection from './PlayerTacticalSection.jsx'
 
@@ -86,7 +87,7 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
     toggleMyActionEconomyField, useSpellSlot,
   } = actions
 
-  const tabs = ['stats', 'spells', 'actions', 'features', 'equipment']
+  const tabs = ['stats', 'spells', 'actions', 'features', 'equipment', ...(canEditState ? ['sheet edit'] : [])]
 
   const acValue = combatActive && myCombatant
     ? (myCombatant.effectiveAc ?? myCombatant.ac ?? char.stats.ac)
@@ -291,6 +292,13 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
 
         {tab === 'features' && <FeaturesTab char={char} />}
         {tab === 'equipment' && <EquipmentTab char={char} />}
+        {tab === 'sheet edit' && (
+          <SheetEditTab
+            char={char}
+            canEdit={canEditState}
+            onSave={(patch) => actions.saveMyCharacterSheet(characterId, patch)}
+          />
+        )}
 
       </div>
 
