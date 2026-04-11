@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { applyDamageWithTraits, normalizeDamageTypeId } from './damagePipeline.js'
+import {
+  applyDamageWithTraits,
+  normalizeDamageTypeId,
+  applyDamageComponentsBundle,
+  formatDamageBundleLinesForFeed,
+} from './damagePipeline.js'
 
 describe('damagePipeline', () => {
   it('halves for resistance', () => {
@@ -20,5 +25,23 @@ describe('damagePipeline', () => {
 
   it('normalizes damage type', () => {
     expect(normalizeDamageTypeId('Slashing')).toBe('slashing')
+  })
+
+  it('applyDamageComponentsBundle sums typed parts', () => {
+    const target = { resistances: ['fire'], immunities: ['cold'] }
+    const b = applyDamageComponentsBundle(
+      [{ amount: 10, type: 'fire' }, { amount: 8, type: 'cold' }],
+      target,
+      { usePipeline: true },
+    )
+    expect(b.totalFinal).toBe(5)
+    expect(b.lines.length).toBe(2)
+  })
+
+  it('formatDamageBundleLinesForFeed mentions untyped', () => {
+    const s = formatDamageBundleLinesForFeed([
+      { raw: 7, typeId: null, final: 7, factors: [{ kind: 'untyped' }] },
+    ])
+    expect(s).toContain('Untyped')
   })
 })

@@ -12,7 +12,11 @@ export function normalizeStatBlockAction(raw = {}) {
   const existingRes = raw.resolution && typeof raw.resolution === 'object' ? raw.resolution : {}
   const saveHint = raw.saveType || raw.save_ability || existingRes.save_ability
   const inferredKind = existingRes.kind
-    || (saveHint ? 'save' : (raw.toHit != null || raw.to_hit != null ? 'attack' : 'other'))
+    || (saveHint
+      ? 'save'
+      : (raw.toHit != null || raw.to_hit != null || raw.attackBonus != null || raw.attack_bonus != null
+        ? 'attack'
+        : 'other'))
 
   const resolution = {
     kind: inferredKind,
@@ -37,6 +41,8 @@ export function normalizeStatBlockAction(raw = {}) {
     resolution,
     damage,
     recharge,
+    /** Mirrors resolution.kind for UI (`save` | `attack` | `other`). */
+    actionKind: inferredKind,
   }
 }
 

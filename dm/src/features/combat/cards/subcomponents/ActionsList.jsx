@@ -12,6 +12,12 @@ import { rollDie, parseDmgString, parseDamageFromStatblock } from '../constants.
 import { primaryDamageTypeFromAction } from '@shared/lib/rules/damagePipeline.js'
 import { formatDcWithLabel } from '@shared/lib/rules/dcDisplay.js'
 import { playDmSfx } from '@shared/lib/sfxEngine.js'
+import {
+  adaptMonsterAction,
+  monsterActionToHit,
+  primaryTypeFromAdaptedDamage,
+} from '@shared/lib/combat/monsterActionAdapter.js'
+import DiceRichText from '@shared/components/combat/DiceRichText.jsx'
 
 /**
  * ActionsList
@@ -45,7 +51,8 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
     setMonsterAction(prev => prev?.name === a.name ? null : a)
     const p = parseDamageFromStatblock(a.damage)
     if (p) setDmgInput(p)
-    setAtkBonus(Number(a.toHit || 0))
+    const hit = monsterActionToHit(a)
+    setAtkBonus(hit != null ? hit : 0)
     setAtkResult(null)
   }
 
@@ -53,7 +60,9 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
     const selected = monsterAction || {
       toHit: atkBonus, damage: dmgInput, name: 'Attack', type: 'attack', actionType: 'action',
     }
-    if (!atkTarget && selected.type !== 'special') return
+    const adapted = adaptMonsterAction(selected)
+    const needsTarget = adapted.actionKind !== 'special' && adapted.actionKind !== 'trait' && adapted.actionKind !== 'other'
+    if (!atkTarget && needsTarget) return
 
     if (selected.actionType) {
       const ok = await useCombatantActionType(combatant.id, selected.actionType, selected.name)
@@ -66,9 +75,9 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
       }
     }
 
-    if (selected.type === 'save') {
-      const dc       = selected.saveDC || 12
-      const saveType = selected.saveType || 'DEX'
+    if (adapted.actionKind === 'save') {
+      const dc       = adapted.saveDC ?? 12
+      const saveType = adapted.saveType || 'DEX'
       const dcLabel = formatDcWithLabel(dc)
       pushFeedEvent(
         `${combatant.name} uses ${selected.name}: ${atkTarget?.name || 'target'} makes ${saveType} save (${dcLabel || `DC ${dc}`}).`,
@@ -108,7 +117,7 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
       return
     }
 
-    if (selected.type === 'special') {
+    if (adapted.actionKind === 'special' || adapted.actionKind === 'trait' || adapted.actionKind === 'other') {
       pushFeedEvent(
         `${combatant.name} uses ${selected.name}. ${selected.desc || selected.effect || ''}`.trim(),
         'action', true,
@@ -118,7 +127,7 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
     }
 
     const d20    = rollDie(20)
-    const toHit  = Number(selected.toHit ?? atkBonus) || 0
+    const toHit  = Number(monsterActionToHit(selected) ?? atkBonus) || 0
     playDmSfx(selected.sound_effect_url || selected.soundEffectUrl)
     const modded = applyDeterministicRollModifiers({ combatant, baseRoll: d20 + toHit, rollType: 'attack' })
     const total  = modded.total
@@ -129,16 +138,34 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
       : ''
 
     if (hit) {
-      const dmgExpr = parseDamageFromStatblock(selected.damage) || dmgInput
-      const dmg     = parseDmgString(dmgExpr, crit)
-      const dmgType = primaryDamageTypeFromAction(selected.damage)
-      damageCombatant(atkTarget.id, dmg.total, dmgType)
+      const primaryT = primaryDamageTypeFromAction(selected.damage) || primaryTypeFromAdaptedDamage(adapted)
+      /** @type {{ amount: number, type: string|null }[]} */
+      const components = []
+      const rows = Array.isArray(adapted.damage) ? adapted.damage : []
+      if (rows.length > 0) {
+        for (const row of rows) {
+          const ds = row && typeof row === 'object' && row.dice != null
+            ? String(row.dice).replace(/\s+/g, '')
+            : null
+          if (!ds) continue
+          const dmg = parseDmgString(ds, crit)
+          const t = row.type != null && row.type !== '' ? row.type : primaryT
+          components.push({ amount: dmg.total, type: t })
+        }
+      }
+      if (components.length === 0) {
+        const dmgExpr = parseDamageFromStatblock(selected.damage) || dmgInput
+        const dmg = parseDmgString(dmgExpr, crit)
+        components.push({ amount: dmg.total, type: primaryT })
+      }
+      const dmgTotal = components.reduce((s, c) => s + c.amount, 0)
+      await damageCombatant(atkTarget.id, 0, null, { components })
       const critStr = crit ? ' CRIT!' : ''
       pushFeedEvent(
-        `${combatant.name} → ${selected.name} on ${atkTarget.name}${critStr}: d20(${d20})+${toHit}${modsStr} = ${total} → HIT! ${dmg.total} dmg`,
+        `${combatant.name} → ${selected.name} on ${atkTarget.name}${critStr}: d20(${d20})+${toHit}${modsStr} = ${total} → HIT! ${dmgTotal} dmg`,
         'damage', true,
       )
-      setAtkResult({ hit: true, d20, total, crit, dmgTotal: dmg.total, targetName: atkTarget.name })
+      setAtkResult({ hit: true, d20, total, crit, dmgTotal, targetName: atkTarget.name })
     } else {
       pushFeedEvent(
         `${combatant.name} → ${selected.name} on ${atkTarget.name}: d20(${d20})+${toHit}${modsStr} = ${total} vs AC ${getAcWithEffects(atkTarget)} → MISS`,
@@ -167,7 +194,9 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
           {actionOptions.length > 0 ? actionOptions.map(a => {
             const sel     = monsterAction?.name === a.name
             const aTag    = a.actionType === 'bonus_action' ? 'BA' : a.actionType === 'reaction' ? 'R' : 'A'
-            const isSpec  = a.type === 'special' || a.type === 'trait'
+            const ad      = adaptMonsterAction(a)
+            const isSpec  = ad.actionKind === 'special' || ad.actionKind === 'trait' || ad.actionKind === 'other'
+            const hitDisp = monsterActionToHit(a)
             return (
               <button
                 key={`${a.actionType}-${a.name}`}
@@ -183,9 +212,9 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
                 }}
               >
                 {a.name}
-                {a.toHit != null && !isSpec && (
+                {hitDisp != null && !isSpec && (
                   <span style={{ opacity: 0.65, marginLeft: 4 }}>
-                    {Number(a.toHit) >= 0 ? `+${a.toHit}` : a.toHit}
+                    {Number(hitDisp) >= 0 ? `+${hitDisp}` : hitDisp}
                   </span>
                 )}
                 {a.recharge && (
@@ -198,8 +227,31 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)' }}>
               No action data — use manual roll below
             </span>
-          )}
+            )}
         </div>
+
+        {monsterAction && /multi\s*-?\s*attack/i.test(String(monsterAction.name || '')) && (
+          <div style={{
+            fontSize: 9, color: 'var(--warning)', fontFamily: 'var(--font-mono)',
+            letterSpacing: '0.04em',
+          }}>
+            Multiattack: resolve one strike at a time; repeat for remaining attacks.
+          </div>
+        )}
+
+        {monsterAction?.desc && (
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', lineHeight: 1.55, maxWidth: 520 }}>
+            <DiceRichText
+              text={monsterAction.desc}
+              contextLabel={`${combatant.name}: ${monsterAction.name}`}
+              onRoll={({ total, rolls, mod, expr, contextLabel: ctx }) => {
+                const modStr = mod ? (mod >= 0 ? `+${mod}` : `${mod}`) : ''
+                const r = rolls.length ? `[${rolls.join('+')}]${modStr}` : ''
+                pushFeedEvent(`${ctx || `${combatant.name}: ${monsterAction.name}`}: ${expr} → ${r} = ${total}`, 'roll', true)
+              }}
+            />
+          </div>
+        )}
 
         {/* Target picker (visible once an action is selected or actionOptions is empty) */}
         {(monsterAction || actionOptions.length === 0) && (

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { usePlayerStore } from '../stores/playerStore'
 import { parseCastingTimeMeta, ensureActionEconomy, applyDeterministicRollModifiers, getAcWithEffects } from '@shared/lib/combatRules.js'
 import { makeSavePromptPayload, resolveSpellPath } from '@shared/lib/domain/spellResolution.js'
+import { applySpellConcentrationAfterCast } from '@shared/lib/combat/spellCombatResolver.js'
 import { rollD20Test } from '@shared/lib/rules/d20Test.js'
 import {
   resolvePlayerD20Modifiers,
@@ -302,7 +303,7 @@ export default function useCharacterActions(characterId) {
   const rollHeal = async (healAction, slotLvl, target) => {
     const actionType = parseCastingTimeMeta(healAction.action || 'Action').actionType
     const canUse = await canSpendActionType(actionType, healAction.name)
-    if (!canUse) return
+    if (!canUse) return false
     const { baseDice, perLevelBonus, dice } = healAction
     let count, sides, modifier
     if (baseDice) {
@@ -315,7 +316,7 @@ export default function useCharacterActions(characterId) {
       sides = dice.sides
       modifier = dice.modifier
     } else {
-      return
+      return false
     }
 
     const rolls = rollDice(count, sides)
@@ -329,6 +330,7 @@ export default function useCharacterActions(characterId) {
     const healTargetId = target || characterId
     applyHealingToCharacter(healTargetId, total, char.name, healAction.name)
     pushRoll(`${healAction.name}: [${rolls.join('+')}]${modifier ? `+${modifier}` : ''} = +${total} HP → ${targetName}`, char.name)
+    return true
   }
 
   const grantBardic = async (targetId) => {
@@ -380,6 +382,16 @@ export default function useCharacterActions(characterId) {
     const selectedTargets = targets.length > 0 ? targets : (target ? [target] : [])
 
     const spellPath = resolveSpellPath(spell)
+    const concCtx = {
+      spell,
+      characterId,
+      canEditState,
+      concentration,
+      concentrationSpell,
+      charName: char.name,
+      setMyCharacterConcentration,
+      pushRoll,
+    }
     if (spellPath === 'attack') {
       const atkMods = resolvePlayerD20Modifiers({
         rollKind: 'attack',
@@ -408,6 +420,7 @@ export default function useCharacterActions(characterId) {
       const critStr = crit ? ' CRITICAL!' : ''
       const rangeStr = target ? ` vs ${target.name} AC ${getAcWithEffects(target)}` : ''
       pushRoll(`${spell.name} attack: d20(${diceStr}) + ${bonus} = ${total}${exNote}${advNote}${rangeStr}${hitStr}${critStr}`, char.name)
+      await applySpellConcentrationAfterCast(concCtx)
 
     } else if (spellPath === 'save') {
       const dd = spell.damage
@@ -433,6 +446,7 @@ export default function useCharacterActions(characterId) {
           damage: dd ? { amount: total, type: dd.type, halfOnSuccess: true } : null,
           raw: { targetStr },
         }))
+        await applySpellConcentrationAfterCast(concCtx)
         closeSpellPanel()
       } else {
         const primaryTarget = selectedTargets[0] || target || null
@@ -451,6 +465,7 @@ export default function useCharacterActions(characterId) {
           damage: null,
           raw: { targetStr },
         }))
+        await applySpellConcentrationAfterCast(concCtx)
         closeSpell()
       }
 
@@ -469,6 +484,7 @@ export default function useCharacterActions(characterId) {
       const targetStr = target ? ` → ${target.name}` : ''
       pushRoll(`${spell.name} (${missilesCount} missiles): [${rollBreakdown.join('+')}] = ${totalDmg} ${dd.type}${targetStr}`, char.name)
       if (target) applyDamageToEnemy(target.id, totalDmg, char.name, spell.name, dd.type || null)
+      await applySpellConcentrationAfterCast(concCtx)
       closeSpell()
 
     } else if (spellPath === 'heal') {
@@ -480,13 +496,15 @@ export default function useCharacterActions(characterId) {
         perLevelBonus: spell.perLevelHeal || null,
         action: spell.castingTime,
       }
-      rollHeal(healActionProxy, slotLvl || 1, target?.id || characterId)
+      const healed = await rollHeal(healActionProxy, slotLvl || 1, target?.id || characterId)
+      if (healed) await applySpellConcentrationAfterCast(concCtx)
       closeSpell()
 
     } else {
       const targetStr = targetName ? ` → ${targetName}` : ''
       setRollResult({ type: 'utility', spellName: spell.name, targetName })
       pushRoll(`${spell.name} cast${targetStr}`, char.name)
+      await applySpellConcentrationAfterCast(concCtx)
       closeSpell()
     }
   }

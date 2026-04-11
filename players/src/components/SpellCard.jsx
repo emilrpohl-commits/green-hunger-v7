@@ -1,4 +1,6 @@
 import React, { useState } from 'react'
+import { usePlayerStore } from '../stores/playerStore'
+import DiceRichText from '@shared/components/combat/DiceRichText.jsx'
 
 /**
  * Determine the display category for a spell based on its mechanic and whether
@@ -153,6 +155,7 @@ function OutcomeLine({ spell, category }) {
  *   onCast      - () => void — open the casting panel
  *   onCancel    - () => void — close the casting panel
  *   charColour  - character accent colour
+ *   rollerName  - name used on combat feed for inline dice rolls
  */
 export default function SpellCard({
   spell,
@@ -161,7 +164,9 @@ export default function SpellCard({
   onCast,
   onCancel,
   charColour,
+  rollerName = 'Player',
 }) {
+  const pushRoll = usePlayerStore(s => s.pushRoll)
   const [descExpanded, setDescExpanded] = useState(false)
   const category = getSpellCategory(spell)
   const cssClass = CATEGORY_CSS[category]
@@ -318,7 +323,15 @@ export default function SpellCard({
               fontStyle: 'italic',
               borderTop: '1px solid var(--border)',
             }}>
-              {spell.description}
+              <DiceRichText
+                text={spell.description}
+                contextLabel={spell.name}
+                onRoll={({ total, rolls, mod, expr, contextLabel: ctx }) => {
+                  const modStr = mod ? (mod >= 0 ? `+${mod}` : `${mod}`) : ''
+                  const r = rolls.length ? `[${rolls.join('+')}]${modStr}` : ''
+                  pushRoll(`${ctx || spell.name} (${expr}): ${r} = ${total}`, rollerName)
+                }}
+              />
             </div>
           )}
         </>

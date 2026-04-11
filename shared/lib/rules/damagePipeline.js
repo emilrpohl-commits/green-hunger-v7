@@ -108,3 +108,90 @@ export function primaryDamageTypeFromAction(damageField) {
   }
   return null
 }
+
+/**
+ * @typedef {{ amount: number, type?: string|null }} DamageComponentInput
+ */
+
+/**
+ * Apply R/V/I per damage component, then sum. Untyped components pass through unchanged
+ * (when pipeline enabled) but are labeled for feeds.
+ *
+ * @param {DamageComponentInput[]} components
+ * @param {{ resistances?: string[], vulnerabilities?: string[], immunities?: string[] }} target
+ * @param {{ usePipeline?: boolean }} [opts]
+ * @returns {{
+ *   totalFinal: number,
+ *   lines: { raw: number, typeId: string|null, final: number, factors: { kind: string, detail?: string }[] }[]
+ * }}
+ */
+export function applyDamageComponentsBundle(components, target = {}, opts = {}) {
+  const usePipeline = opts.usePipeline !== false
+  const list = Array.isArray(components) ? components : []
+  /** @type {{ raw: number, typeId: string|null, final: number, factors: { kind: string, detail?: string }[] }[]} */
+  const lines = []
+  let totalFinal = 0
+
+  for (const c of list) {
+    const raw = Math.max(0, Math.floor(Number(c?.amount) || 0))
+    if (raw <= 0) continue
+    const typeId = c?.type != null && c.type !== '' ? coerceDamageTypeForPipeline(String(c.type)) : null
+
+    if (!usePipeline) {
+      lines.push({ raw, typeId, final: raw, factors: [] })
+      totalFinal += raw
+      continue
+    }
+
+    if (!typeId) {
+      lines.push({ raw, typeId: null, final: raw, factors: [{ kind: 'untyped', detail: undefined }] })
+      totalFinal += raw
+      continue
+    }
+
+    const applied = applyDamageWithTraits(raw, typeId, target)
+    lines.push({ raw, typeId, final: applied.final, factors: applied.factors })
+    totalFinal += applied.final
+  }
+
+  return { totalFinal, lines }
+}
+
+function labelDamageTypeForFeed(typeId) {
+  if (!typeId) return 'Untyped'
+  return typeId.charAt(0).toUpperCase() + typeId.slice(1)
+}
+
+/**
+ * Human-readable lines for combat feed (e.g. "Resistant to Fire: 11 → 5").
+ * @param {{ raw: number, typeId: string|null, final: number, factors: { kind: string, detail?: string }[] }[]} lines
+ */
+export function formatDamageBundleLinesForFeed(lines) {
+  if (!Array.isArray(lines) || !lines.length) return ''
+  const parts = []
+  for (const line of lines) {
+    if (!line.typeId) {
+      const isExplicitUntyped = line.factors?.some((f) => f.kind === 'untyped')
+      parts.push(isExplicitUntyped ? `Untyped damage: ${line.raw}` : `${line.raw}`)
+      continue
+    }
+    const label = labelDamageTypeForFeed(line.typeId)
+    if (!line.factors.length) {
+      parts.push(`${label}: ${line.final}`)
+      continue
+    }
+    for (const f of line.factors) {
+      const d = f.detail || line.typeId
+      if (f.kind === 'immunity') {
+        parts.push(`Immune to ${labelDamageTypeForFeed(d)}: ${line.raw} → 0`)
+      } else if (f.kind === 'resistance') {
+        parts.push(`Resistant to ${labelDamageTypeForFeed(d)}: ${line.raw} → ${line.final}`)
+      } else if (f.kind === 'vulnerability') {
+        parts.push(`Vulnerable to ${labelDamageTypeForFeed(d)}: ${line.raw} → ${line.final}`)
+      } else if (f.kind === 'untyped') {
+        parts.push(`Untyped damage: ${line.raw}`)
+      }
+    }
+  }
+  return parts.join('; ')
+}
