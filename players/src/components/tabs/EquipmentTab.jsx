@@ -5,7 +5,7 @@ export default function EquipmentTab({ char }) {
   return (
     <Section title="Equipment">
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-        {char.equipment.map(item => (
+        {(Array.isArray(char.equipment) ? char.equipment : []).map(item => (
           <span key={item} style={{
             padding: '4px 10px',
             background: item.includes('Attuned') ? `${char.colour}18` : 'var(--bg-raised)',

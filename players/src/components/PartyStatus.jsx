@@ -9,8 +9,9 @@ export default function PartyStatus() {
   const updateMyCharacterTempHp = usePlayerStore((s) => s.updateMyCharacterTempHp)
   const setMyCharacterConditions = usePlayerStore((s) => s.setMyCharacterConditions)
 
-  const pcs = characters.filter((c) => !c.isNPC)
-  const npcs = characters.filter((c) => c.isNPC)
+  const roster = Array.isArray(characters) ? characters : []
+  const pcs = roster.filter((c) => !c.isNPC)
+  const npcs = roster.filter((c) => c.isNPC)
 
   const byAssignee = {}
   for (const n of npcs) {

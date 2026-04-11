@@ -71,7 +71,7 @@ export const createCombatSlice = (set, get) => ({
       ilyaAssignedTo: ilyaAssign,
       initiativePhase: row.initiative_phase ?? false,
       _combatStateSyncedAt: nextLast,
-      characters: state.characters.map((c) =>
+      characters: (Array.isArray(state.characters) ? state.characters : []).map((c) =>
         c.id === 'ilya' ? { ...c, assignedPcId: ilyaAssign } : c
       ),
     }))

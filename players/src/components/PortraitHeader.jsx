@@ -22,6 +22,8 @@ export default function PortraitHeader({
   /** When false, identity hero only — tactical strip shows AC/speed/etc. */
   showStatBadges = true,
 }) {
+  const stats = char?.stats && typeof char.stats === 'object' && !Array.isArray(char.stats) ? char.stats : {}
+
   const portraitSrc = (() => {
     const p = char.portraitUrl || char.portrait_url || null
     if (p && /^https?:\/\//i.test(String(p))) return p
@@ -30,7 +32,7 @@ export default function PortraitHeader({
     return `characters/${char.image}`
   })()
 
-  const maxHp = char.stats.maxHp
+  const maxHp = stats.maxHp
   const hpPct = maxHp > 0 ? Math.max(0, Math.min(100, (curHp / maxHp) * 100)) : 0
   const hpColour =
     curHp === 0
@@ -42,8 +44,8 @@ export default function PortraitHeader({
       : '#c46040'
 
   const acValue = combatActive && myCombatant
-    ? (myCombatant.effectiveAc ?? myCombatant.ac ?? char.stats.ac)
-    : char.stats.ac
+    ? (myCombatant.effectiveAc ?? myCombatant.ac ?? stats.ac)
+    : stats.ac
 
   const isIlyaPlayer = char.id === 'ilya' && ilyaAssignedTo === loggedInAs
   const playerLabel = isIlyaPlayer ? `Companion · ${loggedInAs}` : null
@@ -223,11 +225,11 @@ export default function PortraitHeader({
           alignItems: 'center',
         }}>
           <StatBadge label="AC" value={acValue} colour={charColour} />
-          <StatBadge label="Speed" value={`${char.stats.speed}′`} colour={charColour} />
-          <StatBadge label="Init" value={char.stats.initiative} colour={charColour} />
-          <StatBadge label="Prof" value={char.stats.proficiencyBonus} colour={charColour} />
-          {char.stats.spellSaveDC && (
-            <StatBadge label="Save DC" value={char.stats.spellSaveDC} colour={charColour} />
+          <StatBadge label="Speed" value={`${stats.speed ?? '—'}′`} colour={charColour} />
+          <StatBadge label="Init" value={stats.initiative ?? '—'} colour={charColour} />
+          <StatBadge label="Prof" value={stats.proficiencyBonus ?? '—'} colour={charColour} />
+          {stats.spellSaveDC && (
+            <StatBadge label="Save DC" value={stats.spellSaveDC} colour={charColour} />
           )}
           {concentration && (
             <div style={{

@@ -100,11 +100,13 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
 
   const tabs = ['stats', 'spells', 'actions', 'features', 'equipment', ...(canEditState ? ['sheet edit'] : [])]
 
-  const acValue = combatActive && myCombatant
-    ? (myCombatant.effectiveAc ?? myCombatant.ac ?? char.stats.ac)
-    : char.stats.ac
+  const sheetStats = char?.stats && typeof char.stats === 'object' && !Array.isArray(char.stats) ? char.stats : {}
 
-  const maxHp = char.stats.maxHp ?? 0
+  const acValue = combatActive && myCombatant
+    ? (myCombatant.effectiveAc ?? myCombatant.ac ?? sheetStats.ac)
+    : sheetStats.ac
+
+  const maxHp = sheetStats.maxHp ?? 0
   const slotsHint = spellSlots && typeof spellSlots === 'object'
     ? Object.entries(spellSlots).map(([lv, s]) => `L${lv}:${(s?.max ?? 0) - (s?.used ?? 0)}`).join(' ')
     : ''
@@ -209,9 +211,9 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
           tempHp={tempHp}
           maxHp={maxHp}
           ac={acValue}
-          speed={char.stats.speed}
-          initiativeLabel={String(char.stats.initiative ?? '+0')}
-          spellSaveDC={char.stats.spellSaveDC}
+          speed={sheetStats.speed}
+          initiativeLabel={String(sheetStats.initiative ?? '+0')}
+          spellSaveDC={sheetStats.spellSaveDC}
           spellSlots={spellSlots}
           conditions={conditionsLive}
           concentration={concentration}
