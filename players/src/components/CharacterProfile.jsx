@@ -29,7 +29,7 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
   const [rulesLookupOpen, setRulesLookupOpen] = useState(false)
   const [sfxMute, setSfxMute] = useState(() => getSfxPrefs().muted)
   const [sfxVol, setSfxVol] = useState(() => getSfxPrefs().volume)
-  const { sentinelRef, visible: stickyVisible } = useStickySummaryVisibility('-120px 0px 0px 0px 0px')
+  const { sentinelRef, visible: stickyVisible } = useStickySummaryVisibility('-120px 0px 0px 0px')
 
   if (!actions.char) {
     return (

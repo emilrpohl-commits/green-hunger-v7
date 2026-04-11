@@ -83,12 +83,19 @@ export function useStickySummaryVisibility(rootMargin = '-80px 0px 0px 0px') {
   useEffect(() => {
     const el = sentinelRef.current
     if (!el || typeof IntersectionObserver === 'undefined') return undefined
-    const obs = new IntersectionObserver(
-      ([e]) => {
-        setVisible(!e.isIntersecting)
-      },
-      { root: null, rootMargin, threshold: 0 }
-    )
+    let obs
+    try {
+      obs = new IntersectionObserver(
+        ([e]) => {
+          setVisible(!e.isIntersecting)
+        },
+        { root: null, rootMargin, threshold: 0 }
+      )
+    } catch {
+      // Bad rootMargin input should not crash the whole player app.
+      setVisible(false)
+      return undefined
+    }
     obs.observe(el)
     return () => obs.disconnect()
   }, [rootMargin])
