@@ -26,7 +26,15 @@ export function createContentCrudSlice(set, get) {
     },
 
     saveBeat: async (beat) => {
-      const payload = { ...beat, updated_at: new Date().toISOString() }
+      const allowed = [
+        'scene_id', 'order', 'slug', 'title', 'trigger_text', 'type', 'content',
+        'player_text', 'dm_notes', 'mechanical_effect', 'flavour_text', 'illustration_url',
+        'stat_block_id', 'encounter_id', 'asset_ids',
+      ]
+      const payload = { updated_at: new Date().toISOString() }
+      for (const k of allowed) {
+        if (k in beat && beat[k] !== undefined) payload[k] = beat[k]
+      }
       let result
       if (beat.id) {
         result = await supabase.from('beats').update(payload).eq('id', beat.id).select().single()

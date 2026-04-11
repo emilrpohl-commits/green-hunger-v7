@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
 import { uploadSessionMapVideo } from '@shared/lib/sessionMapStorage.js'
 
@@ -15,6 +15,7 @@ export default function SessionEditor({ sessionId, onClose, onEditScene }) {
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState(null)
   const [mapUploadBusy, setMapUploadBusy] = useState(false)
+  const mapVideoInputRef = useRef(null)
 
   useEffect(() => {
     if (session) {
@@ -95,7 +96,7 @@ export default function SessionEditor({ sessionId, onClose, onEditScene }) {
               Where media lives
             </div>
             <strong style={{ color: 'var(--text-primary)' }}>This page — map videos:</strong> section below (MP4/WebM) for tactical/table video.{' '}
-            <strong style={{ color: 'var(--text-primary)' }}>Scene stills:</strong> use <strong>Edit</strong> on a scene in the list → <strong>Scene</strong> tab → <strong>Scene Media</strong> (not on individual beats).
+            <strong style={{ color: 'var(--text-primary)' }}>Scene cover images</strong> live in scene edit → Scene tab. <strong>Optional beat images</strong> are in scene edit → Beats tab (save the beat first).
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div style={{ marginBottom: 14, gridColumn: '1/-1' }}>
@@ -138,53 +139,68 @@ export default function SessionEditor({ sessionId, onClose, onEditScene }) {
           <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
             Dungeon Alchemist and similar exports. Stored in Supabase; Run mode → Maps tab to play. Save session after changes.
           </p>
-          <label style={{
-            display: 'inline-block',
-            marginBottom: 14,
-            padding: '8px 14px',
-            borderRadius: 'var(--radius)',
-            border: '1px solid var(--green-mid)',
-            background: 'var(--green-dim)',
-            color: 'var(--green-bright)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 10,
-            textTransform: 'uppercase',
-            cursor: mapUploadBusy || !campaign?.id ? 'not-allowed' : 'pointer',
-            opacity: mapUploadBusy ? 0.6 : 1,
-          }}
+          {!campaign?.id && (
+            <div style={{ marginBottom: 12, padding: '10px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Load a campaign in the builder before uploading map videos.
+            </div>
+          )}
+          <input
+            ref={mapVideoInputRef}
+            type="file"
+            accept="video/mp4,video/webm"
+            style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
+            disabled={mapUploadBusy}
+            aria-hidden
+            onChange={async (e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              if (!file) return
+              if (!campaign?.id || !session?.id) {
+                setSaveMsg({ type: 'error', text: 'Load a campaign and ensure this session is saved, then try again.' })
+                return
+              }
+              setMapUploadBusy(true)
+              try {
+                const { storagePath } = await uploadSessionMapVideo({
+                  file,
+                  campaignId: campaign.id,
+                  sessionId: session.id,
+                })
+                const name = window.prompt('Map name', file.name.replace(/\.[^.]+$/, '') || 'Map') || 'Map'
+                const maps = [...(form.session_maps || [])]
+                maps.push({
+                  id: crypto.randomUUID(),
+                  name,
+                  videoUrl: storagePath,
+                })
+                setForm((f) => ({ ...f, session_maps: maps }))
+              } catch (err) {
+                setSaveMsg({ type: 'error', text: String(err?.message || err) })
+              }
+              setMapUploadBusy(false)
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => mapVideoInputRef.current?.click()}
+            disabled={mapUploadBusy}
+            style={{
+              display: 'inline-block',
+              marginBottom: 14,
+              padding: '8px 14px',
+              borderRadius: 'var(--radius)',
+              border: '1px solid var(--green-mid)',
+              background: 'var(--green-dim)',
+              color: 'var(--green-bright)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 10,
+              textTransform: 'uppercase',
+              cursor: mapUploadBusy ? 'wait' : 'pointer',
+              opacity: mapUploadBusy ? 0.6 : 1,
+            }}
           >
-            {mapUploadBusy ? 'Uploading…' : '+ Upload map video'}
-            <input
-              type="file"
-              accept="video/mp4,video/webm"
-              hidden
-              disabled={mapUploadBusy || !campaign?.id}
-              onChange={async (e) => {
-                const file = e.target.files?.[0]
-                e.target.value = ''
-                if (!file || !campaign?.id || !session?.id) return
-                setMapUploadBusy(true)
-                try {
-                  const { storagePath } = await uploadSessionMapVideo({
-                    file,
-                    campaignId: campaign.id,
-                    sessionId: session.id,
-                  })
-                  const name = window.prompt('Map name', file.name.replace(/\.[^.]+$/, '') || 'Map') || 'Map'
-                  const maps = [...(form.session_maps || [])]
-                  maps.push({
-                    id: crypto.randomUUID(),
-                    name,
-                    videoUrl: storagePath,
-                  })
-                  setForm((f) => ({ ...f, session_maps: maps }))
-                } catch (err) {
-                  setSaveMsg({ type: 'error', text: String(err?.message || err) })
-                }
-                setMapUploadBusy(false)
-              }}
-            />
-          </label>
+            {mapUploadBusy ? 'Uploading…' : 'Choose map video (MP4 / WebM)'}
+          </button>
           {(form.session_maps || []).map((m, idx) => (
             <div key={m.id || idx} style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8, padding: '10px 12px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
               <input

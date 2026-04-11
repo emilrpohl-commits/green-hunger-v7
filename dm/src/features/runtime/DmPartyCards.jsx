@@ -226,6 +226,45 @@ export function DmRuntimeCharacterCard({ char, tagLabel, assignmentSlot = null }
   )
 }
 
+/** Collapsed: name + HP. Expand for full DM card (optional assignment slot for companions/NPCs). */
+export function CollapsibleDmCharacterPanel({ char, tagLabel = 'Player', assignmentSlot = null }) {
+  const [expanded, setExpanded] = useState(false)
+  const pct = char.maxHp > 0 ? Math.round((char.curHp / char.maxHp) * 100) : 0
+
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', background: 'var(--bg-card)' }}>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        style={{
+          width: '100%',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '10px 12px',
+          border: 'none',
+          background: expanded ? 'rgba(100,140,100,0.08)' : 'transparent',
+          cursor: 'pointer',
+          textAlign: 'left',
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{char.name}</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+            {tagLabel} · HP {char.curHp}/{char.maxHp} ({pct}%)
+          </div>
+        </div>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--green-bright)' }}>{expanded ? 'Hide' : 'Show'}</span>
+      </button>
+      {expanded && (
+        <div style={{ padding: '0 10px 12px', borderTop: '1px solid var(--border)' }}>
+          <DmRuntimeCharacterCard char={char} tagLabel={tagLabel} assignmentSlot={assignmentSlot} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function CompanionsAndNpcsSection({ characters }) {
   const patchCharacterAssignment = useCampaignStore((s) => s.patchCharacterAssignment)
   const setIlyaAssignment = useCombatStore((s) => s.setIlyaAssignment)
@@ -282,10 +321,45 @@ export function CompanionsAndNpcsSection({ characters }) {
               With {pc.name}
             </div>
             {list.map((c) => (
-              <DmRuntimeCharacterCard
-                key={c.id}
+              <div key={c.id} style={{ marginBottom: 8 }}>
+                <CollapsibleDmCharacterPanel
+                  char={c}
+                  tagLabel="Companion"
+                  assignmentSlot={(
+                    <select
+                      value={c.assignedPcId || ''}
+                      onChange={(e) => assignCompanion(c.id, e.target.value || null)}
+                      style={{
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius)',
+                        color: 'var(--text-base)',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 10,
+                        padding: '4px 6px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <option value="">Unassigned</option>
+                      {playerOptions.map((o) => (
+                        <option key={o.id} value={o.id}>{o.label}</option>
+                      ))}
+                    </select>
+                  )}
+                />
+              </div>
+            ))}
+          </div>
+        )
+      })}
+      {unassigned.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6 }}>Unassigned</div>
+          {unassigned.map((c) => (
+            <div key={c.id} style={{ marginBottom: 8 }}>
+              <CollapsibleDmCharacterPanel
                 char={c}
-                tagLabel="Companion"
+                tagLabel="NPC"
                 assignmentSlot={(
                   <select
                     value={c.assignedPcId || ''}
@@ -308,40 +382,7 @@ export function CompanionsAndNpcsSection({ characters }) {
                   </select>
                 )}
               />
-            ))}
-          </div>
-        )
-      })}
-      {unassigned.length > 0 && (
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6 }}>Unassigned</div>
-          {unassigned.map((c) => (
-            <DmRuntimeCharacterCard
-              key={c.id}
-              char={c}
-              tagLabel="NPC"
-              assignmentSlot={(
-                <select
-                  value={c.assignedPcId || ''}
-                  onChange={(e) => assignCompanion(c.id, e.target.value || null)}
-                  style={{
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius)',
-                    color: 'var(--text-base)',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 10,
-                    padding: '4px 6px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <option value="">Unassigned</option>
-                  {playerOptions.map((o) => (
-                    <option key={o.id} value={o.id}>{o.label}</option>
-                  ))}
-                </select>
-              )}
-            />
+            </div>
           ))}
         </div>
       )}
