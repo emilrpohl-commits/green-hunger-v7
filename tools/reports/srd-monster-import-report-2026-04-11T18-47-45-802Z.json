@@ -1,0 +1,2511 @@
+{
+  "generatedAt": "2026-04-11T18:47:45.802Z",
+  "jsonPath": "/Users/emilpohl/Downloads/green-hunger-v7/src/data/monsters/monsters-srd-5.2.1.json",
+  "campaignId": null,
+  "summary": {
+    "total": 238,
+    "would_insert": 238,
+    "inserted": 0,
+    "updated": 0,
+    "skipped_collision": 0,
+    "skipped_invalid_slug": 0,
+    "errors": 0,
+    "quality": {
+      "high": 0,
+      "medium": 236,
+      "low": 2
+    },
+    "dryRun": true,
+    "writeDb": false
+  },
+  "entries": [
+    {
+      "slug": "srd521-aboleth",
+      "name": "Aboleth",
+      "parse_quality": "medium",
+      "warnings": [
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-air-elemental",
+      "name": "Air Elemental",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-animated-armor",
+      "name": "Animated Armor",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-animated-flying-sword",
+      "name": "Animated Flying Sword",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-animated-rug-of-smothering",
+      "name": "Animated Rug of Smothering",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ankheg",
+      "name": "Ankheg",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-assassin",
+      "name": "Assassin",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-awakened-shrub",
+      "name": "Awakened Shrub",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-awakened-tree",
+      "name": "Awakened Tree",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-axe-beak",
+      "name": "Axe Beak",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-azer-sentinel",
+      "name": "Azer Sentinel",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-balor",
+      "name": "Balor",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-bandit",
+      "name": "Bandit",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-bandit-captain",
+      "name": "Bandit Captain",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-barbed-devil",
+      "name": "Barbed Devil",
+      "parse_quality": "medium",
+      "warnings": [
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-basilisk",
+      "name": "Basilisk",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-bearded-devil",
+      "name": "Bearded Devil",
+      "parse_quality": "medium",
+      "warnings": [
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-behir",
+      "name": "Behir",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-berserker",
+      "name": "Berserker",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-black-dragon-wyrmling",
+      "name": "Black Dragon Wyrmling",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-young-black-dragon",
+      "name": "Young Black Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-adult-black-dragon",
+      "name": "Adult Black Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ancient-black-dragon",
+      "name": "Ancient Black Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-black-pudding",
+      "name": "Black Pudding",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-blink-dog",
+      "name": "Blink Dog",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-blue-dragon-wyrmling",
+      "name": "Blue Dragon Wyrmling",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-young-blue-dragon",
+      "name": "Young Blue Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-adult-blue-dragon",
+      "name": "Adult Blue Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ancient-blue-dragon",
+      "name": "Ancient Blue Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-bone-devil",
+      "name": "Bone Devil",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-brass-dragon-wyrmling",
+      "name": "Brass Dragon Wyrmling",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-young-brass-dragon",
+      "name": "Young Brass Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-adult-brass-dragon",
+      "name": "Adult Brass Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ancient-brass-dragon",
+      "name": "Ancient Brass Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-bronze-dragon-wyrmling",
+      "name": "Bronze Dragon Wyrmling",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-young-bronze-dragon",
+      "name": "Young Bronze Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-adult-bronze-dragon",
+      "name": "Adult Bronze Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ancient-bronze-dragon",
+      "name": "Ancient Bronze Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-bugbear-stalker",
+      "name": "Bugbear Stalker",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-bugbear-warrior",
+      "name": "Bugbear Warrior",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-bulette",
+      "name": "Bulette",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-centaur-trooper",
+      "name": "Centaur Trooper",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-chain-devil",
+      "name": "Chain Devil",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-chimera",
+      "name": "Chimera",
+      "parse_quality": "medium",
+      "warnings": [
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-chuul",
+      "name": "Chuul",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-clay-golem",
+      "name": "Clay Golem",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-cloaker",
+      "name": "Cloaker",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-cloud-giant",
+      "name": "Cloud Giant",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-cockatrice",
+      "name": "Cockatrice",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-commoner",
+      "name": "Commoner",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-copper-dragon-wyrmling",
+      "name": "Copper Dragon Wyrmling",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-young-copper-dragon",
+      "name": "Young Copper Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-adult-copper-dragon",
+      "name": "Adult Copper Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ancient-copper-dragon",
+      "name": "Ancient Copper Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-couatl",
+      "name": "Couatl",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-swarm-of-crawling-claws",
+      "name": "Swarm of Crawling Claws",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-cultist",
+      "name": "Cultist",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-cultist-fanatic",
+      "name": "Cultist Fanatic",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-darkmantle",
+      "name": "Darkmantle",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-death-dog",
+      "name": "Death Dog",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-deva",
+      "name": "Deva",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-djinni",
+      "name": "Djinni",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-doppelganger",
+      "name": "Doppelganger",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-dragon-turtle",
+      "name": "Dragon Turtle",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-dretch",
+      "name": "Dretch",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-drider",
+      "name": "Drider",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-druid",
+      "name": "Druid",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-dryad",
+      "name": "Dryad",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-earth-elemental",
+      "name": "Earth Elemental",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-efreeti",
+      "name": "Efreeti",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-erinyes",
+      "name": "Erinyes",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ettercap",
+      "name": "Ettercap",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ettin",
+      "name": "Ettin",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-fire-elemental",
+      "name": "Fire Elemental",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-fire-giant",
+      "name": "Fire Giant",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-flesh-golem",
+      "name": "Flesh Golem",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-frost-giant",
+      "name": "Frost Giant",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-shrieker-fungus",
+      "name": "Shrieker Fungus",
+      "parse_quality": "low",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing",
+        "empty_traits_and_actions"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-violet-fungus",
+      "name": "Violet Fungus",
+      "parse_quality": "medium",
+      "warnings": [
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-gargoyle",
+      "name": "Gargoyle",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-gelatinous-cube",
+      "name": "Gelatinous Cube",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ghast",
+      "name": "Ghast",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ghost",
+      "name": "Ghost",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ghoul",
+      "name": "Ghoul",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-gibbering-mouther",
+      "name": "Gibbering Mouther",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-glabrezu",
+      "name": "Glabrezu",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-gladiator",
+      "name": "Gladiator",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-gnoll-warrior",
+      "name": "Gnoll Warrior",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-goblin-minion",
+      "name": "Goblin Minion",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-goblin-warrior",
+      "name": "Goblin Warrior",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-goblin-boss",
+      "name": "Goblin Boss",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-gold-dragon-wyrmling",
+      "name": "Gold Dragon Wyrmling",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-young-gold-dragon",
+      "name": "Young Gold Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-adult-gold-dragon",
+      "name": "Adult Gold Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ancient-gold-dragon",
+      "name": "Ancient Gold Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-gorgon",
+      "name": "Gorgon",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-gray-ooze",
+      "name": "Gray Ooze",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-green-dragon-wyrmling",
+      "name": "Green Dragon Wyrmling",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-young-green-dragon",
+      "name": "Young Green Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-adult-green-dragon",
+      "name": "Adult Green Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ancient-green-dragon",
+      "name": "Ancient Green Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-green-hag",
+      "name": "Green Hag",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-grick",
+      "name": "Grick",
+      "parse_quality": "medium",
+      "warnings": [
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-griffon",
+      "name": "Griffon",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-grimlock",
+      "name": "Grimlock",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-guardian-naga",
+      "name": "Guardian Naga",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-guard",
+      "name": "Guard",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-guard-captain",
+      "name": "Guard Captain",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-half-dragon",
+      "name": "Half-Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-harpy",
+      "name": "Harpy",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-hell-hound",
+      "name": "Hell Hound",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-hezrou",
+      "name": "Hezrou",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-hill-giant",
+      "name": "Hill Giant",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-hippogriff",
+      "name": "Hippogriff",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-hobgoblin-warrior",
+      "name": "Hobgoblin Warrior",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-hobgoblin-captain",
+      "name": "Hobgoblin Captain",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-homunculus",
+      "name": "Homunculus",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-horned-devil",
+      "name": "Horned Devil",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-hydra",
+      "name": "Hydra",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ice-devil",
+      "name": "Ice Devil",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-imp",
+      "name": "Imp",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-incubus",
+      "name": "Incubus",
+      "parse_quality": "medium",
+      "warnings": [
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-invisible-stalker",
+      "name": "Invisible Stalker",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-iron-golem",
+      "name": "Iron Golem",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-knight",
+      "name": "Knight",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-kobold-warrior",
+      "name": "Kobold Warrior",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-kraken",
+      "name": "Kraken",
+      "parse_quality": "medium",
+      "warnings": [
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-lamia",
+      "name": "Lamia",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-lemure",
+      "name": "Lemure",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-lich",
+      "name": "Lich",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-mage",
+      "name": "Mage",
+      "parse_quality": "medium",
+      "warnings": [
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-archmage",
+      "name": "Archmage",
+      "parse_quality": "medium",
+      "warnings": [
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-magmin",
+      "name": "Magmin",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-manticore",
+      "name": "Manticore",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-marilith",
+      "name": "Marilith",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-medusa",
+      "name": "Medusa",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-dust-mephit",
+      "name": "Dust Mephit",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ice-mephit",
+      "name": "Ice Mephit",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-magma-mephit",
+      "name": "Magma Mephit",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-steam-mephit",
+      "name": "Steam Mephit",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-merfolk-skirmisher",
+      "name": "Merfolk Skirmisher",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-merrow",
+      "name": "Merrow",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-mimic",
+      "name": "Mimic",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-minotaur-of-baphomet",
+      "name": "Minotaur of Baphomet",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-mummy",
+      "name": "Mummy",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-mummy-lord",
+      "name": "Mummy Lord",
+      "parse_quality": "medium",
+      "warnings": [
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-nalfeshnee",
+      "name": "Nalfeshnee",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-night-hag",
+      "name": "Night Hag",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-nightmare",
+      "name": "Nightmare",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-noble",
+      "name": "Noble",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ochre-jelly",
+      "name": "Ochre Jelly",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ogre",
+      "name": "Ogre",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-oni",
+      "name": "Oni",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-otyugh",
+      "name": "Otyugh",
+      "parse_quality": "medium",
+      "warnings": [
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-owlbear",
+      "name": "Owlbear",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-pegasus",
+      "name": "Pegasus",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-phase-spider",
+      "name": "Phase Spider",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-pirate",
+      "name": "Pirate",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-pirate-captain",
+      "name": "Pirate Captain",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-pit-fiend",
+      "name": "Pit Fiend",
+      "parse_quality": "medium",
+      "warnings": [
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-planetar",
+      "name": "Planetar",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-priest-acolyte",
+      "name": "Priest Acolyte",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-priest",
+      "name": "Priest",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-pseudodragon",
+      "name": "Pseudodragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-purple-worm",
+      "name": "Purple Worm",
+      "parse_quality": "medium",
+      "warnings": [
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-quasit",
+      "name": "Quasit",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-rakshasa",
+      "name": "Rakshasa",
+      "parse_quality": "medium",
+      "warnings": [
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-red-dragon-wyrmling",
+      "name": "Red Dragon Wyrmling",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-young-red-dragon",
+      "name": "Young Red Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-adult-red-dragon",
+      "name": "Adult Red Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ancient-red-dragon",
+      "name": "Ancient Red Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-remorhaz",
+      "name": "Remorhaz",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-roc",
+      "name": "Roc",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-roper",
+      "name": "Roper",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-rust-monster",
+      "name": "Rust Monster",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-sahuagin-warrior",
+      "name": "Sahuagin Warrior",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-salamander",
+      "name": "Salamander",
+      "parse_quality": "medium",
+      "warnings": [
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-satyr",
+      "name": "Satyr",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-scout",
+      "name": "Scout",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-sea-hag",
+      "name": "Sea Hag",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-shadow",
+      "name": "Shadow",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-shambling-mound",
+      "name": "Shambling Mound",
+      "parse_quality": "medium",
+      "warnings": [
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-shield-guardian",
+      "name": "Shield Guardian",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-silver-dragon-wyrmling",
+      "name": "Silver Dragon Wyrmling",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-young-silver-dragon",
+      "name": "Young Silver Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-adult-silver-dragon",
+      "name": "Adult Silver Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ancient-silver-dragon",
+      "name": "Ancient Silver Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-skeleton",
+      "name": "Skeleton",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-warhorse-skeleton",
+      "name": "Warhorse Skeleton",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-minotaur-skeleton",
+      "name": "Minotaur Skeleton",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-solar",
+      "name": "Solar",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-specter",
+      "name": "Specter",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-sphinx-of-wonder",
+      "name": "Sphinx of Wonder",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-sphinx-of-lore",
+      "name": "Sphinx of Lore",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-sphinx-of-valor",
+      "name": "Sphinx of Valor",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-spirit-naga",
+      "name": "Spirit Naga",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-sprite",
+      "name": "Sprite",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-spy",
+      "name": "Spy",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-stirge",
+      "name": "Stirge",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-stone-giant",
+      "name": "Stone Giant",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-stone-golem",
+      "name": "Stone Golem",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-storm-giant",
+      "name": "Storm Giant",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-succubus",
+      "name": "Succubus",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-tarrasque",
+      "name": "Tarrasque",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-tough",
+      "name": "Tough",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-tough-boss",
+      "name": "Tough Boss",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-treant",
+      "name": "Treant",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-troll",
+      "name": "Troll",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-troll-limb",
+      "name": "Troll Limb",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-unicorn",
+      "name": "Unicorn",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-vampire-familiar",
+      "name": "Vampire Familiar",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-vampire-spawn",
+      "name": "Vampire Spawn",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-vampire",
+      "name": "Vampire",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-vrock",
+      "name": "Vrock",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-warrior-infantry",
+      "name": "Warrior Infantry",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-warrior-veteran",
+      "name": "Warrior Veteran",
+      "parse_quality": "medium",
+      "warnings": [
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-water-elemental",
+      "name": "Water Elemental",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-werebear",
+      "name": "Werebear",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-wereboar",
+      "name": "Wereboar",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-wererat",
+      "name": "Wererat",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-weretiger",
+      "name": "Weretiger",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-werewolf",
+      "name": "Werewolf",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-white-dragon-wyrmling",
+      "name": "White Dragon Wyrmling",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-young-white-dragon",
+      "name": "Young White Dragon",
+      "parse_quality": "low",
+      "warnings": [
+        "abilities_missing",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-adult-white-dragon",
+      "name": "Adult White Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ancient-white-dragon",
+      "name": "Ancient White Dragon",
+      "parse_quality": "medium",
+      "warnings": [
+        "legendary_header_split",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-wight",
+      "name": "Wight",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-will-o-wisp",
+      "name": "Will-o’-Wisp",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-winter-wolf",
+      "name": "Winter Wolf",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-worg",
+      "name": "Worg",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-wraith",
+      "name": "Wraith",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-wyvern",
+      "name": "Wyvern",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-xorn",
+      "name": "Xorn",
+      "parse_quality": "medium",
+      "warnings": [
+        "action_split_merge",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-zombie",
+      "name": "Zombie",
+      "parse_quality": "medium",
+      "warnings": [
+        "footer_stripped",
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ogre-zombie",
+      "name": "Ogre Zombie",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-allosaurus",
+      "name": "Allosaurus",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ankylosaurus",
+      "name": "Ankylosaurus",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    },
+    {
+      "slug": "srd521-ape",
+      "name": "Ape",
+      "parse_quality": "medium",
+      "warnings": [
+        "cr_parse_failed",
+        "senses_missing"
+      ],
+      "db_status": "would_insert"
+    }
+  ]
+}

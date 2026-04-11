@@ -201,6 +201,7 @@ create table if not exists stat_blocks (
   portrait_thumb_storage_path text,
   cloned_from_reference_id uuid,
   tags text[],
+  import_metadata jsonb not null default '{}',
   archived_at timestamptz,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
