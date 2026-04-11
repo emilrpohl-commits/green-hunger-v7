@@ -5,11 +5,13 @@ import { PLAYER_CHARACTERS } from '@shared/content/playerCharacters.js'
 import { parseCastingTimeMeta } from '@shared/lib/combatRules.js'
 import { hydrateSpellByIndex } from '@shared/lib/engine/rulesService.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
+import { uploadAudioFile } from '@shared/lib/audioStorage.js'
+import SpellCompendiumBrowser from './SpellCompendiumBrowser.jsx'
 
 const SCHOOLS = ['Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation']
 
 function blankSpell() {
-  return { spell_id: '', name: '', level: 1, school: 'Evocation', casting_time: '1 action', range: '30 ft.', components: { V: true, S: true, M: null }, duration: 'Instantaneous', ritual: false, concentration: false, description: '', higher_level_effect: '', damage_dice: '', damage_type: '', healing_dice: '', save_type: '', attack_type: '', resolution_type: 'utility', target_mode: 'single', save_ability: '', area: {}, scaling: {}, rules_json: {}, classes: [], tags: [], notes: '', source: 'Custom' }
+  return { spell_id: '', name: '', level: 1, school: 'Evocation', casting_time: '1 action', range: '30 ft.', components: { V: true, S: true, M: null }, duration: 'Instantaneous', ritual: false, concentration: false, description: '', higher_level_effect: '', damage_dice: '', damage_type: '', healing_dice: '', save_type: '', attack_type: '', resolution_type: 'utility', target_mode: 'single', save_ability: '', area: {}, scaling: {}, rules_json: {}, classes: [], tags: [], notes: '', source: 'Custom', sound_effect_url: '' }
 }
 
 function normalizeSpellId(name = '') {
@@ -22,11 +24,13 @@ function normalizeSpellId(name = '') {
 }
 
 export default function SpellLibrary() {
+  const campaign = useCampaignStore(s => s.campaign)
   const spells = useCampaignStore(s => s.spells)
   const compendiumSpells = useCampaignStore(s => s.compendiumSpells)
   const saveSpell = useCampaignStore(s => s.saveSpell)
   const deleteSpell = useCampaignStore(s => s.deleteSpell)
   const assignSpellsToCharacters = useCampaignStore(s => s.assignSpellsToCharacters)
+  const refreshCompendiumSpells = useCampaignStore(s => s.refreshCompendiumSpells)
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(blankSpell())
@@ -39,6 +43,8 @@ export default function SpellLibrary() {
   const [assigning, setAssigning] = useState(false)
   const [spellEngineIndex, setSpellEngineIndex] = useState('')
   const [spellPrefillBusy, setSpellPrefillBusy] = useState(false)
+  const [sfxBusy, setSfxBusy] = useState(false)
+  const [refreshBusy, setRefreshBusy] = useState(false)
   const canEngineSpellPrefill = featureFlags.use5eEngine && featureFlags.engineSpells
 
   const mono = { fontFamily: 'var(--font-mono)' }
@@ -279,6 +285,66 @@ export default function SpellLibrary() {
         </div>
 
         <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Sound effect (cast) — MP3 / WAV</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+            <label style={{
+              padding: '7px 12px',
+              borderRadius: 'var(--radius)',
+              border: '1px solid var(--green-mid)',
+              background: 'var(--green-dim)',
+              color: 'var(--green-bright)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 9,
+              textTransform: 'uppercase',
+              cursor: sfxBusy || !campaign?.id ? 'not-allowed' : 'pointer',
+              opacity: sfxBusy ? 0.6 : 1,
+            }}
+            >
+              {sfxBusy ? 'Uploading…' : 'Upload SFX'}
+              <input
+                type="file"
+                accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav"
+                hidden
+                disabled={sfxBusy || !campaign?.id}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  e.target.value = ''
+                  if (!file || !campaign?.id) return
+                  setSfxBusy(true)
+                  try {
+                    const { storagePath } = await uploadAudioFile({
+                      file,
+                      campaignId: campaign.id,
+                      category: 'spell-sfx',
+                      entityId: form.spell_id || form.name || 'spell',
+                    })
+                    setForm((f) => ({ ...f, sound_effect_url: storagePath }))
+                  } catch (err) {
+                    setSaveMsg({ type: 'error', text: String(err?.message || err) })
+                  }
+                  setSfxBusy(false)
+                }}
+              />
+            </label>
+            {form.sound_effect_url && (
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, sound_effect_url: '' }))}
+                style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '6px 10px', cursor: 'pointer' }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <input
+            style={inputStyle}
+            value={form.sound_effect_url || ''}
+            onChange={(e) => setForm((f) => ({ ...f, sound_effect_url: e.target.value }))}
+            placeholder="Storage path or full URL"
+          />
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
           <label style={labelStyle}>Description</label>
           <textarea value={form.description || ''} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={5} style={{ ...inputStyle, lineHeight: 1.7, resize: 'vertical', fontFamily: 'inherit' }} />
         </div>
@@ -301,10 +367,42 @@ export default function SpellLibrary() {
   const LEVEL_NAMES = ['Cantrip', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th']
 
   return (
-    <div style={{ padding: 24, maxWidth: 900 }}>
+    <div style={{ padding: 24, maxWidth: activeTab === 'compendium' ? 1320 : 900 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, color: 'var(--text-primary)' }}>Spells</div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, color: 'var(--text-primary)' }}>Spells</div>
+          <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+            {activeTab === 'compendium' ? 'Full compendium (canonical) · campaign overrides stay on the Campaign tab' : 'Homebrew & campaign-specific spells (stored per campaign)'}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {activeTab === 'compendium' && (
+            <button
+              type="button"
+              disabled={refreshBusy}
+              onClick={async () => {
+                setRefreshBusy(true)
+                const r = await refreshCompendiumSpells()
+                setRefreshBusy(false)
+                if (r?.error) setSaveMsg({ type: 'error', text: r.error })
+                else setSaveMsg({ type: 'ok', text: `Reloaded compendium (${r?.count ?? 0} spells)` })
+              }}
+              style={{
+                padding: '8px 14px',
+                background: 'transparent',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                cursor: refreshBusy ? 'not-allowed' : 'pointer',
+                ...mono,
+                fontSize: 10,
+                fontWeight: 700,
+                textTransform: 'uppercase',
+              }}
+            >
+              {refreshBusy ? 'Refreshing…' : 'Reload compendium'}
+            </button>
+          )}
           <button onClick={() => setShowImport(true)} style={{ padding: '8px 18px', background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', ...mono, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Import from Text</button>
           <button onClick={() => startEdit(null)} style={{ padding: '8px 18px', background: 'var(--green-bright)', color: '#0a0f0a', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', ...mono, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>+ New Campaign Spell</button>
         </div>
@@ -313,81 +411,98 @@ export default function SpellLibrary() {
         <button onClick={() => setActiveTab('campaign')} style={{ padding: '6px 12px', background: activeTab === 'campaign' ? 'var(--green-dim)' : 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: activeTab === 'campaign' ? 'var(--green-bright)' : 'var(--text-muted)', cursor: 'pointer', ...mono, fontSize: 10, textTransform: 'uppercase' }}>Campaign</button>
         <button onClick={() => setActiveTab('compendium')} style={{ padding: '6px 12px', background: activeTab === 'compendium' ? 'var(--green-dim)' : 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: activeTab === 'compendium' ? 'var(--green-bright)' : 'var(--text-muted)', cursor: 'pointer', ...mono, fontSize: 10, textTransform: 'uppercase' }}>Compendium</button>
       </div>
-      <input type="text" placeholder="Search spells…" value={search} onChange={e => setSearch(e.target.value)} style={{ width: '100%', padding: '9px 14px', marginBottom: 20, background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+      {activeTab === 'campaign' && (
+        <input type="text" placeholder="Search campaign spells…" value={search} onChange={e => setSearch(e.target.value)} style={{ width: '100%', padding: '9px 14px', marginBottom: 20, background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+      )}
 
       {activeTab === 'compendium' && (
-        <div style={{ marginBottom: 16, padding: 12, background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
-          <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
-            Bulk Assign Spells to Characters
+        <>
+          <div style={{ marginBottom: 16, padding: 14, background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
+            <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+              Import dataset (CLI)
+            </div>
+            <p style={{ margin: '0 0 10px', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+              Place <strong style={{ color: 'var(--text-primary)' }}>DnD_5e_Spells_with_Targeting.xlsx</strong> in <code style={{ color: 'var(--green-bright)' }}>data/</code>, then run{' '}
+              <code style={{ color: 'var(--green-bright)' }}>cd tools &amp;&amp; npm install &amp;&amp; node importSpellCompendium.mjs --write-db</code>
+              . Re-run safely — upserts on <code style={{ color: 'var(--green-bright)' }}>spell_id</code>. See <strong>docs/SPELL_COMPENDIUM.md</strong>.
+            </p>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-            {Object.values(PLAYER_CHARACTERS).filter(c => c.id !== 'party').map(c => (
-              <button key={c.id} onClick={() => toggleBulkCharacter(c.id)} style={{ padding: '5px 10px', background: bulkCharacterIds.includes(c.id) ? `${c.colour || '#508050'}30` : 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: bulkCharacterIds.includes(c.id) ? 'var(--text-primary)' : 'var(--text-muted)', cursor: 'pointer', ...mono, fontSize: 10 }}>
-                {c.name}
-              </button>
-            ))}
+          <div style={{ marginBottom: 16, padding: 12, background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
+            <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+              Bulk assign to characters (use checkboxes in list)
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+              {Object.values(PLAYER_CHARACTERS).filter(c => c.id !== 'party').map(c => (
+                <button key={c.id} onClick={() => toggleBulkCharacter(c.id)} style={{ padding: '5px 10px', background: bulkCharacterIds.includes(c.id) ? `${c.colour || '#508050'}30` : 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: bulkCharacterIds.includes(c.id) ? 'var(--text-primary)' : 'var(--text-muted)', cursor: 'pointer', ...mono, fontSize: 10 }}>
+                  {c.name}
+                </button>
+              ))}
+            </div>
+            <button onClick={handleBulkAssign} disabled={assigning || bulkSpellIds.length === 0 || bulkCharacterIds.length === 0} style={{ padding: '7px 14px', background: assigning ? 'var(--bg-deep)' : 'var(--green-mid)', color: assigning ? 'var(--text-muted)' : '#0a0f0a', border: 'none', borderRadius: 'var(--radius)', cursor: assigning ? 'not-allowed' : 'pointer', ...mono, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>
+              {assigning ? 'Assigning…' : `Assign ${bulkSpellIds.length} selected spell(s)`}
+            </button>
           </div>
-          <button onClick={handleBulkAssign} disabled={assigning || bulkSpellIds.length === 0 || bulkCharacterIds.length === 0} style={{ padding: '7px 14px', background: assigning ? 'var(--bg-deep)' : 'var(--green-mid)', color: assigning ? 'var(--text-muted)' : '#0a0f0a', border: 'none', borderRadius: 'var(--radius)', cursor: assigning ? 'not-allowed' : 'pointer', ...mono, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>
-            {assigning ? 'Assigning…' : `Assign ${bulkSpellIds.length} Selected Spell(s)`}
-          </button>
-        </div>
+        </>
       )}
 
       {saveMsg && <div style={{ marginBottom: 12, ...mono, fontSize: 11, color: saveMsg.type === 'ok' ? 'var(--green-bright)' : 'var(--danger)' }}>{saveMsg.text}</div>}
-      {filtered.length === 0 && <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>{activeTab === 'campaign' ? 'No campaign spells yet. Create one or import.' : 'No compendium spells loaded yet. Run compendium import.'}</div>}
 
-      <div style={{ display: 'grid', gap: 8 }}>
-        {filtered.map(spell => (
-          (() => {
-            const castingMeta = parseCastingTimeMeta(spell.casting_time)
-            return (
-          <div key={spell.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
-            {activeTab === 'compendium' && (
+      {activeTab === 'compendium' && (
+        <>
+          {list.length === 0 && (
+            <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, marginBottom: 16 }}>
+              No compendium rows loaded. Apply the DB migration for <code style={{ color: 'var(--green-bright)' }}>spell_compendium</code>, run the XLSX import, then <strong>Reload compendium</strong>.
+            </div>
+          )}
+          {list.length > 0 && (
+            <SpellCompendiumBrowser
+              spells={list}
+              bulkSpellIds={bulkSpellIds}
+              toggleBulkSpell={toggleBulkSpell}
+              normalizeSpellId={normalizeSpellId}
+            />
+          )}
+        </>
+      )}
+
+      {activeTab === 'campaign' && (
+        <>
+          {filtered.length === 0 && <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>No campaign spells yet. Create one or import.</div>}
+          <div style={{ display: 'grid', gap: 8 }}>
+            {filtered.map(spell => (
               (() => {
-                const sid = spell.spell_id || normalizeSpellId(spell.name)
+                const castingMeta = parseCastingTimeMeta(spell.casting_time)
                 return (
-              <input
-                type="checkbox"
-                checked={bulkSpellIds.includes(sid)}
-                onChange={() => toggleBulkSpell(sid)}
-                style={{ cursor: 'pointer' }}
-              />
+                  <div key={spell.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
+                    <div style={{ minWidth: 52, textAlign: 'center' }}>
+                      <div style={{ ...mono, fontSize: 8, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Level</div>
+                      <div style={{ ...mono, fontSize: 12, color: '#a0b0ff', fontWeight: 700 }}>{LEVEL_NAMES[spell.level] || spell.level}</div>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>{spell.name}</div>
+                      <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+                        {spell.school}{spell.ritual ? ' · Ritual' : ''}{spell.concentration ? ' · Concentration' : ''}
+                        {spell.casting_time ? ` · ${spell.casting_time}` : ''}
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                        <span style={{ ...mono, fontSize: 9, color: castingMeta.isBonusAction ? 'var(--warning)' : castingMeta.isReaction ? '#9fb4ff' : 'var(--green-bright)' }}>
+                          {castingMeta.castingTimeLabel}
+                        </span>
+                        {spell.spell_id && <span style={{ ...mono, fontSize: 9, color: '#9bb0d8' }}>id:{spell.spell_id}</span>}
+                        {spell.resolution_type && <span style={{ ...mono, fontSize: 9, color: 'var(--warning)' }}>{spell.resolution_type}</span>}
+                        {spell.target_mode && <span style={{ ...mono, fontSize: 9, color: 'var(--text-muted)' }}>{spell.target_mode}</span>}
+                        {(spell.rules_json?.needs_manual_resolution || spell.target_mode === 'special') && <span style={{ ...mono, fontSize: 9, color: 'var(--danger)' }}>manual</span>}
+                      </div>
+                    </div>
+                    <button onClick={() => startEdit(spell)} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text-secondary)', ...mono, fontSize: 9, textTransform: 'uppercase' }}>Edit</button>
+                    <button onClick={() => { if (window.confirm('Delete?')) deleteSpell(spell.id) }} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(196,64,64,0.3)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--danger)', ...mono, fontSize: 9, textTransform: 'uppercase' }}>Delete</button>
+                  </div>
                 )
               })()
-            )}
-            <div style={{ minWidth: 52, textAlign: 'center' }}>
-              <div style={{ ...mono, fontSize: 8, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Level</div>
-              <div style={{ ...mono, fontSize: 12, color: '#a0b0ff', fontWeight: 700 }}>{LEVEL_NAMES[spell.level] || spell.level}</div>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>{spell.name}</div>
-              <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
-                {spell.school}{spell.ritual ? ' · Ritual' : ''}{spell.concentration ? ' · Concentration' : ''}
-                {spell.casting_time ? ` · ${spell.casting_time}` : ''}
-              </div>
-              <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-                <span style={{ ...mono, fontSize: 9, color: castingMeta.isBonusAction ? 'var(--warning)' : castingMeta.isReaction ? '#9fb4ff' : 'var(--green-bright)' }}>
-                  {castingMeta.castingTimeLabel}
-                </span>
-                {spell.spell_id && <span style={{ ...mono, fontSize: 9, color: '#9bb0d8' }}>id:{spell.spell_id}</span>}
-                {spell.resolution_type && <span style={{ ...mono, fontSize: 9, color: 'var(--warning)' }}>{spell.resolution_type}</span>}
-                {spell.target_mode && <span style={{ ...mono, fontSize: 9, color: 'var(--text-muted)' }}>{spell.target_mode}</span>}
-                {(spell.rules_json?.needs_manual_resolution || spell.target_mode === 'special') && <span style={{ ...mono, fontSize: 9, color: 'var(--danger)' }}>manual</span>}
-              </div>
-            </div>
-            {activeTab === 'campaign' ? (
-              <>
-                <button onClick={() => startEdit(spell)} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text-secondary)', ...mono, fontSize: 9, textTransform: 'uppercase' }}>Edit</button>
-                <button onClick={() => { if (window.confirm('Delete?')) deleteSpell(spell.id) }} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(196,64,64,0.3)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--danger)', ...mono, fontSize: 9, textTransform: 'uppercase' }}>Delete</button>
-              </>
-            ) : (
-              <button onClick={() => startEdit({ ...spell, name: `${spell.name} (Override)` }, true)} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text-secondary)', ...mono, fontSize: 9, textTransform: 'uppercase' }}>Create Override</button>
-            )}
+            ))}
           </div>
-            )
-          })()
-        ))}
-      </div>
+        </>
+      )}
 
       {showImport && (
         <ImportModal

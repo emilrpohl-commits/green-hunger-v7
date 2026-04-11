@@ -15,10 +15,15 @@ import SheetEditTab from './tabs/SheetEditTab.jsx'
 import StickySummaryBar, { useStickySummaryVisibility } from './StickySummaryBar.jsx'
 import PlayerTacticalSection from './PlayerTacticalSection.jsx'
 import { GreenMarkTracker } from '@shared/components/greenMarks/index.js'
+import PlayerActionStrip from './PlayerActionStrip.jsx'
+import { getSfxPrefs, setSfxPrefs } from '@shared/lib/sfxEngine.js'
 
 export default function CharacterProfile({ characterId, onBackToLogin }) {
   const actions = useCharacterActions(characterId)
   const [tab, setTab] = useState('stats')
+  const [stripSignal, setStripSignal] = useState(null)
+  const [sfxMute, setSfxMute] = useState(() => getSfxPrefs().muted)
+  const [sfxVol, setSfxVol] = useState(() => getSfxPrefs().volume)
   const { sentinelRef, visible: stickyVisible } = useStickySummaryVisibility('-120px 0px 0px 0px')
 
   if (!actions.char) {
@@ -206,6 +211,57 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
           onToggleEconomy={(kind) => toggleMyActionEconomyField(characterId, kind)}
         />
 
+        <PlayerActionStrip
+          charColour={char.colour}
+          onPick={(id) => {
+            const t = Date.now()
+            if (id === 'attack') {
+              setTab('actions')
+              setStripSignal({ type: 'attack', t })
+            } else if (id === 'spell') {
+              setTab('spells')
+              setStripSignal({ type: 'spell_attack', t })
+            } else if (id === 'bonus_action') {
+              setTab('actions')
+              setStripSignal({ type: 'bonus_action', t })
+            } else if (id === 'feature') {
+              setTab('features')
+              setStripSignal({ type: 'feature', t })
+            }
+          }}
+        />
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 14, fontSize: 11, color: 'var(--text-muted)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={sfxMute}
+              onChange={(e) => {
+                const m = e.target.checked
+                setSfxMute(m)
+                setSfxPrefs({ muted: m })
+              }}
+            />
+            Mute SFX
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            SFX vol
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={sfxVol}
+              onChange={(e) => {
+                const v = Number(e.target.value)
+                setSfxVol(v)
+                setSfxPrefs({ volume: v })
+              }}
+              style={{ width: 100 }}
+            />
+          </label>
+        </div>
+
         {combatActive && (
           <CombatStrip
             char={char}
@@ -247,6 +303,7 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
 
         {tab === 'spells' && (
           <SpellsTab
+            stripSignal={stripSignal}
             char={char}
             spellSlots={spellSlots}
             activeSpell={activeSpell}
@@ -270,6 +327,7 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
 
         {tab === 'actions' && (
           <ActionsTab
+            stripSignal={stripSignal}
             char={char}
             combatActive={combatActive}
             enemies={enemies}

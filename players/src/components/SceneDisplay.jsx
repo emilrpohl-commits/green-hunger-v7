@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { usePlayerStore } from '../stores/playerStore'
+import { getSceneMediaPublicUrl } from '@shared/lib/sceneMediaStorage.js'
 
 const SESSION_ERROR_COPY = {
   no_active_session: 'The DM has not set a live session yet. Scene text will appear once they select a session in the DM console. If the DM is in seedless mode, they must load a campaign before sessions exist.',
@@ -66,13 +67,48 @@ export default function SceneDisplay() {
   const progressPct = ((currentSceneIndex + 1) / totalScenes) * 100
   const tone = getBeatTone(currentBeat?.type)
 
+  const coverUrl = scene.image_url ? getSceneMediaPublicUrl(scene.image_url) : null
+
   return (
-    <div className={`scene-card ${transitioning ? 'scene-card--entering' : ''}`}>
+    <div className={`scene-card ${transitioning ? 'scene-card--entering' : ''}`} style={{ position: 'relative', overflow: 'hidden' }}>
+      {coverUrl && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 0,
+            pointerEvents: 'none',
+          }}
+        >
+          <img
+            src={coverUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              filter: 'brightness(0.4) saturate(0.9)',
+              transform: 'scale(1.04)',
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(180deg, rgba(6,10,8,0.5) 0%, rgba(6,10,8,0.88) 55%, rgba(6,10,8,0.95) 100%)',
+              boxShadow: 'inset 0 0 80px rgba(0,0,0,0.45)',
+            }}
+          />
+        </div>
+      )}
       {/* Decorative top glow */}
-      <div className="scene-glow" />
+      <div className="scene-glow" style={{ position: 'relative', zIndex: 1 }} />
 
       {/* Session + scene header */}
-      <div className="scene-header">
+      <div className="scene-header" style={{ position: 'relative', zIndex: 1 }}>
         <span className="scene-label">
           {session.title || 'Session'}
         </span>
@@ -82,18 +118,18 @@ export default function SceneDisplay() {
       </div>
 
       {/* Scene title */}
-      <h2 className="scene-title">{scene.title}</h2>
+      <h2 className="scene-title" style={{ position: 'relative', zIndex: 1, textShadow: coverUrl ? '0 2px 16px rgba(0,0,0,0.7)' : undefined }}>{scene.title}</h2>
 
       {/* Scene description (player-safe subtitle) */}
       {scene.subtitle && (
-        <div className="scene-description">{scene.subtitle}</div>
+        <div className="scene-description" style={{ position: 'relative', zIndex: 1 }}>{scene.subtitle}</div>
       )}
 
       {/* Current beat */}
       {currentBeat && (currentBeat.title || currentBeat.playerText) && (
         <div
           className="scene-beat"
-          style={{ background: tone.bg, borderColor: tone.border }}
+          style={{ background: tone.bg, borderColor: tone.border, position: 'relative', zIndex: 1 }}
         >
           <div className="scene-beat__header">
             <span
@@ -106,6 +142,21 @@ export default function SceneDisplay() {
               <span className="scene-beat__title">{currentBeat.title}</span>
             )}
           </div>
+          {currentBeat.flavour_text && (
+            <div
+              className="scene-beat__flavour"
+              style={{
+                fontSize: 13,
+                lineHeight: 1.6,
+                color: 'var(--text-muted)',
+                fontStyle: 'italic',
+                opacity: 0.9,
+                marginBottom: 10,
+              }}
+            >
+              {currentBeat.flavour_text}
+            </div>
+          )}
           {currentBeat.playerText && (
             <div className="scene-beat__text">{currentBeat.playerText}</div>
           )}
@@ -113,7 +164,7 @@ export default function SceneDisplay() {
       )}
 
       {/* Scene progress */}
-      <div className="scene-progress">
+      <div className="scene-progress" style={{ position: 'relative', zIndex: 1 }}>
         <div className="scene-progress__track">
           <div
             className="scene-progress__fill"

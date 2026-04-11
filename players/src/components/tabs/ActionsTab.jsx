@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { Section } from '../ui/Section'
 import { isAttackRoll } from '../../lib/diceHelpers'
 import FilterChipRow from '../ui/FilterChipRow.jsx'
@@ -16,8 +16,15 @@ export default function ActionsTab({
   healSlot, setHealSlot, bardicTarget, setBardicTarget,
   rollAttack, rollHeal, grantBardic,
   bardicInspirationUses, activeBuffs, spellSlots,
+  stripSignal = null,
 }) {
   const [actFilter, setActFilter] = useState('all')
+
+  useEffect(() => {
+    if (!stripSignal?.type) return
+    if (stripSignal.type === 'attack') setActFilter('attack')
+    if (stripSignal.type === 'bonus_action') setActFilter('bonus_action')
+  }, [stripSignal])
 
   const showAttack = useMemo(
     () => actFilter === 'all' || matchesEntityFilter(actFilter, weaponToFilterTags()),

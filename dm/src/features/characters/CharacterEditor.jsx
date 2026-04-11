@@ -8,6 +8,7 @@ import {
   toAbilityBlock,
 } from '@shared/lib/characterSheetShape.js'
 import PortraitUploadField from '../../components/PortraitUploadField.jsx'
+import CharacterSpellLinksPanel from './CharacterSpellLinksPanel.jsx'
 import SRD_RACES from '../../../../docs/5e-database-main/src/2014/5e-SRD-Races.json'
 import SRD_BACKGROUNDS from '../../../../docs/5e-database-main/src/2014/5e-SRD-Backgrounds.json'
 
@@ -836,8 +837,10 @@ export default function CharacterEditor() {
           Sheet details
         </div>
         <p style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', margin: '0 0 14px', lineHeight: 1.5 }}>
-          Spell lists for the player app use the <strong>character_spells</strong> table — use Character Import or DB tools for bulk spells. Everything below is stored on the character row and syncs to the sheet.
+          Spell lists for the player app use the <strong>character_spells</strong> table, keyed to the full <strong>spell compendium</strong>. Link spells below or use Character Import. Slot counts below live on the character row.
         </p>
+
+        {editing && editing !== '__new__' && <CharacterSpellLinksPanel characterId={editing} />}
 
         <div style={{ marginBottom: 16, padding: 14, borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', background: 'var(--bg-raised)' }}>
           <label style={labelStyle}>Spell slots (by level)</label>

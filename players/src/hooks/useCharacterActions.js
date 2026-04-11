@@ -3,6 +3,7 @@ import { usePlayerStore } from '../stores/playerStore'
 import { parseCastingTimeMeta, ensureActionEconomy, applyDeterministicRollModifiers, getAcWithEffects } from '@shared/lib/combatRules.js'
 import { makeSavePromptPayload, resolveSpellPath } from '@shared/lib/domain/spellResolution.js'
 import { rollDie, rollDice, parseModNum, isAttackRoll, parseDiceNotation } from '../lib/diceHelpers'
+import { playSfx } from '@shared/lib/sfxEngine.js'
 
 export default function useCharacterActions(characterId) {
   const characters = usePlayerStore(s => s.characters)
@@ -123,23 +124,43 @@ export default function useCharacterActions(characterId) {
     return window.confirm(reason)
   }
 
-  const rollSkill = (skill) => {
+  const rollSkill = (skill, opts = {}) => {
     const d20 = rollDie(20)
     const mod = parseModNum(skill.mod)
     const modded = applyDeterministicRollModifiers({ combatant: myCombatant, baseRoll: d20 + mod, rollType: 'check', includeGuidance: true })
     const total = modded.total
-    setRollResult({ type: 'skill', name: skill.name, d20, mod, total, crit: d20 === 20, fumble: d20 === 1 })
+    const contextLabel = opts.contextLabel || `${skill.name} check`
+    setRollResult({
+      type: 'skill',
+      name: skill.name,
+      contextLabel,
+      d20,
+      mod,
+      total,
+      crit: d20 === 20,
+      fumble: d20 === 1,
+    })
     setPendingAttack(null)
     const label = d20 === 20 ? ` NAT 20!` : d20 === 1 ? ` nat 1` : ''
     pushRoll(`${skill.name} check: d20(${d20}) + ${mod} = ${total}${label}`, char.name)
   }
 
-  const rollSave = (save) => {
+  const rollSave = (save, opts = {}) => {
     const d20 = rollDie(20)
     const mod = parseModNum(save.mod)
     const modded = applyDeterministicRollModifiers({ combatant: myCombatant, baseRoll: d20 + mod, rollType: 'save' })
     const total = modded.total
-    setRollResult({ type: 'save', name: save.name, d20, mod, total, crit: d20 === 20, fumble: d20 === 1 })
+    const contextLabel = opts.contextLabel || `${save.name} save`
+    setRollResult({
+      type: 'save',
+      name: save.name,
+      contextLabel,
+      d20,
+      mod,
+      total,
+      crit: d20 === 20,
+      fumble: d20 === 1,
+    })
     setPendingAttack(null)
     const label = d20 === 20 ? ` NAT 20!` : d20 === 1 ? ` nat 1` : ''
     pushRoll(`${save.name} save: d20(${d20}) + ${mod} = ${total}${label}`, char.name)
@@ -283,6 +304,8 @@ export default function useCharacterActions(characterId) {
   const castSpell = async (spell, slotLevel, target, targets = []) => {
     const canUse = await canSpendActionType(spell.actionType || parseCastingTimeMeta(spell.castingTime).actionType, spell.name)
     if (!canUse) return
+    const sfx = spell.soundEffectUrl || spell.sound_effect_url
+    if (sfx) playSfx(sfx)
     const slotLvl = slotLevel ?? spell.minSlot ?? null
     if (slotLvl) {
       const ok = await useSpellSlot(characterId, slotLvl)

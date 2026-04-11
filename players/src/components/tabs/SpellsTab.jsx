@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import SpellCard from '../SpellCard'
 import FilterChipRow from '../ui/FilterChipRow.jsx'
 import { ENTITY_FILTER_LABELS, matchesEntityFilter, spellToFilterTags } from '../../lib/entityFilters.js'
@@ -9,8 +9,15 @@ export default function SpellsTab({
   enemies, partyChars, playerCharacters, characterId,
   openSpell, closeSpell, castSpell, resolveSpellForCasting,
   combatActive,
+  stripSignal = null,
 }) {
   const [spellFilter, setSpellFilter] = useState('all')
+
+  useEffect(() => {
+    if (!stripSignal?.type) return
+    if (stripSignal.type === 'spell_attack') setSpellFilter('attack')
+    if (stripSignal.type === 'spell_bonus') setSpellFilter('bonus_action')
+  }, [stripSignal])
 
   const filteredSpellEntries = useMemo(() => {
     const out = []

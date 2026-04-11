@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
 import { BEAT_TYPES, BEAT_TYPE_COLOURS } from '@shared/lib/constants.js'
+import SceneMediaUploader from '../../components/SceneMediaUploader.jsx'
 
 const SCENE_TYPES = ['narrative', 'combat', 'exploration', 'social', 'puzzle', 'transition']
 const BRANCH_CONDITION_TYPES = ['explicit', 'implicit', 'conditional']
@@ -47,6 +48,8 @@ export default function SceneEditor({ sceneId, sessionId, onClose }) {
         scaling_notes: found.scaling_notes || '',
         is_published: found.is_published || false,
         slug: found.slug || '',
+        image_url: found.image_url || '',
+        scene_images: Array.isArray(found.scene_images) ? found.scene_images : [],
       })
     }
   }, [sceneId, sessions])
@@ -111,12 +114,19 @@ export default function SceneEditor({ sceneId, sessionId, onClose }) {
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)' }}>
         {TABS.map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} style={{
-            padding: '10px 20px', border: 'none', cursor: 'pointer', background: 'none',
-            color: activeTab === tab ? 'var(--text-primary)' : 'var(--text-muted)',
-            borderBottom: activeTab === tab ? '2px solid var(--green-bright)' : '2px solid transparent',
-            ...mono, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em',
-          }}>
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            onMouseEnter={(e) => { if (activeTab !== tab) e.currentTarget.style.color = 'var(--text-secondary)' }}
+            onMouseLeave={(e) => { if (activeTab !== tab) e.currentTarget.style.color = 'var(--text-muted)' }}
+            style={{
+              padding: '10px 20px', border: 'none', cursor: 'pointer', background: 'none',
+              color: activeTab === tab ? 'var(--text-primary)' : 'var(--text-muted)',
+              borderBottom: activeTab === tab ? '2px solid var(--green-bright)' : '2px solid transparent',
+              ...mono, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em',
+              transition: 'color 0.15s ease, border-color 0.15s ease',
+            }}
+          >
             {tab}{tab === 'beats' ? ` (${scene.beats?.length || 0})` : ''}
             {tab === 'branches' ? ` (${scene.branches?.length || 0})` : ''}
           </button>
@@ -161,6 +171,16 @@ export default function SceneEditor({ sceneId, sessionId, onClose }) {
             <Divider label="Purpose & Summary" />
             <TextareaField label="Purpose (DM only)" value={sceneForm.purpose} onChange={v => updateForm('purpose', v)} labelStyle={labelStyle} taStyle={taStyle} rows={2} />
             <TextareaField label="Summary (DM only)" value={sceneForm.summary} onChange={v => updateForm('summary', v)} labelStyle={labelStyle} taStyle={taStyle} rows={3} />
+
+            <Divider label="Scene Media" />
+            <SceneMediaUploader
+              sceneId={scene.id}
+              imageUrl={sceneForm.image_url}
+              sceneImages={sceneForm.scene_images}
+              onChangeCover={(v) => updateForm('image_url', v)}
+              labelStyle={labelStyle}
+              inputStyle={inputStyle}
+            />
 
             <Divider label="Player Content" />
             <TextareaField label="Player-Facing Description" value={sceneForm.player_description} onChange={v => updateForm('player_description', v)} labelStyle={labelStyle} taStyle={{ ...taStyle, color: '#d4a080', fontStyle: 'italic' }} rows={4} />
@@ -230,7 +250,7 @@ function BeatsPanel({ scene, statBlocks, saveBeat, deleteBeat, reorderBeats, edi
   }, [editBeat])
 
   function blankBeat(sceneId, order) {
-    return { scene_id: sceneId, order, title: '', type: 'narrative', content: '', player_text: '', dm_notes: '', mechanical_effect: '', stat_block_id: null }
+    return { scene_id: sceneId, order, title: '', type: 'narrative', content: '', player_text: '', dm_notes: '', mechanical_effect: '', flavour_text: '', stat_block_id: null }
   }
 
   const handleSaveBeat = async () => {
@@ -297,6 +317,14 @@ function BeatsPanel({ scene, statBlocks, saveBeat, deleteBeat, reorderBeats, edi
         <TextareaField label="Player-Facing Text (if different)" value={beatForm.player_text} onChange={v => setBeatForm(f => ({ ...f, player_text: v }))} labelStyle={labelStyle} taStyle={taStyle} rows={3} />
         <TextareaField label="DM Notes" value={beatForm.dm_notes} onChange={v => setBeatForm(f => ({ ...f, dm_notes: v }))} labelStyle={labelStyle} taStyle={taStyle} rows={4} />
         <TextareaField label="Mechanical Effect" value={beatForm.mechanical_effect} onChange={v => setBeatForm(f => ({ ...f, mechanical_effect: v }))} labelStyle={labelStyle} taStyle={taStyle} rows={2} />
+        <TextareaField
+          label="Atmosphere / flavour (optional — italic layer for DM)"
+          value={beatForm.flavour_text || ''}
+          onChange={v => setBeatForm(f => ({ ...f, flavour_text: v }))}
+          labelStyle={labelStyle}
+          taStyle={{ ...taStyle, fontStyle: 'italic', color: 'var(--text-muted)', opacity: 0.92 }}
+          rows={2}
+        />
 
         {beatForm.type === 'combat' && (
           <div style={{ marginBottom: 16 }}>

@@ -6,6 +6,7 @@ import { getSessionRunId } from '@shared/lib/runtimeContext.js'
 import { rosterToDmTargetOptions } from '@shared/lib/partyRoster.js'
 import { BEAT_TYPE_LABELS, BEAT_TYPE_STYLES } from '@shared/lib/constants.js'
 import StatBlockView from '../statblocks/StatBlockView'
+import SceneBackdrop from '../../components/SceneBackdrop.jsx'
 
 const BEAT_TYPE_LABEL = {
   ...BEAT_TYPE_LABELS,
@@ -293,14 +294,22 @@ export default function MainPanel() {
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
-      background: 'var(--bg-deep)'
-    }}>
-      {/* Scene header */}
+      background: 'var(--bg-deep)',
+      position: 'relative',
+    }}
+    >
+      <SceneBackdrop imageUrlOrPath={scene.image_url} transitionKey={scene.id} />
+      {/* Scene header — tier 1 */}
       <div style={{
         padding: '20px 28px 16px',
         borderBottom: '1px solid var(--border)',
-        flexShrink: 0
-      }}>
+        flexShrink: 0,
+        position: 'relative',
+        zIndex: 2,
+        background: scene.image_url ? 'rgba(10, 14, 12, 0.88)' : 'var(--bg-deep)',
+        backdropFilter: scene.image_url ? 'blur(8px)' : 'none',
+      }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
           <span style={{
             fontFamily: 'var(--font-mono)',
@@ -323,11 +332,13 @@ export default function MainPanel() {
           </span>
         </div>
         <h1 style={{
-          fontSize: 22,
-          fontWeight: 600,
+          fontSize: 24,
+          fontWeight: 700,
           color: 'var(--text-primary)',
-          letterSpacing: '0.06em'
-        }}>
+          letterSpacing: '0.06em',
+          textShadow: scene.image_url ? '0 1px 12px rgba(0,0,0,0.65)' : 'none',
+        }}
+        >
           {scene.title}
         </h1>
         <div style={{
@@ -340,8 +351,15 @@ export default function MainPanel() {
         </div>
       </div>
 
-      {/* Beat content */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '24px 28px' }}>
+      {/* Beat content — tier 2 narrative; dm notes tier 3 */}
+      <div style={{
+        flex: 1,
+        overflow: 'auto',
+        padding: '24px 28px',
+        position: 'relative',
+        zIndex: 1,
+      }}
+      >
 
         {/* Beat type badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
@@ -369,13 +387,31 @@ export default function MainPanel() {
 
         {/* Beat title */}
         <h2 style={{
-          fontSize: 18,
+          fontSize: 19,
+          fontWeight: 600,
           color: 'var(--text-primary)',
-          marginBottom: 16,
-          letterSpacing: '0.04em'
-        }}>
+          marginBottom: 12,
+          letterSpacing: '0.04em',
+          textShadow: scene.image_url ? '0 1px 10px rgba(0,0,0,0.5)' : 'none',
+        }}
+        >
           {beat.title}
         </h2>
+
+        {beat.flavour_text && (
+          <p style={{
+            margin: '0 0 16px',
+            fontSize: 14,
+            lineHeight: 1.65,
+            color: 'var(--text-muted)',
+            fontStyle: 'italic',
+            opacity: 0.88,
+            maxWidth: 720,
+          }}
+          >
+            {beat.flavour_text}
+          </p>
+        )}
 
         {checkRows.length > 0 && <SkillCheckTable rows={checkRows} />}
         {decisionRows.length > 0 && <OutcomeTable rows={decisionRows} />}
@@ -453,10 +489,12 @@ export default function MainPanel() {
             border: '1px solid var(--rot-mid)',
             borderRadius: 'var(--radius-lg)',
             padding: '14px 18px',
-            fontSize: 14,
+            fontSize: 13,
             color: '#d4a080',
-            lineHeight: 1.7
-          }}>
+            lineHeight: 1.7,
+            opacity: 0.92,
+          }}
+          >
             <span style={{
               fontFamily: 'var(--font-mono)',
               fontSize: 10,
@@ -476,14 +514,16 @@ export default function MainPanel() {
         {currentBeatIndex === 0 && scene.dmNote && (
           <div style={{
             marginTop: 16,
-            background: 'rgba(40,50,36,0.5)',
+            background: 'rgba(40,50,36,0.45)',
             border: '1px solid var(--border-bright)',
             borderRadius: 'var(--radius-lg)',
             padding: '14px 18px',
-            fontSize: 13,
+            fontSize: 12,
             color: 'var(--text-secondary)',
-            lineHeight: 1.6
-          }}>
+            lineHeight: 1.6,
+            opacity: 0.85,
+          }}
+          >
             <span style={{
               fontFamily: 'var(--font-mono)',
               fontSize: 10,

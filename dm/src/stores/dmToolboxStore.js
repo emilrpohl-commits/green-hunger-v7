@@ -23,6 +23,49 @@ function readQuickRulingsUi() {
 
 const quickRulingsUi = typeof window !== 'undefined' ? readQuickRulingsUi() : { open: false, collapsed: false }
 
+function commitResolvedWildMagic(set, resolved) {
+  if (!resolved) return null
+  const roll = resolved.roll
+  const historyId = `h-${Date.now()}-${roll}`
+  const historyEntry = {
+    historyId,
+    at: Date.now(),
+    roll: resolved.roll,
+    effectId: resolved.id,
+    title: resolved.title,
+    description: resolved.description,
+    type: resolved.type,
+    duration: resolved.duration,
+    tone: resolved.tone,
+  }
+
+  set((s) => {
+    let nextActive = s.wildMagicActive
+    if (wildMagicShouldTrackActive(resolved)) {
+      nextActive = [
+        ...s.wildMagicActive,
+        {
+          instanceId: `a-${Date.now()}-${roll}`,
+          addedAt: Date.now(),
+          roll: resolved.roll,
+          effectId: resolved.id,
+          title: resolved.title,
+          description: resolved.description,
+          type: resolved.type,
+          duration: resolved.duration,
+          tone: resolved.tone,
+        },
+      ]
+    }
+    return {
+      wildMagicHistory: [historyEntry, ...s.wildMagicHistory].slice(0, HISTORY_CAP),
+      wildMagicActive: nextActive,
+    }
+  })
+
+  return historyEntry
+}
+
 function persistQuickRulingsUi() {
   if (typeof window === 'undefined') return
   try {
@@ -59,50 +102,10 @@ export const useDmToolboxStore = create((set) => ({
     queueMicrotask(persistQuickRulingsUi)
   },
 
-  rollWildMagic: () => {
-    const roll = rollWildMagicD100()
-    const resolved = resolveWildMagicRoll(roll)
-    if (!resolved) return null
+  rollWildMagic: () => commitResolvedWildMagic(set, resolveWildMagicRoll(rollWildMagicD100())),
 
-    const historyId = `h-${Date.now()}-${roll}`
-    const historyEntry = {
-      historyId,
-      at: Date.now(),
-      roll: resolved.roll,
-      effectId: resolved.id,
-      title: resolved.title,
-      description: resolved.description,
-      type: resolved.type,
-      duration: resolved.duration,
-      tone: resolved.tone,
-    }
-
-    set((s) => {
-      let nextActive = s.wildMagicActive
-      if (wildMagicShouldTrackActive(resolved)) {
-        nextActive = [
-          ...s.wildMagicActive,
-          {
-            instanceId: `a-${Date.now()}-${roll}`,
-            addedAt: Date.now(),
-            roll: resolved.roll,
-            effectId: resolved.id,
-            title: resolved.title,
-            description: resolved.description,
-            type: resolved.type,
-            duration: resolved.duration,
-            tone: resolved.tone,
-          },
-        ]
-      }
-      return {
-        wildMagicHistory: [historyEntry, ...s.wildMagicHistory].slice(0, HISTORY_CAP),
-        wildMagicActive: nextActive,
-      }
-    })
-
-    return historyEntry
-  },
+  /** d100 result from physical dice (or any 1–100); same history / active behavior as rollWildMagic */
+  applyWildMagicManualRoll: (d100) => commitResolvedWildMagic(set, resolveWildMagicRoll(d100)),
 
   removeWildMagicActive: (instanceId) => {
     set((s) => ({

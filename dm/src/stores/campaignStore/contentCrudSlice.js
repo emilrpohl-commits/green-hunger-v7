@@ -113,7 +113,8 @@ export function createContentCrudSlice(set, get) {
     },
 
     saveSession: async (session) => {
-      const payload = { ...session, updated_at: new Date().toISOString() }
+      const { scenes: _nestedScenes, ...sessionRow } = session
+      const payload = { ...sessionRow, updated_at: new Date().toISOString() }
       let result
       if (session.id) {
         result = await supabase.from('sessions').update(payload).eq('id', session.id).select().single()

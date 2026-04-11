@@ -33,6 +33,11 @@ export default function RollResultPanel({ result, charColour, onRollDamage, onUs
 
       {(result.type === 'skill' || result.type === 'save') && (
         <>
+          {result.contextLabel && (
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 13, color: 'var(--text-primary)', marginBottom: 10, letterSpacing: '0.04em' }}>
+              {result.contextLabel}
+            </div>
+          )}
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}>
             {result.type === 'skill' ? 'Skill Check' : 'Saving Throw'} — {result.name}
           </div>
@@ -69,6 +74,11 @@ export default function RollResultPanel({ result, charColour, onRollDamage, onUs
 
       {result.type === 'attack' && (
         <>
+          {result.contextLabel && (
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 13, color: 'var(--text-primary)', marginBottom: 10, letterSpacing: '0.04em' }}>
+              {result.contextLabel}
+            </div>
+          )}
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}>
             Attack — {result.weaponName}
           </div>
