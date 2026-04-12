@@ -43,9 +43,23 @@ export const createCombatSlice = (set, get) => ({
     const lastApplied = get()._combatStateSyncedAt
     if (incomingTs != null && lastApplied != null && incomingTs < lastApplied) return
 
+    const prevCombatants = get().combatCombatants || []
     const combatants = parseCombatantsArray(row.combatants, 'applyCombatStateRow.combatants')
       .map((c) => normalizeCombatantConditions({ ...c, actionEconomy: ensureActionEconomy(c) }))
       .map(sanitizeCombatantForPlayer)
+
+    if ((row.active ?? false) && combatants.length === 0 && prevCombatants.length > 0) {
+      warnFallback('Skipped combat_state: active combat with empty combatants (rejecting corrupt/race payload)', {
+        system: 'playerCombat',
+        had: prevCombatants.length,
+      })
+      return
+    }
+
+    const n = combatants.length
+    let activeIdx = row.active_combatant_index ?? 0
+    if (n > 0) activeIdx = Math.max(0, Math.min(activeIdx, n - 1))
+    else activeIdx = 0
 
     let nextLast = lastApplied ?? null
     if (incomingTs != null) {
@@ -57,7 +71,7 @@ export const createCombatSlice = (set, get) => ({
       combatActive: row.active ?? false,
       combatRound: row.round ?? 1,
       combatCombatants: combatants,
-      combatActiveCombatantIndex: row.active_combatant_index ?? 0,
+      combatActiveCombatantIndex: activeIdx,
       ilyaAssignedTo: ilyaAssign,
       initiativePhase: row.initiative_phase ?? false,
       _combatStateSyncedAt: nextLast,
@@ -75,9 +89,21 @@ export const createCombatSlice = (set, get) => ({
         .select('combatants')
         .eq('id', sessionRunId)
         .maybeSingle()
-      let list = get().combatCombatants
+      const inMemory = get().combatCombatants
+      let list = inMemory
       if (data?.combatants != null) {
-        list = parseCombatantsArray(data.combatants, 'fetchCombatantsForWrite')
+        const parsed = parseCombatantsArray(data.combatants, 'fetchCombatantsForWrite')
+        const active = get().combatActive
+        if (parsed.length > 0) {
+          list = parsed
+        } else if (active && Array.isArray(inMemory) && inMemory.length > 0) {
+          warnFallback('fetchCombatantsForWrite: DB returned empty list during active combat; using in-memory roster', {
+            system: 'playerCombat',
+          })
+          list = inMemory
+        } else {
+          list = parsed
+        }
       }
       return list
     } catch (e) {

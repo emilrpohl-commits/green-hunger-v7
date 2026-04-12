@@ -3,6 +3,7 @@ import { ensureActionEconomy } from '@shared/lib/combatRules.js'
 import { getRulesetContext, getSessionRunId } from '@shared/lib/runtimeContext.js'
 import { parseCombatantsArray } from '@shared/lib/validation/storeBoundaries.js'
 import { normalizeCombatantConditions } from '@shared/lib/rules/conditionHydration.js'
+import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
 
 export const createStateSlice = (set, get) => ({
   active: false,
@@ -43,8 +44,22 @@ export const createStateSlice = (set, get) => ({
     const lastApplied = get()._combatStateSyncedAt
     if (incomingTs != null && lastApplied != null && incomingTs < lastApplied) return
 
+    const prevCombatants = get().combatants || []
     const combatants = parseCombatantsArray(row.combatants, 'dm.applyCombatStateRow')
       .map((c) => normalizeCombatantConditions({ ...c, actionEconomy: ensureActionEconomy(c) }))
+
+    if ((row.active ?? false) && combatants.length === 0 && prevCombatants.length > 0) {
+      warnFallback('Skipped combat_state: active combat with empty combatants (rejecting corrupt/race payload)', {
+        system: 'dmCombat',
+        had: prevCombatants.length,
+      })
+      return
+    }
+
+    const n = combatants.length
+    let activeIdx = row.active_combatant_index ?? 0
+    if (n > 0) activeIdx = Math.max(0, Math.min(activeIdx, n - 1))
+    else activeIdx = 0
 
     let nextLast = lastApplied ?? null
     if (incomingTs != null) {
@@ -54,7 +69,7 @@ export const createStateSlice = (set, get) => ({
     set({
       active: row.active ?? false,
       round: row.round ?? 1,
-      activeCombatantIndex: row.active_combatant_index ?? 0,
+      activeCombatantIndex: activeIdx,
       combatants,
       ilyaAssignedTo: row.ilya_assigned_to ?? null,
       initiativePhase: row.initiative_phase ?? false,

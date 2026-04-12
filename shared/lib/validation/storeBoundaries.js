@@ -51,7 +51,12 @@ export function parseCombatantsArray(raw, label = 'combatants') {
   }
   const out = []
   for (let i = 0; i < arr.length; i++) {
-    const r = combatantSchema.safeParse(arr[i])
+    const raw = arr[i]
+    let candidate = raw
+    if (raw && typeof raw === 'object' && raw.id != null && typeof raw.id !== 'string') {
+      candidate = { ...raw, id: String(raw.id) }
+    }
+    const r = combatantSchema.safeParse(candidate)
     if (r.success) out.push(r.data)
     else console.warn(`[validation] ${label}[${i}]:`, r.error.flatten())
   }

@@ -242,7 +242,7 @@ export const createActionsSlice = (set, get) => ({
     const { combatants, activeCombatantIndex, round } = get()
     const n = combatants.length
     if (n === 0) return
-    const eligible = (c) => c.type === 'player' || (c.type === 'enemy' && c.curHp > 0)
+    const eligible = (c) => !!c && (c.type === 'player' || (c.type === 'enemy' && c.curHp > 0))
     let idx = activeCombatantIndex
     let newRound = round
     for (let i = 0; i < n; i++) {
@@ -253,6 +253,10 @@ export const createActionsSlice = (set, get) => ({
         await get().pushFeedEvent(`— Round ${newRound} —`, 'round', true)
       }
       if (eligible(combatants[idx])) break
+    }
+    if (!eligible(combatants[idx])) {
+      const j = combatants.findIndex(eligible)
+      if (j >= 0) idx = j
     }
     const updatedCombatants = combatants.map((c, i) => {
       if (i === idx) return { ...c, actionEconomy: makeActionEconomy() }
@@ -267,7 +271,7 @@ export const createActionsSlice = (set, get) => ({
     const { combatants, activeCombatantIndex, round } = get()
     const n = combatants.length
     if (n === 0) return
-    const eligible = (c) => c.type === 'player' || (c.type === 'enemy' && c.curHp > 0)
+    const eligible = (c) => !!c && (c.type === 'player' || (c.type === 'enemy' && c.curHp > 0))
     let idx = activeCombatantIndex
     let newRound = round
     for (let i = 0; i < n; i++) {
@@ -277,6 +281,10 @@ export const createActionsSlice = (set, get) => ({
         newRound = Math.max(1, round - 1)
       }
       if (eligible(combatants[idx])) break
+    }
+    if (!eligible(combatants[idx])) {
+      const j = combatants.findIndex(eligible)
+      if (j >= 0) idx = j
     }
     set({ activeCombatantIndex: idx, round: newRound })
     await get().syncCombatState()
