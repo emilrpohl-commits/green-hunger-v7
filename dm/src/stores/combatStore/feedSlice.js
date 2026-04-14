@@ -2,6 +2,22 @@ import { supabase } from '@shared/lib/supabase.js'
 import { decodeSavePrompt, decodeSavePromptStrict, readSavePromptPayload } from '@shared/lib/combatRules.js'
 import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
 
+function sortFeedEventsDesc(events) {
+  const ts = (event) => {
+    const parsed = Date.parse(event?.timestamp || '')
+    return Number.isNaN(parsed) ? 0 : parsed
+  }
+  const idNum = (event) => {
+    const n = Number(event?.id)
+    return Number.isFinite(n) ? n : 0
+  }
+  return [...events].sort((a, b) => {
+    const tsDiff = ts(b) - ts(a)
+    if (tsDiff !== 0) return tsDiff
+    return idNum(b) - idNum(a)
+  })
+}
+
 export const createFeedSlice = (set, get) => ({
   feed: [],
   playerRolls: [],
@@ -151,7 +167,10 @@ export const createFeedSlice = (set, get) => ({
           metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : undefined,
           payload: row.payload && typeof row.payload === 'object' ? row.payload : undefined,
         }
-        set(state => ({ feed: [event, ...state.feed].slice(0, 80) }))
+        set((state) => {
+          const deduped = [event, ...state.feed.filter((existing) => String(existing.id) !== String(event.id))]
+          return { feed: sortFeedEventsDesc(deduped).slice(0, 80) }
+        })
         if (row.type === 'save-prompt') {
           const strict = decodeSavePromptStrict(row.text)
           const prompt = readSavePromptPayload(row) || (strict.ok ? strict.payload : decodeSavePrompt(row.text))

@@ -66,16 +66,18 @@ export default function useCharacterActions(characterId) {
   const [turnPromptVisible, setTurnPromptVisible] = useState(false)
   const [manualSaveTotal, setManualSaveTotal] = useState('')
 
-  const curHp = liveChar?.curHp ?? char?.stats?.maxHp ?? 0
-  const tempHp = liveChar?.tempHp ?? 0
+  const combatRowForPlayer = combatCombatants.find((c) => c.id === characterId)
+  const liveSource = combatActive && combatRowForPlayer ? combatRowForPlayer : liveChar
+  const curHp = liveSource?.curHp ?? char?.stats?.maxHp ?? 0
+  const tempHp = liveSource?.tempHp ?? 0
   const spellSlots = liveChar?.spellSlots ?? companionSpellSlots[characterId] ?? char?.spellSlots ?? {}
-  const concentration = liveChar?.concentration ?? false
-  const concentrationSpell = liveChar?.concentrationSpell ?? liveChar?.tacticalJson?.concentrationSpell ?? ''
+  const concentration = liveSource?.concentration ?? false
+  const concentrationSpell = liveSource?.concentrationSpell ?? liveSource?.tacticalJson?.concentrationSpell ?? ''
   const deathSaves = liveChar?.deathSaves ?? { successes: 0, failures: 0 }
-  const exhaustionLevel = Math.max(0, Math.min(6, Number(liveChar?.exhaustionLevel ?? liveChar?.tacticalJson?.exhaustionLevel) || 0))
-  const conditionsLive = liveChar?.conditions ?? []
-  const inspiration = !!(liveChar?.inspiration ?? liveChar?.tacticalJson?.inspiration)
-  const classResources = liveChar?.classResources ?? liveChar?.tacticalJson?.classResources ?? []
+  const exhaustionLevel = Math.max(0, Math.min(6, Number(liveSource?.exhaustionLevel ?? liveSource?.tacticalJson?.exhaustionLevel) || 0))
+  const conditionsLive = liveSource?.conditions ?? []
+  const inspiration = !!(liveSource?.inspiration ?? liveSource?.tacticalJson?.inspiration)
+  const classResources = liveSource?.classResources ?? liveSource?.tacticalJson?.classResources ?? []
   const canEditState = canEditCharacterState(characterId)
   const maxHp = char?.stats?.maxHp ?? 0
   const hpPct = maxHp > 0 ? (curHp / maxHp) * 100 : 0

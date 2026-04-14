@@ -232,7 +232,6 @@ function QuickHp({ combatant }) {
     <div style={{ position: 'relative' }}>
       {flash && (
         <div
-          key={flash + Date.now()}
           style={{
             position: 'absolute', inset: 0, zIndex: 5,
             pointerEvents: 'none', borderRadius: 'var(--radius)',
