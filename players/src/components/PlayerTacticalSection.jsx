@@ -24,6 +24,8 @@ export default function PlayerTacticalSection({
   conditions = [],
   concentration,
   concentrationSpell: concSpellProp = '',
+  deathSaves = { successes: 0, failures: 0 },
+  exhaustionLevel = 0,
   inspiration = false,
   classResources = [],
   combatActive,
@@ -40,6 +42,8 @@ export default function PlayerTacticalSection({
   onToggleEconomy,
   onShortRest,
   onLongRest,
+  onMarkDeathSave,
+  onRollDeathSave,
 }) {
   const [concDraft, setConcDraft] = useState(concSpellProp || '')
   React.useEffect(() => {
@@ -231,8 +235,81 @@ export default function PlayerTacticalSection({
       )}
 
       {curHp === 0 && (
-        <div style={{ marginTop: 10, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--danger)' }}>
-          Unconscious — track death saves in Party or ask your DM.
+        <div style={{
+          marginTop: 10,
+          padding: '8px 10px',
+          borderRadius: 'var(--radius)',
+          border: '1px solid rgba(176,48,48,0.25)',
+          background: 'rgba(176,48,48,0.08)',
+        }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--danger)', textTransform: 'uppercase', marginBottom: 6 }}>
+            Unconscious — Death Saves
+          </div>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <span style={{ fontSize: 11, color: 'var(--green-bright)' }}>✓</span>
+              {[0, 1, 2].map((i) => (
+                <button
+                  key={`succ-${i}`}
+                  type="button"
+                  disabled={!canEdit}
+                  onClick={() => onMarkDeathSave?.('successes', i < (deathSaves?.successes || 0) ? -1 : 1)}
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    border: '1px solid var(--green-dim)',
+                    background: i < (deathSaves?.successes || 0) ? 'var(--green-bright)' : 'transparent',
+                    cursor: canEdit ? 'pointer' : 'default',
+                  }}
+                />
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <span style={{ fontSize: 11, color: 'var(--danger)' }}>✗</span>
+              {[0, 1, 2].map((i) => (
+                <button
+                  key={`fail-${i}`}
+                  type="button"
+                  disabled={!canEdit}
+                  onClick={() => onMarkDeathSave?.('failures', i < (deathSaves?.failures || 0) ? -1 : 1)}
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    border: '1px solid rgba(176,48,48,0.45)',
+                    background: i < (deathSaves?.failures || 0) ? 'var(--danger)' : 'transparent',
+                    cursor: canEdit ? 'pointer' : 'default',
+                  }}
+                />
+              ))}
+            </div>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={onRollDeathSave}
+                style={{
+                  padding: '5px 10px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 9,
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)',
+                  background: 'var(--bg-raised)',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Roll d20
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {exhaustionLevel >= 3 && (
+        <div style={{ marginTop: 8, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--warning)' }}>
+          Exhaustion {exhaustionLevel}: movement penalties may apply.
         </div>
       )}
 

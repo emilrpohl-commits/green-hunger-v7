@@ -198,6 +198,10 @@ function ActiveSpellPanel({
   const noSlotLeft = !isCantrip && slotsForLvl && slotsForLvl.used >= slotsForLvl.max
   const enemyTargetReady = isAreaOrMulti ? spellTargets.length > 0 : !!spellTarget
   const canCast = !noSlotLeft && (!needsEnemyTarget || enemyTargetReady) && (!needsAllyTarget || spellTarget)
+  const extraLevels = Math.max(0, Number(slotLvl || spell.minSlot || 0) - Number(spell.minSlot || 0))
+  const effectiveDamageDice = spell.damage
+    ? (spell.damage.count + ((spell.perLevel?.count || 0) * extraLevels))
+    : null
 
   return (
     <div style={{
@@ -292,6 +296,20 @@ function ActiveSpellPanel({
               )
             })}
           </div>
+          {spell.damage && (
+            <div style={{
+              marginTop: 6,
+              fontFamily: 'var(--font-mono)',
+              fontSize: 10,
+              color: 'var(--text-muted)',
+            }}>
+              Damage scaling: {spell.damage.count}d{spell.damage.sides}
+              {spell.perLevel?.count ? ` + ${spell.perLevel.count}d${spell.damage.sides}/slot` : ''}
+              {' → '}
+              {effectiveDamageDice}d{spell.damage.sides}
+              {spell.damage.mod ? `${spell.damage.mod >= 0 ? '+' : ''}${spell.damage.mod}` : ''}
+            </div>
+          )}
         </div>
       )}
 

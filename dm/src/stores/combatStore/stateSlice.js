@@ -41,6 +41,8 @@ export const createStateSlice = (set, get) => ({
     if (!row) return
     if (row.ruleset_context && typeof row.ruleset_context === 'object') {
       setRulesetContext(row.ruleset_context)
+    } else if (typeof get().pushFeedEvent === 'function') {
+      get().pushFeedEvent('[System] Missing ruleset_context in combat_state; using local runtime flags.', 'system', false)
     }
     let incomingTs = row.updated_at ? Date.parse(row.updated_at) : null
     if (incomingTs != null && Number.isNaN(incomingTs)) incomingTs = null

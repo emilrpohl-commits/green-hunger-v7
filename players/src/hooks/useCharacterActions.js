@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { usePlayerStore } from '../stores/playerStore'
 import { parseCastingTimeMeta, ensureActionEconomy, applyDeterministicRollModifiers, getAcWithEffects } from '@shared/lib/combatRules.js'
-import { makeSavePromptPayload, resolveSpellPath } from '@shared/lib/domain/spellResolution.js'
+import { inferHalfOnSuccess, makeSavePromptPayload, resolveSpellPath } from '@shared/lib/domain/spellResolution.js'
 import { applySpellConcentrationAfterCast } from '@shared/lib/combat/spellCombatResolver.js'
 import { rollD20Test } from '@shared/lib/rules/d20Test.js'
 import {
   resolvePlayerD20Modifiers,
 } from '@shared/lib/rules/conditionRollModifiers.js'
+import { shouldForceCriticalOnHit } from '@shared/lib/rules/criticalConditionRules.js'
 import { formatDcWithLabel } from '@shared/lib/rules/dcDisplay.js'
 import { rollDie, rollDice, parseModNum, isAttackRoll, parseDiceNotation } from '../lib/diceHelpers'
 import { playSfx } from '@shared/lib/sfxEngine.js'
@@ -44,6 +45,8 @@ export default function useCharacterActions(characterId) {
   const setMyCharacterConcentration = usePlayerStore(s => s.setMyCharacterConcentration)
   const patchMyCharacterTacticalJson = usePlayerStore(s => s.patchMyCharacterTacticalJson)
   const setMyCharacterConditions = usePlayerStore(s => s.setMyCharacterConditions)
+  const markMyCharacterDeathSave = usePlayerStore(s => s.markMyCharacterDeathSave)
+  const rollMyDeathSave = usePlayerStore(s => s.rollMyDeathSave)
   const saveMyCharacterSheet = usePlayerStore(s => s.saveMyCharacterSheet)
 
   const char = playerCharacters[characterId]
@@ -68,6 +71,8 @@ export default function useCharacterActions(characterId) {
   const spellSlots = liveChar?.spellSlots ?? companionSpellSlots[characterId] ?? char?.spellSlots ?? {}
   const concentration = liveChar?.concentration ?? false
   const concentrationSpell = liveChar?.concentrationSpell ?? liveChar?.tacticalJson?.concentrationSpell ?? ''
+  const deathSaves = liveChar?.deathSaves ?? { successes: 0, failures: 0 }
+  const exhaustionLevel = Math.max(0, Math.min(6, Number(liveChar?.exhaustionLevel ?? liveChar?.tacticalJson?.exhaustionLevel) || 0))
   const conditionsLive = liveChar?.conditions ?? []
   const inspiration = !!(liveChar?.inspiration ?? liveChar?.tacticalJson?.inspiration)
   const classResources = liveChar?.classResources ?? liveChar?.tacticalJson?.classResources ?? []
@@ -200,7 +205,7 @@ export default function useCharacterActions(characterId) {
     const d20 = test.value
     const mod = parseModNum(save.mod)
     const modded = applyDeterministicRollModifiers({ combatant: myCombatant, baseRoll: d20 + mod, rollType: 'save' })
-    const total = modded.total - mods.exhaustionPenalty
+    const total = mods.autoFail ? -999 : (modded.total - mods.exhaustionPenalty)
     const contextLabel = opts.contextLabel || `${save.name} save`
     const diceStr = test.rolls.length > 1 ? test.rolls.join('/') : String(d20)
     setRollResult({
@@ -214,7 +219,7 @@ export default function useCharacterActions(characterId) {
       fumble: d20 === 1,
     })
     setPendingAttack(null)
-    const label = test.rolls.includes(20) ? ` NAT 20!` : d20 === 1 ? ` nat 1` : ''
+    const label = mods.autoFail ? ' AUTO-FAIL' : test.rolls.includes(20) ? ` NAT 20!` : d20 === 1 ? ` nat 1` : ''
     const advNote = test.mode !== 'normal' ? ` [${test.mode}]` : ''
     const exNote = mods.exhaustionPenalty ? ` −${mods.exhaustionPenalty} (exhaustion)` : ''
     pushRoll(`${save.name} save: d20(${diceStr}) + ${mod} = ${total}${exNote}${advNote}${label}`, char.name)
@@ -242,8 +247,12 @@ export default function useCharacterActions(characterId) {
     const bonus = weapon.attackBonus || 0
     const modded = applyDeterministicRollModifiers({ combatant: myCombatant, baseRoll: d20 + bonus, rollType: 'attack' })
     const total = modded.total - atkMods.exhaustionPenalty
-    const crit = test.rolls.includes(20)
-    const hit = target ? (crit || total >= getAcWithEffects(target)) : null
+    const forcedCrit = shouldForceCriticalOnHit({
+      attackRange: inferAttackRange(weapon),
+      targetConditions: target?.conditions || [],
+    })
+    const crit = test.rolls.includes(20) || forcedCrit
+    const hit = target ? (forcedCrit || crit || total >= getAcWithEffects(target)) : null
     const diceStr = test.rolls.length > 1 ? test.rolls.join('/') : String(d20)
     const advNote = test.mode !== 'normal' ? ` [${test.mode}]` : ''
     const exNote = atkMods.exhaustionPenalty ? ` −${atkMods.exhaustionPenalty} (exhaustion)` : ''
@@ -269,7 +278,7 @@ export default function useCharacterActions(characterId) {
       setPendingAttack(null)
     }
     const hitStr = hit === null ? '' : hit ? ` → HIT` : ` → MISS`
-    const critStr = crit ? ` CRITICAL!` : ''
+    const critStr = forcedCrit ? ` AUTO-CRIT!` : crit ? ` CRITICAL!` : ''
     const targetStr = target ? ` vs ${target.name} AC ${getAcWithEffects(target)}` : ''
     pushRoll(`${weapon.name} attack: d20(${diceStr}) + ${bonus} = ${total}${exNote}${advNote}${targetStr}${hitStr}${critStr}`, char.name)
   }
@@ -370,6 +379,16 @@ export default function useCharacterActions(characterId) {
   const castSpell = async (spell, slotLevel, target, targets = []) => {
     const canUse = await canSpendActionType(spell.actionType || parseCastingTimeMeta(spell.castingTime).actionType, spell.name)
     if (!canUse) return
+    if (
+      spell?.concentration
+      && canEditState
+      && concentration
+      && concentrationSpell
+      && String(concentrationSpell).trim() !== String(spell.name || '').trim()
+    ) {
+      const ok = window.confirm(`You are concentrating on "${concentrationSpell}". Cast "${spell.name}" and end the previous spell?`)
+      if (!ok) return
+    }
     const sfx = spell.soundEffectUrl || spell.sound_effect_url
     if (sfx) playSfx(sfx)
     const slotLvl = slotLevel ?? spell.minSlot ?? null
@@ -391,6 +410,7 @@ export default function useCharacterActions(characterId) {
       charName: char.name,
       setMyCharacterConcentration,
       pushRoll,
+      confirmReplaceConcentration: (prev, next) => window.confirm(`Replace concentration on "${prev}" with "${next}"?`),
     }
     if (spellPath === 'attack') {
       const atkMods = resolvePlayerD20Modifiers({
@@ -405,8 +425,12 @@ export default function useCharacterActions(characterId) {
       const bonus = spell.toHit || 0
       const modded = applyDeterministicRollModifiers({ combatant: myCombatant, baseRoll: d20 + bonus, rollType: 'attack' })
       const total = modded.total - atkMods.exhaustionPenalty
-      const crit = test.rolls.includes(20)
-      const hit = target ? (crit || total >= getAcWithEffects(target)) : null
+      const forcedCrit = shouldForceCriticalOnHit({
+        attackRange: inferAttackRange(spell),
+        targetConditions: target?.conditions || [],
+      })
+      const crit = test.rolls.includes(20) || forcedCrit
+      const hit = target ? (forcedCrit || crit || total >= getAcWithEffects(target)) : null
       const diceStr = test.rolls.length > 1 ? test.rolls.join('/') : String(d20)
       const advNote = test.mode !== 'normal' ? ` [${test.mode}]` : ''
       const exNote = atkMods.exhaustionPenalty ? ` −${atkMods.exhaustionPenalty} (exhaustion)` : ''
@@ -417,13 +441,15 @@ export default function useCharacterActions(characterId) {
         setPendingSpellDmg(null)
       }
       const hitStr = hit === null ? '' : hit ? ' → HIT' : ' → MISS'
-      const critStr = crit ? ' CRITICAL!' : ''
+      const critStr = forcedCrit ? ' AUTO-CRIT!' : crit ? ' CRITICAL!' : ''
       const rangeStr = target ? ` vs ${target.name} AC ${getAcWithEffects(target)}` : ''
       pushRoll(`${spell.name} attack: d20(${diceStr}) + ${bonus} = ${total}${exNote}${advNote}${rangeStr}${hitStr}${critStr}`, char.name)
-      await applySpellConcentrationAfterCast(concCtx)
+      const conc = await applySpellConcentrationAfterCast(concCtx)
+      if (conc?.cancelled) return
 
     } else if (spellPath === 'save') {
       const dd = spell.damage
+      const halfOnSuccess = inferHalfOnSuccess(spell)
       if (dd) {
         const extraDice = spell.perLevel ? extraLevels * spell.perLevel.count : 0
         const totalDice = dd.count + extraDice
@@ -437,16 +463,21 @@ export default function useCharacterActions(characterId) {
           : primaryTarget ? ` → ${primaryTarget.name}` : ''
         pushRoll(`${spell.name} (${spell.saveType} ${formatDcWithLabel(spell.saveDC) || `DC ${spell.saveDC}`}): [${rolls.join('+')}]${dd.mod ? `+${dd.mod}` : ''} = ${total} ${dd.type}${targetStr}`, char.name)
         const targetsPayload = (selectedTargets.length > 0 ? selectedTargets : primaryTarget ? [primaryTarget] : []).map(t => ({ id: t.id, name: t.name }))
-        pushSavePrompt(makeSavePromptPayload({
+        const payload = makeSavePromptPayload({
           promptId: `${Date.now()}-${characterId}-${spell.name}`,
           spell,
           casterId: characterId,
           casterName: char.name,
           targets: targetsPayload,
-          damage: dd ? { amount: total, type: dd.type, halfOnSuccess: true } : null,
+          damage: dd ? { amount: total, type: dd.type, halfOnSuccess } : null,
           raw: { targetStr },
-        }))
-        await applySpellConcentrationAfterCast(concCtx)
+        })
+        if (payload.dcFallback) {
+          pushRoll(`[System] ${spell.name}: save DC missing, fallback to DC 10`, char.name)
+        }
+        pushSavePrompt(payload)
+        const conc = await applySpellConcentrationAfterCast(concCtx)
+        if (conc?.cancelled) return
         closeSpellPanel()
       } else {
         const primaryTarget = selectedTargets[0] || target || null
@@ -456,7 +487,7 @@ export default function useCharacterActions(characterId) {
           : primaryTarget ? ` → ${primaryTarget.name}` : ''
         pushRoll(`${spell.name}: ${spell.saveType} ${formatDcWithLabel(spell.saveDC) || `DC ${spell.saveDC}`}${targetStr}`, char.name)
         const targetsPayload = (selectedTargets.length > 0 ? selectedTargets : primaryTarget ? [primaryTarget] : []).map(t => ({ id: t.id, name: t.name }))
-        pushSavePrompt(makeSavePromptPayload({
+        const payload = makeSavePromptPayload({
           promptId: `${Date.now()}-${characterId}-${spell.name}`,
           spell,
           casterId: characterId,
@@ -464,8 +495,13 @@ export default function useCharacterActions(characterId) {
           targets: targetsPayload,
           damage: null,
           raw: { targetStr },
-        }))
-        await applySpellConcentrationAfterCast(concCtx)
+        })
+        if (payload.dcFallback) {
+          pushRoll(`[System] ${spell.name}: save DC missing, fallback to DC 10`, char.name)
+        }
+        pushSavePrompt(payload)
+        const conc = await applySpellConcentrationAfterCast(concCtx)
+        if (conc?.cancelled) return
         closeSpell()
       }
 
@@ -484,7 +520,8 @@ export default function useCharacterActions(characterId) {
       const targetStr = target ? ` → ${target.name}` : ''
       pushRoll(`${spell.name} (${missilesCount} missiles): [${rollBreakdown.join('+')}] = ${totalDmg} ${dd.type}${targetStr}`, char.name)
       if (target) applyDamageToEnemy(target.id, totalDmg, char.name, spell.name, dd.type || null)
-      await applySpellConcentrationAfterCast(concCtx)
+      const conc = await applySpellConcentrationAfterCast(concCtx)
+      if (conc?.cancelled) return
       closeSpell()
 
     } else if (spellPath === 'heal') {
@@ -497,14 +534,18 @@ export default function useCharacterActions(characterId) {
         action: spell.castingTime,
       }
       const healed = await rollHeal(healActionProxy, slotLvl || 1, target?.id || characterId)
-      if (healed) await applySpellConcentrationAfterCast(concCtx)
+      if (healed) {
+        const conc = await applySpellConcentrationAfterCast(concCtx)
+        if (conc?.cancelled) return
+      }
       closeSpell()
 
     } else {
       const targetStr = targetName ? ` → ${targetName}` : ''
       setRollResult({ type: 'utility', spellName: spell.name, targetName })
       pushRoll(`${spell.name} cast${targetStr}`, char.name)
-      await applySpellConcentrationAfterCast(concCtx)
+      const conc = await applySpellConcentrationAfterCast(concCtx)
+      if (conc?.cancelled) return
       closeSpell()
     }
   }
@@ -567,7 +608,9 @@ export default function useCharacterActions(characterId) {
     const test = rollD20Test(rollDie, { advantage: mods.advantage, disadvantage: mods.disadvantage })
     const d20 = test.value
     const modded = applyDeterministicRollModifiers({ combatant: myCombatant, baseRoll: d20 + mod, rollType: 'save' })
-    const total = isManual ? (parseInt(manualTotal, 10) || 0) : (modded.total - mods.exhaustionPenalty)
+    const total = isManual
+      ? (parseInt(manualTotal, 10) || 0)
+      : (mods.autoFail ? -999 : (modded.total - mods.exhaustionPenalty))
     const success = total >= (dmRoll.savePrompt.saveDc || 10)
     const meta = dmRoll.savePrompt.damageMeta
     const curForDice = liveChar?.curHp ?? maxHp
@@ -588,7 +631,10 @@ export default function useCharacterActions(characterId) {
     setRollResult({ type: 'save', name: `${saveAbility} vs ${dmRoll.savePrompt.actionName}`, d20, mod, total, crit: test.rolls.includes(20), fumble: d20 === 1 })
     const dcPrompt = formatDcWithLabel(dmRoll.savePrompt.saveDc) || `DC ${dmRoll.savePrompt.saveDc}`
     const exNote = !isManual && mods.exhaustionPenalty ? ` −${mods.exhaustionPenalty} (exhaustion)` : ''
-    pushRoll(`${dmRoll.savePrompt.actionName}: ${saveAbility} save total ${total}${exNote} vs ${dcPrompt} → ${success ? 'SUCCESS' : 'FAIL'}`, char.name)
+    pushRoll(
+      `${dmRoll.savePrompt.actionName}: ${saveAbility} save ${mods.autoFail ? 'AUTO-FAIL' : `total ${total}`}${exNote} vs ${dcPrompt} → ${success ? 'SUCCESS' : 'FAIL'}`,
+      char.name
+    )
     if (hpDmg > 0) {
       await applyDamageToCharacter(
         characterId,
@@ -628,7 +674,7 @@ export default function useCharacterActions(characterId) {
 
   return {
     char, liveChar, curHp, tempHp, spellSlots, concentration,
-    concentrationSpell, conditionsLive, inspiration, classResources,
+    concentrationSpell, conditionsLive, inspiration, classResources, deathSaves, exhaustionLevel,
     canEditState,
     hpPct, hpColour, myBuffs, hasBardic,
     enemies, partyChars, myCombatant, myTurnActive, myEconomy,
@@ -638,6 +684,7 @@ export default function useCharacterActions(characterId) {
 
     updateMyCharacterHp, updateMyCharacterTempHp,
     setMyCharacterConcentration, patchMyCharacterTacticalJson, setMyCharacterConditions,
+    markMyCharacterDeathSave, rollMyDeathSave,
     saveMyCharacterSheet,
     toggleMyActionEconomyField, useSpellSlot,
 

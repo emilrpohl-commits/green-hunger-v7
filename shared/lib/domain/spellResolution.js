@@ -9,6 +9,16 @@ export function resolveSpellPath(spell = {}) {
   return 'utility'
 }
 
+export function inferHalfOnSuccess(spell = {}) {
+  const rules = spell?.combatProfile?.rules || spell?.rules_json || {}
+  const onSave = String(rules?.resolution?.on_save || rules?.on_save || '').toLowerCase()
+  if (onSave === 'none' || onSave === 'no_damage') return false
+  if (onSave === 'half' || onSave === 'half_damage') return true
+  if (typeof spell?.halfOnSuccess === 'boolean') return spell.halfOnSuccess
+  if (typeof spell?.damageOnSave === 'string' && spell.damageOnSave.toLowerCase().includes('none')) return false
+  return false
+}
+
 export function makeSavePromptPayload({
   promptId,
   spell,
@@ -21,6 +31,8 @@ export function makeSavePromptPayload({
   const rules = spell?.combatProfile?.rules || spell?.rules_json || {}
   const effect = buildSpellEffectMetadata(spell)
   const effectKinds = (effect && effect.effect_kinds) || rules.effect_kinds || []
+  const saveDc = Number.isFinite(Number(spell.saveDC)) ? Number(spell.saveDC) : 10
+  const dcFallback = !Number.isFinite(Number(spell.saveDC))
   return {
     promptId,
     status: 'pending',
@@ -28,12 +40,13 @@ export function makeSavePromptPayload({
     casterId,
     casterName,
     saveAbility: spell.saveType,
-    saveDc: spell.saveDC,
+    saveDc,
     targets,
     damage,
     effect,
     effect_kinds: Array.isArray(effectKinds) ? effectKinds : [],
     resolution_path: resolveSpellPath(spell),
+    dcFallback,
     raw,
   }
 }

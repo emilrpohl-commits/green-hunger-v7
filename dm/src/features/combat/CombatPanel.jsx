@@ -22,12 +22,14 @@ export default function CombatPanel() {
   const setInitiative = useCombatStore(s => s.setInitiative)
   const savePrompts = useCombatStore(s => s.savePrompts)
   const resolveSavePrompt = useCombatStore(s => s.resolveSavePrompt)
+  const playerRolls = useCombatStore(s => s.playerRolls)
 
   const [logOpen, setLogOpen] = useState(false)
   const [viewMode, setViewMode] = useState('grid') // 'grid' | 'carousel'
   const [flashActiveIndex, setFlashActiveIndex] = useState(activeCombatantIndex)
   const [manualSaveTotals, setManualSaveTotals] = useState({})
   const [qaHoldSavePrompt, setQaHoldSavePrompt] = useState(false)
+  const [seenRollMarker, setSeenRollMarker] = useState(null)
 
   useEffect(() => {
     if (!import.meta.env.DEV) return undefined
@@ -58,6 +60,11 @@ export default function CombatPanel() {
     const t = setTimeout(() => setFlashActiveIndex(-1), 1200)
     return () => clearTimeout(t)
   }, [activeCombatantIndex])
+
+  React.useEffect(() => {
+    if (playerRolls.length === 0) return
+    setSeenRollMarker(playerRolls[0]?.id || null)
+  }, [round, activeCombatantIndex])
 
   const activeCombatant = combatants[activeCombatantIndex]
   const nextCombatant = combatants[(activeCombatantIndex + 1) % Math.max(combatants.length, 1)]
@@ -235,6 +242,50 @@ export default function CombatPanel() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {active && (
+        <div style={{
+          padding: '8px 20px',
+          borderBottom: '1px solid var(--border)',
+          background: 'rgba(122,184,106,0.06)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+          flexShrink: 0,
+        }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            Live Rolls
+          </div>
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto' }}>
+            {(playerRolls || []).slice(0, 8).map((roll, idx) => {
+              const markerIndex = (playerRolls || []).findIndex((r) => r.id === seenRollMarker)
+              const unseen = markerIndex > -1 ? idx < markerIndex : false
+              return (
+                <div
+                  key={roll.id}
+                  style={{
+                    minWidth: 180,
+                    maxWidth: 260,
+                    padding: '6px 8px',
+                    borderRadius: 'var(--radius)',
+                    border: `1px solid ${unseen ? 'rgba(196,160,64,0.45)' : 'var(--border)'}`,
+                    background: unseen ? 'rgba(196,160,64,0.10)' : 'var(--bg-card)',
+                    color: unseen ? 'var(--warning)' : 'var(--text-secondary)',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 10,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                  title={roll.text}
+                >
+                  {roll.text}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

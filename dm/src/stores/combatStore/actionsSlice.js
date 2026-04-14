@@ -7,9 +7,30 @@ import { normalizeConditionName } from '@shared/lib/rules/conditionCatalog.js'
 import { normalizeCombatantConditions } from '@shared/lib/rules/conditionHydration.js'
 import { applyDamageComponentsBundle } from '@shared/lib/rules/damagePipeline.js'
 import { appendDamagePipelineDetail } from '@shared/lib/combat/combatFeedFormat.js'
+import { autoFailSaveFromConditions } from '@shared/lib/rules/criticalConditionRules.js'
 
 export const createActionsSlice = (set, get) => ({
   savePrompts: [],
+  markCombatantDeathSave: async (combatantId, type, delta = 1) => {
+    if (type !== 'successes' && type !== 'failures') return
+    const { combatants } = get()
+    const updated = combatants.map((c) => {
+      if (c.id !== combatantId) return c
+      const current = c.deathSaves && typeof c.deathSaves === 'object'
+        ? c.deathSaves
+        : { successes: 0, failures: 0 }
+      const d = Number.isFinite(Number(delta)) ? Number(delta) : 0
+      return {
+        ...c,
+        deathSaves: {
+          ...current,
+          [type]: Math.max(0, Math.min(3, Number(current[type] || 0) + d)),
+        },
+      }
+    })
+    set({ combatants: updated })
+    await get().syncCombatState()
+  },
   emitRestEvent: async (restType = 'short') => {
     const normalized = restType === 'long' ? 'long' : 'short'
     const { sessionRunId, round } = get()
@@ -38,11 +59,12 @@ export const createActionsSlice = (set, get) => ({
       ? options.components
       : [{ amount: Math.max(0, Math.floor(Number(amount) || 0)), type: damageType }]
 
+    const rulesetContext = getRulesetContext()
     const bundle = applyDamageComponentsBundle(components, {
       resistances: combatant.resistances,
       vulnerabilities: combatant.vulnerabilities,
       immunities: combatant.immunities,
-    }, { usePipeline: featureFlags.rulesDamagePipeline })
+    }, { usePipeline: rulesetContext.rulesDamagePipeline !== false })
 
     const hpLoss = bundle.totalFinal
 
@@ -159,6 +181,7 @@ export const createActionsSlice = (set, get) => ({
       if (c.id !== combatantId) return normalizeCombatantConditions(c)
       const list = c.conditions || []
       const has = list.some((x) => norm(x) === norm(conditionName))
+      const forcesConcentrationDrop = ['incapacitated', 'unconscious'].includes(String(conditionName || '').toLowerCase())
       let next
       if (has) {
         next = {
@@ -170,6 +193,13 @@ export const createActionsSlice = (set, get) => ({
         next = {
           ...c,
           conditions: [...list, conditionName],
+          ...(forcesConcentrationDrop ? {
+            concentration: false,
+            tacticalJson: {
+              ...(c.tacticalJson && typeof c.tacticalJson === 'object' ? c.tacticalJson : {}),
+              concentrationSpell: null,
+            },
+          } : {}),
           ...(isExhaustion
             ? { exhaustionLevel: Math.max(1, Math.min(6, Number(c.exhaustionLevel) || 1)) }
             : {}),
@@ -251,7 +281,10 @@ export const createActionsSlice = (set, get) => ({
       baseRoll: baseD20 + saveBonus,
       rollType: 'save'
     })
-    const total = mode === 'manual' ? (parseInt(manualTotal, 10) || 0) : rolled.total
+    const forcedFail = autoFailSaveFromConditions(target.conditions || [], prompt.saveAbility)
+    const total = mode === 'manual'
+      ? (parseInt(manualTotal, 10) || 0)
+      : (forcedFail ? -999 : rolled.total)
     const success = total >= (prompt.saveDc || 10)
     const dmg = prompt.damage?.amount || 0
     const applyDmg = success ? (prompt.damage?.halfOnSuccess ? Math.floor(dmg / 2) : 0) : dmg
@@ -265,7 +298,35 @@ export const createActionsSlice = (set, get) => ({
         colour: '#a060c0',
       })
     }
-    const resolutionText = `${target.name} ${prompt.saveAbility} save vs ${prompt.spellName} DC ${prompt.saveDc}: ${total} (${success ? 'SUCCESS' : 'FAIL'})${applyDmg > 0 ? `, damage ${applyDmg}` : ''}`
+    if (!success && (prompt.isConcentrationCheck || String(prompt.spellName || '').toLowerCase() === 'concentration')) {
+      const nextCombatants = combatants.map((c) => (
+        c.id === targetId
+          ? {
+              ...c,
+              concentration: false,
+              tacticalJson: {
+                ...(c.tacticalJson && typeof c.tacticalJson === 'object' ? c.tacticalJson : {}),
+                concentrationSpell: null,
+              },
+            }
+          : c
+      ))
+      set({ combatants: nextCombatants })
+      try {
+        await supabase.from('character_states').upsert({
+          id: targetId,
+          concentration: false,
+          tactical_json: {
+            ...(target.tacticalJson && typeof target.tacticalJson === 'object' ? target.tacticalJson : {}),
+            concentrationSpell: null,
+          },
+          updated_at: new Date().toISOString(),
+        })
+      } catch {}
+      await get().pushFeedEvent(`${target.name} loses concentration.`, 'system', true)
+      await get().syncCombatState()
+    }
+    const resolutionText = `${target.name} ${prompt.saveAbility} save vs ${prompt.spellName} DC ${prompt.saveDc}: ${forcedFail ? 'AUTO-FAIL' : total} (${success ? 'SUCCESS' : 'FAIL'})${applyDmg > 0 ? `, damage ${applyDmg}` : ''}`
     const { feed, round } = get()
     const event = { id: Date.now(), round, text: resolutionText, type: 'save-prompt-resolved', shared: true, timestamp: new Date().toISOString() }
     set({ feed: [event, ...feed].slice(0, 80) })

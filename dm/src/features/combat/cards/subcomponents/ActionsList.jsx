@@ -12,6 +12,7 @@ import { rollDie, parseDmgString, parseDamageFromStatblock } from '../constants.
 import { primaryDamageTypeFromAction } from '@shared/lib/rules/damagePipeline.js'
 import { formatDcWithLabel } from '@shared/lib/rules/dcDisplay.js'
 import { playDmSfx } from '@shared/lib/sfxEngine.js'
+import { shouldForceCriticalOnHit } from '@shared/lib/rules/criticalConditionRules.js'
 import {
   adaptMonsterAction,
   monsterActionToHit,
@@ -31,6 +32,14 @@ import DiceRichText from '@shared/components/combat/DiceRichText.jsx'
  * Pass `mode="popover"` to get the old collapsed panel.
  */
 export default function ActionsList({ combatant, players = [], mode = 'inline' }) {
+  function inferAttackRange(action) {
+    const range = String(action?.range || action?.distance || '')
+    const name = String(action?.name || '')
+    if (/ranged|range\s*\(|\d+\/\d+\s*ft/i.test(range)) return 'ranged'
+    if (/\bbow\b|\bcrossbow\b|\bdart\b|\bsling\b|\bjavelin\b|\bneedle\b|\bbolt\b/i.test(name)) return 'ranged'
+    return 'melee'
+  }
+
   const useCombatantActionType = useCombatStore(s => s.useCombatantActionType)
   const pushFeedEvent          = useCombatStore(s => s.pushFeedEvent)
   const damageCombatant        = useCombatStore(s => s.damageCombatant)
@@ -76,9 +85,13 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
     }
 
     if (adapted.actionKind === 'save') {
-      const dc       = adapted.saveDC ?? 12
+      const dcMissing = adapted.saveDC == null
+      const dc       = adapted.saveDC ?? 10
       const saveType = adapted.saveType || 'DEX'
       const dcLabel = formatDcWithLabel(dc)
+      if (dcMissing) {
+        pushFeedEvent(`[System] ${selected.name}: save DC missing, fallback to DC 10`, 'system', false)
+      }
       pushFeedEvent(
         `${combatant.name} uses ${selected.name}: ${atkTarget?.name || 'target'} makes ${saveType} save (${dcLabel || `DC ${dc}`}).`,
         'save-prompt', true,
@@ -131,8 +144,12 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
     playDmSfx(selected.sound_effect_url || selected.soundEffectUrl)
     const modded = applyDeterministicRollModifiers({ combatant, baseRoll: d20 + toHit, rollType: 'attack' })
     const total  = modded.total
-    const crit   = d20 === 20
-    const hit    = crit || total >= getAcWithEffects(atkTarget)
+    const forcedCrit = shouldForceCriticalOnHit({
+      attackRange: inferAttackRange(selected),
+      targetConditions: atkTarget?.conditions || [],
+    })
+    const crit   = d20 === 20 || forcedCrit
+    const hit    = forcedCrit || crit || total >= getAcWithEffects(atkTarget)
     const modsStr = modded.applied.length > 0
       ? ` (${modded.applied.map(m => `${m.source}${m.op}${m.roll}`).join(', ')})`
       : ''
@@ -160,7 +177,7 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
       }
       const dmgTotal = components.reduce((s, c) => s + c.amount, 0)
       await damageCombatant(atkTarget.id, 0, null, { components })
-      const critStr = crit ? ' CRIT!' : ''
+      const critStr = forcedCrit ? ' AUTO-CRIT!' : crit ? ' CRIT!' : ''
       pushFeedEvent(
         `${combatant.name} → ${selected.name} on ${atkTarget.name}${critStr}: d20(${d20})+${toHit}${modsStr} = ${total} → HIT! ${dmgTotal} dmg`,
         'damage', true,
