@@ -186,7 +186,42 @@ export const createCombatSlice = (set, get) => ({
         set({ combatCombatants: remoteCombatants.map(sanitizeCombatantForPlayer) })
       }
     } catch (e) {
-      console.error('Failed to apply damage:', e)
+      warnFallback('applyDamageToEnemy RPC failed; using fallback state+feed sync', {
+        system: 'playerCombat',
+        reason: String(e?.message || e),
+        combatantId,
+      })
+      try {
+        await supabase.from('combat_feed').insert({
+          session_id: sessionRunId,
+          round: combatRound,
+          text: appendDamagePipelineDetail(
+            curHp === 0
+              ? `${attackerName} → ${target.name} takes ${hpLoss} and goes DOWN!`
+              : `${attackerName} hits ${target.name} with ${weaponName} for ${hpLoss} (${curHp}/${target.maxHp} HP)`,
+            bundle.lines
+          ),
+          type: 'damage',
+          shared: true,
+          timestamp: ts,
+          metadata: { kind: 'damage', target_id: combatantId },
+        })
+        await supabase.from('combat_state').upsert({
+          id: sessionRunId,
+          session_run_id: sessionRunId,
+          active: combatActive,
+          round: combatRound,
+          combatants: updatedCombatants,
+          active_combatant_index: get().combatActiveCombatantIndex,
+          initiative_phase: initiativePhase,
+          ilya_assigned_to: ilyaAssignedTo,
+          ruleset_context: rulesetContext,
+          updated_at: ts,
+        })
+        get().bumpCombatStateSyncedFromWrite(ts)
+      } catch (fallbackErr) {
+        console.error('Failed to apply damage fallback:', fallbackErr)
+      }
     }
   },
 

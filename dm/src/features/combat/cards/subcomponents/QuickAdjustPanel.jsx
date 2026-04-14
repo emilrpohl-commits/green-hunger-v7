@@ -57,7 +57,6 @@ export default function QuickAdjustPanel({ combatant, showHealChips = false }) {
       {/* Flash overlay */}
       {flash && (
         <div
-          key={flash + Date.now()}
           style={{
             position: 'absolute', inset: 0, zIndex: 10,
             pointerEvents: 'none', borderRadius: 'var(--radius-lg)',

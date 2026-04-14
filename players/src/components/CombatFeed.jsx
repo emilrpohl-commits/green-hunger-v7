@@ -4,6 +4,22 @@ import { getSessionRunId } from '@shared/lib/runtimeContext.js'
 import { decodeSavePrompt, decodeSavePromptStrict, decodePlayerSavePrompt, readSavePromptPayload } from '@shared/lib/combatRules.js'
 import { usePlayerStore } from '../stores/playerStore'
 
+function sortFeedDesc(events) {
+  const toTs = (entry) => {
+    const parsed = Date.parse(entry?.timestamp || '')
+    return Number.isNaN(parsed) ? 0 : parsed
+  }
+  const toId = (entry) => {
+    const n = Number(entry?.id)
+    return Number.isFinite(n) ? n : 0
+  }
+  return [...events].sort((a, b) => {
+    const tsDiff = toTs(b) - toTs(a)
+    if (tsDiff !== 0) return tsDiff
+    return toId(b) - toId(a)
+  })
+}
+
 function formatPlayerFeedEvent(event) {
   if (!event) return null
   if (event.type === 'player-save-prompt') return null
@@ -57,7 +73,10 @@ export default function CombatFeed() {
         filter: `session_id=eq.${sessionRunId}`
       }, (payload) => {
         if (payload.new && payload.new.shared && (!payload.new.target_id || payload.new.target_id === 'all')) {
-          setFeed(prev => [payload.new, ...prev].slice(0, 20))
+          setFeed((prev) => {
+            const merged = [payload.new, ...prev.filter((entry) => String(entry.id) !== String(payload.new.id))]
+            return sortFeedDesc(merged).slice(0, 20)
+          })
         }
       })
       .on('postgres_changes', {
