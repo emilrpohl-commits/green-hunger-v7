@@ -89,7 +89,6 @@ export const createActionsSlice = (set, get) => ({
       ? `${combatant.name} is DOWN (0 HP).`
       : `${combatant.name} takes ${hpLoss} damage (${newHp}/${combatant.maxHp} HP)`
     const msg = appendDamagePipelineDetail(core, bundle.lines)
-    const rulesetContext = getRulesetContext()
     try {
       const { data, error } = await supabase.rpc('apply_combat_damage', {
         p_session_id: sessionRunId,
