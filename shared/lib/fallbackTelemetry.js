@@ -21,3 +21,13 @@ export function warnFallback(message, meta = {}) {
 export function isDevTelemetryEnabled() {
   return isDev
 }
+
+/**
+ * Dev-only combat diagnostics logging helper.
+ * @param {string} event
+ * @param {Record<string, unknown>} [meta]
+ */
+export function debugCombatTelemetry(event, meta = {}) {
+  if (!isDev) return
+  console.debug(`[COMBAT] ${event}`, meta)
+}

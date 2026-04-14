@@ -5,6 +5,11 @@ import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
 import { shouldAcceptDmTargetForClient } from './helpers.js'
 import { mergeCharacterStateIntoRuntimeRow } from '@shared/lib/partyRoster.js'
 
+function parseIsoMs(value) {
+  const parsed = Date.parse(value || '')
+  return Number.isNaN(parsed) ? null : parsed
+}
+
 export const createRealtimeSlice = (set, get) => ({
   connected: false,
   lastUpdated: null,
@@ -17,6 +22,13 @@ export const createRealtimeSlice = (set, get) => ({
   dmRollChannel: null,
   qaHoldChannel: null,
   savePromptPollId: null,
+  combatRealtimeDiagnostics: {
+    lastCombatStateUpdatedAt: null,
+    lastCombatFeedTimestamp: null,
+    lateCombatStateEvents: 0,
+    duplicateFeedEvents: 0,
+    staleCombatStateDrops: 0,
+  },
 
   clearDmRoll: () => set((state) => ({
     dmRoll: null,
@@ -90,7 +102,7 @@ export const createRealtimeSlice = (set, get) => ({
         event: '*', schema: 'public', table: 'character_states'
       }, (payload) => {
         if (payload.new) {
-          const { characters, companionSpellSlots } = get()
+          const { characters, companionSpellSlots, combatActive, combatCombatants } = get()
           const roster = Array.isArray(characters) ? characters : []
           const hasRuntimeRow = roster.some((c) => c.id === payload.new.id)
           if (!hasRuntimeRow) {
@@ -107,7 +119,19 @@ export const createRealtimeSlice = (set, get) => ({
           }
           const updated = roster.map((c) => {
             if (c.id !== payload.new.id) return c
-            return mergeCharacterStateIntoRuntimeRow({ ...c }, payload.new)
+            const merged = mergeCharacterStateIntoRuntimeRow({ ...c }, payload.new)
+            if (!combatActive) return merged
+            const combatant = (Array.isArray(combatCombatants) ? combatCombatants : []).find((row) => row.id === c.id)
+            if (!combatant) return merged
+            // Authority contract: when combat is active, combat_state owns combat-critical fields.
+            return {
+              ...merged,
+              curHp: combatant.curHp ?? merged.curHp,
+              tempHp: combatant.tempHp ?? merged.tempHp,
+              concentration: combatant.concentration ?? merged.concentration,
+              conditions: Array.isArray(combatant.conditions) ? combatant.conditions : merged.conditions,
+              deathSaves: combatant.deathSaves ?? merged.deathSaves,
+            }
           })
           set({ characters: updated, lastUpdated: new Date() })
         }
@@ -120,7 +144,27 @@ export const createRealtimeSlice = (set, get) => ({
         event: '*', schema: 'public', table: 'combat_state',
         filter: `id=eq.${sessionRunId}`
       }, (payload) => {
-        if (payload.new) get().applyCombatStateRow(payload.new)
+        if (payload.new) {
+          const before = get()._combatStateSyncedAt
+          const result = get().applyCombatStateRow(payload.new)
+          const after = get()._combatStateSyncedAt
+          const incomingMs = parseIsoMs(payload.new.updated_at)
+          set((state) => {
+            const cur = state.combatRealtimeDiagnostics || {}
+            const late = incomingMs != null && before != null && incomingMs < before
+            const staleDrop = result?.applied === false
+            return {
+              combatRealtimeDiagnostics: {
+                ...cur,
+                lastCombatStateUpdatedAt: payload.new.updated_at || cur.lastCombatStateUpdatedAt || null,
+                lateCombatStateEvents: (cur.lateCombatStateEvents || 0) + (late ? 1 : 0),
+                staleCombatStateDrops: (cur.staleCombatStateDrops || 0) + (staleDrop ? 1 : 0),
+                // keep latest successfully applied watermark for quick debug reads
+                appliedCombatStateMs: after ?? cur.appliedCombatStateMs ?? null,
+              },
+            }
+          })
+        }
       })
       .subscribe()
 
@@ -132,6 +176,18 @@ export const createRealtimeSlice = (set, get) => ({
         if (!payload.new) return
         const rowSession = payload.new.session_run_id || payload.new.session_id
         if (rowSession !== sessionRunId) return
+        set((state) => {
+          const cur = state.combatRealtimeDiagnostics || {}
+          const seen = Array.isArray(state.seenDmPromptIds) ? state.seenDmPromptIds : []
+          const duplicate = payload.new?.id && seen.includes(payload.new.id)
+          return {
+            combatRealtimeDiagnostics: {
+              ...cur,
+              lastCombatFeedTimestamp: payload.new?.timestamp || cur.lastCombatFeedTimestamp || null,
+              duplicateFeedEvents: (cur.duplicateFeedEvents || 0) + (duplicate ? 1 : 0),
+            },
+          }
+        })
         if (payload.new.type === 'dm-roll') {
           if (!shouldAcceptDmTargetForClient(payload.new.target_id, null, get().ilyaAssignedTo)) return
           set({
@@ -142,6 +198,7 @@ export const createRealtimeSlice = (set, get) => ({
           })
         }
         if (payload.new.type === 'player-save-prompt') {
+          if ((get().seenDmPromptIds || []).includes(payload.new.id)) return
           const decodedStrict = decodePlayerSavePromptStrict(payload.new.text)
           const decoded = readPlayerSavePromptPayload(payload.new) || (decodedStrict.ok ? decodedStrict.payload : decodePlayerSavePrompt(payload.new.text))
           if (!decodedStrict.ok && decoded == null) {
@@ -176,7 +233,8 @@ export const createRealtimeSlice = (set, get) => ({
               targetId: payload.new.target_id || decoded.targetId || 'all',
               timestamp: Date.now(), kind: 'save-prompt',
               savePrompt: decoded, eventId: payload.new.id,
-            }
+            },
+            seenDmPromptIds: [payload.new.id, ...(get().seenDmPromptIds || [])].slice(0, 100),
           })
         }
         if (payload.new.type === 'rest' && payload.new.payload && typeof payload.new.payload === 'object') {

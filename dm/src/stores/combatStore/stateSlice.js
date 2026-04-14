@@ -3,7 +3,7 @@ import { ensureActionEconomy } from '@shared/lib/combatRules.js'
 import { getRulesetContext, getSessionRunId, setRulesetContext } from '@shared/lib/runtimeContext.js'
 import { parseCombatantsArray } from '@shared/lib/validation/storeBoundaries.js'
 import { normalizeCombatantConditions } from '@shared/lib/rules/conditionHydration.js'
-import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
+import { debugCombatTelemetry, warnFallback } from '@shared/lib/fallbackTelemetry.js'
 
 export const createStateSlice = (set, get) => ({
   active: false,
@@ -19,6 +19,11 @@ export const createStateSlice = (set, get) => ({
   _combatStateSyncedAt: null,
   combatStateChannel: null,
   knownConditions: [],
+  combatStateDiagnostics: {
+    lastUpdatedAt: null,
+    staleDrops: 0,
+    lateEvents: 0,
+  },
 
   setIlyaAssignment: async (charId) => {
     set({ ilyaAssignedTo: charId || null })
@@ -47,7 +52,21 @@ export const createStateSlice = (set, get) => ({
     let incomingTs = row.updated_at ? Date.parse(row.updated_at) : null
     if (incomingTs != null && Number.isNaN(incomingTs)) incomingTs = null
     const lastApplied = get()._combatStateSyncedAt
-    if (incomingTs != null && lastApplied != null && incomingTs < lastApplied) return
+    if (incomingTs != null && lastApplied != null && incomingTs < lastApplied) {
+      set((state) => ({
+        combatStateDiagnostics: {
+          ...(state.combatStateDiagnostics || {}),
+          staleDrops: ((state.combatStateDiagnostics?.staleDrops) || 0) + 1,
+          lateEvents: ((state.combatStateDiagnostics?.lateEvents) || 0) + 1,
+          lastUpdatedAt: row.updated_at || state.combatStateDiagnostics?.lastUpdatedAt || null,
+        },
+      }))
+      debugCombatTelemetry('dm.combat_state.stale_drop', {
+        incomingUpdatedAt: row.updated_at,
+        lastApplied,
+      })
+      return
+    }
 
     const prevCombatants = get().combatants || []
     const combatants = parseCombatantsArray(row.combatants, 'dm.applyCombatStateRow')
@@ -79,6 +98,10 @@ export const createStateSlice = (set, get) => ({
       ilyaAssignedTo: row.ilya_assigned_to ?? null,
       initiativePhase: row.initiative_phase ?? false,
       _combatStateSyncedAt: nextLast,
+      combatStateDiagnostics: {
+        ...get().combatStateDiagnostics,
+        lastUpdatedAt: row.updated_at || get().combatStateDiagnostics?.lastUpdatedAt || null,
+      },
     })
   },
 
