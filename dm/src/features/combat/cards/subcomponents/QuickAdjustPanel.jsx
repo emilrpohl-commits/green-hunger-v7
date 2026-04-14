@@ -5,6 +5,7 @@ import {
   readLastManualDamageType,
   writeLastManualDamageType,
 } from '../../lastManualDamageTypeStorage.js'
+import { combatQoePolishEnabled } from '@shared/lib/combat/qoeGate.js'
 
 const QUICK_DAMAGE = [2, 4, 5, 6, 8, 10, 12, 15, 20]
 const QUICK_HEAL   = [4, 6, 8, 10]
@@ -28,11 +29,12 @@ export default function QuickAdjustPanel({ combatant, showHealChips = false }) {
   const [damageTypeId, setDamageTypeId] = useState(readLastManualDamageType)
   const [flash, setFlash]   = useState(null) // 'dmg' | 'heal' | null
   const flashTimer = useRef(null)
+  const flashDurationMs = combatQoePolishEnabled ? 400 : 500
 
   function triggerFlash(type) {
     clearTimeout(flashTimer.current)
     setFlash(type)
-    flashTimer.current = setTimeout(() => setFlash(null), 500)
+    flashTimer.current = setTimeout(() => setFlash(null), flashDurationMs)
   }
 
   function applyDamage(val) {
@@ -60,7 +62,7 @@ export default function QuickAdjustPanel({ combatant, showHealChips = false }) {
           style={{
             position: 'absolute', inset: 0, zIndex: 10,
             pointerEvents: 'none', borderRadius: 'var(--radius-lg)',
-            animation: `${flash === 'dmg' ? 'hp-flash' : 'hp-heal-flash'} 500ms ease forwards`,
+            animation: `${flash === 'dmg' ? 'hp-flash' : 'hp-heal-flash'} ${flashDurationMs}ms ease forwards`,
           }}
         />
       )}

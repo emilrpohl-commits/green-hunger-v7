@@ -7,7 +7,7 @@ import { formatDcWithLabel } from '@shared/lib/rules/dcDisplay.js'
 import { concentrationSaveDc } from '@shared/lib/rules/spellcastingRules.js'
 import { logCombatResolutionEvent } from '@shared/lib/logCombatResolution.js'
 import { parseCombatantsArray } from '@shared/lib/validation/storeBoundaries.js'
-import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
+import { debugCombatTelemetry, warnFallback } from '@shared/lib/fallbackTelemetry.js'
 import { sanitizeCombatantForPlayer } from './helpers.js'
 import { normalizeCombatantConditions } from '@shared/lib/rules/conditionHydration.js'
 
@@ -48,7 +48,9 @@ export const createCombatSlice = (set, get) => ({
     let incomingTs = row.updated_at ? Date.parse(row.updated_at) : null
     if (incomingTs != null && Number.isNaN(incomingTs)) incomingTs = null
     const lastApplied = get()._combatStateSyncedAt
-    if (incomingTs != null && lastApplied != null && incomingTs < lastApplied) return
+    if (incomingTs != null && lastApplied != null && incomingTs < lastApplied) {
+      return { applied: false, reason: 'stale_timestamp' }
+    }
 
     const prevCombatants = get().combatCombatants || []
     const combatants = parseCombatantsArray(row.combatants, 'applyCombatStateRow.combatants')
@@ -60,7 +62,7 @@ export const createCombatSlice = (set, get) => ({
         system: 'playerCombat',
         had: prevCombatants.length,
       })
-      return
+      return { applied: false, reason: 'empty_active_payload' }
     }
 
     const n = combatants.length
@@ -74,7 +76,23 @@ export const createCombatSlice = (set, get) => ({
     }
 
     const ilyaAssign = row.ilya_assigned_to ?? null
-    set((state) => ({
+    set((state) => {
+      const byId = new Map(combatants.map((c) => [c.id, c]))
+      const runtimeCharacters = Array.isArray(state.characters) ? state.characters : []
+      const reconciledCharacters = runtimeCharacters.map((character) => {
+        const combatant = byId.get(character.id)
+        if (!combatant) return character
+        // During active combat, combat_state owns combat-critical values.
+        return {
+          ...character,
+          curHp: combatant.curHp ?? character.curHp,
+          tempHp: combatant.tempHp ?? character.tempHp,
+          concentration: combatant.concentration ?? character.concentration,
+          conditions: Array.isArray(combatant.conditions) ? combatant.conditions : character.conditions,
+          deathSaves: combatant.deathSaves ?? character.deathSaves,
+        }
+      })
+      return ({
       combatActive: row.active ?? false,
       combatRound: row.round ?? 1,
       combatCombatants: combatants,
@@ -82,10 +100,11 @@ export const createCombatSlice = (set, get) => ({
       ilyaAssignedTo: ilyaAssign,
       initiativePhase: row.initiative_phase ?? false,
       _combatStateSyncedAt: nextLast,
-      characters: (Array.isArray(state.characters) ? state.characters : []).map((c) =>
+      characters: reconciledCharacters.map((c) =>
         c.id === 'ilya' ? { ...c, assignedPcId: ilyaAssign } : c
       ),
-    }))
+    })})
+    return { applied: true }
   },
 
   fetchCombatantsForWrite: async () => {
@@ -157,6 +176,13 @@ export const createCombatSlice = (set, get) => ({
     set({ combatCombatants: updatedCombatants })
 
     const ts = new Date().toISOString()
+    const combatActionId = `pc-dmg-${Date.now()}-${combatantId}`
+    debugCombatTelemetry('player.damage.start', {
+      combatActionId,
+      combatantId,
+      hpLoss,
+      round: combatRound,
+    })
     try {
       const core = curHp === 0
         ? `${attackerName} → ${target.name} takes ${hpLoss} and goes DOWN!`
@@ -170,7 +196,7 @@ export const createCombatSlice = (set, get) => ({
         p_round: combatRound,
         p_message: msg,
         p_shared: true,
-        p_metadata: { kind: 'damage', target_id: combatantId },
+        p_metadata: { kind: 'damage', target_id: combatantId, combat_action_id: combatActionId },
         p_combat_active: combatActive,
         p_active_combatant_index: get().combatActiveCombatantIndex,
         p_initiative_phase: initiativePhase,
@@ -185,6 +211,10 @@ export const createCombatSlice = (set, get) => ({
       if (Array.isArray(remoteCombatants)) {
         set({ combatCombatants: remoteCombatants.map(sanitizeCombatantForPlayer) })
       }
+      debugCombatTelemetry('player.damage.rpc_applied', {
+        combatActionId,
+        updatedAt: row?.updated_at || ts,
+      })
     } catch (e) {
       warnFallback('applyDamageToEnemy RPC failed; using fallback state+feed sync', {
         system: 'playerCombat',
@@ -204,7 +234,7 @@ export const createCombatSlice = (set, get) => ({
           type: 'damage',
           shared: true,
           timestamp: ts,
-          metadata: { kind: 'damage', target_id: combatantId },
+          metadata: { kind: 'damage', target_id: combatantId, combat_action_id: combatActionId },
         })
         await supabase.from('combat_state').upsert({
           id: sessionRunId,
@@ -219,6 +249,10 @@ export const createCombatSlice = (set, get) => ({
           updated_at: ts,
         })
         get().bumpCombatStateSyncedFromWrite(ts)
+        debugCombatTelemetry('player.damage.fallback_applied', {
+          combatActionId,
+          updatedAt: ts,
+        })
       } catch (fallbackErr) {
         console.error('Failed to apply damage fallback:', fallbackErr)
       }

@@ -12,6 +12,7 @@ import {
   readLastManualDamageType,
   writeLastManualDamageType,
 } from '../lastManualDamageTypeStorage.js'
+import { combatQoePolishEnabled } from '@shared/lib/combat/qoeGate.js'
 
 const safeHp = (n) => (typeof n === 'number' && isFinite(n) ? n : 0)
 const SAVE_ORDER = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
@@ -192,11 +193,12 @@ function QuickHp({ combatant }) {
   const [damageTypeId, setDamageTypeId] = useState(readLastManualDamageType)
   const [flash, setFlash] = useState(null)
   const timerRef = useRef(null)
+  const flashDurationMs = combatQoePolishEnabled ? 380 : 480
 
   function triggerFlash(t) {
     clearTimeout(timerRef.current)
     setFlash(t)
-    timerRef.current = setTimeout(() => setFlash(null), 480)
+    timerRef.current = setTimeout(() => setFlash(null), flashDurationMs)
   }
 
   function applyDmg(n) {
@@ -235,7 +237,7 @@ function QuickHp({ combatant }) {
           style={{
             position: 'absolute', inset: 0, zIndex: 5,
             pointerEvents: 'none', borderRadius: 'var(--radius)',
-            animation: `${flash === 'dmg' ? 'hp-flash' : 'hp-heal-flash'} 480ms ease forwards`,
+            animation: `${flash === 'dmg' ? 'hp-flash' : 'hp-heal-flash'} ${flashDurationMs}ms ease forwards`,
           }}
         />
       )}
