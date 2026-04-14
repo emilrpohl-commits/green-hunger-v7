@@ -1,6 +1,6 @@
 import { supabase } from '@shared/lib/supabase.js'
 import { consumeActionEconomy, ensureActionEconomy, encodeSavePrompt, makeSavePromptEnvelope } from '@shared/lib/combatRules.js'
-import { getRulesetContext } from '@shared/lib/runtimeContext.js'
+import { getRulesetContext, setRulesetContext } from '@shared/lib/runtimeContext.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
 import { applyDamageComponentsBundle } from '@shared/lib/rules/damagePipeline.js'
 import { appendDamagePipelineDetail } from '@shared/lib/combat/combatFeedFormat.js'
@@ -38,6 +38,9 @@ export const createCombatSlice = (set, get) => ({
 
   applyCombatStateRow: (row) => {
     if (!row) return
+    if (row.ruleset_context && typeof row.ruleset_context === 'object') {
+      setRulesetContext(row.ruleset_context)
+    }
     let incomingTs = row.updated_at ? Date.parse(row.updated_at) : null
     if (incomingTs != null && Number.isNaN(incomingTs)) incomingTs = null
     const lastApplied = get()._combatStateSyncedAt
@@ -151,24 +154,33 @@ export const createCombatSlice = (set, get) => ({
 
     const ts = new Date().toISOString()
     try {
-      await supabase.from('combat_state').upsert({
-        id: sessionRunId, session_run_id: sessionRunId,
-        active: combatActive, round: combatRound,
-        combatants: updatedCombatants, initiative_phase: initiativePhase,
-        ilya_assigned_to: ilyaAssignedTo, ruleset_context: rulesetContext,
-        updated_at: ts
-      })
-      get().bumpCombatStateSyncedFromWrite(ts)
-
       const core = curHp === 0
         ? `${attackerName} → ${target.name} takes ${hpLoss} and goes DOWN!`
         : `${attackerName} hits ${target.name} with ${weaponName} for ${hpLoss} (${curHp}/${target.maxHp} HP)`
       const msg = appendDamagePipelineDetail(core, bundle.lines)
-      await supabase.from('combat_feed').insert({
-        session_id: sessionRunId, round: combatRound,
-        text: msg, type: 'damage', shared: true, timestamp: new Date().toISOString(),
-        metadata: { kind: 'damage', target_id: combatantId },
+      const { data, error } = await supabase.rpc('apply_combat_damage', {
+        p_session_id: sessionRunId,
+        p_combatant_id: combatantId,
+        p_new_cur_hp: curHp,
+        p_new_temp_hp: tempHp,
+        p_round: combatRound,
+        p_message: msg,
+        p_shared: true,
+        p_metadata: { kind: 'damage', target_id: combatantId },
+        p_combat_active: combatActive,
+        p_active_combatant_index: get().combatActiveCombatantIndex,
+        p_initiative_phase: initiativePhase,
+        p_ilya_assigned_to: ilyaAssignedTo,
+        p_ruleset_context: rulesetContext,
       })
+      if (error) throw error
+      const row = Array.isArray(data) ? data[0] : data
+      const syncedAt = row?.updated_at || ts
+      get().bumpCombatStateSyncedFromWrite(syncedAt)
+      const remoteCombatants = row?.updated_combatants
+      if (Array.isArray(remoteCombatants)) {
+        set({ combatCombatants: remoteCombatants.map(sanitizeCombatantForPlayer) })
+      }
     } catch (e) {
       console.error('Failed to apply damage:', e)
     }
@@ -531,6 +543,7 @@ export const createCombatSlice = (set, get) => ({
       await supabase.from('combat_feed').insert({
         session_id: sessionRunId, round: combatRound,
         text: encodeSavePrompt(envelope), type: 'save-prompt', shared: false,
+        payload: envelope,
         visibility: 'targeted', prompt_status: 'pending', metadata,
         timestamp: new Date().toISOString()
       })

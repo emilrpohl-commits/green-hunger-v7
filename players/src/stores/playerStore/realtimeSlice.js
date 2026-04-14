@@ -1,5 +1,5 @@
 import { supabase } from '@shared/lib/supabase.js'
-import { decodePlayerSavePrompt } from '@shared/lib/combatRules.js'
+import { decodePlayerSavePrompt, decodePlayerSavePromptStrict, readPlayerSavePromptPayload } from '@shared/lib/combatRules.js'
 import { qaHoldSavePromptChannelName } from '@shared/lib/qaDevChannels.js'
 import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
 import { shouldAcceptDmTargetForClient } from './helpers.js'
@@ -11,6 +11,12 @@ export const createRealtimeSlice = (set, get) => ({
   dmRoll: null,
   seenDmPromptIds: [],
   qaHoldSavePromptUntilDismissed: false,
+  sessionChannel: null,
+  charChannel: null,
+  combatChannel: null,
+  dmRollChannel: null,
+  qaHoldChannel: null,
+  savePromptPollId: null,
 
   clearDmRoll: () => set((state) => ({
     dmRoll: null,
@@ -19,7 +25,34 @@ export const createRealtimeSlice = (set, get) => ({
       : state.seenDmPromptIds,
   })),
 
+  unsubscribe: () => {
+    const {
+      sessionChannel,
+      charChannel,
+      combatChannel,
+      dmRollChannel,
+      qaHoldChannel,
+      savePromptPollId,
+    } = get()
+    if (sessionChannel) supabase.removeChannel(sessionChannel)
+    if (charChannel) supabase.removeChannel(charChannel)
+    if (combatChannel) supabase.removeChannel(combatChannel)
+    if (dmRollChannel) supabase.removeChannel(dmRollChannel)
+    if (qaHoldChannel) supabase.removeChannel(qaHoldChannel)
+    if (savePromptPollId) clearInterval(savePromptPollId)
+    set({
+      sessionChannel: null,
+      charChannel: null,
+      combatChannel: null,
+      dmRollChannel: null,
+      qaHoldChannel: null,
+      savePromptPollId: null,
+      connected: false,
+    })
+  },
+
   subscribe: () => {
+    get().unsubscribe()
     const { sessionRunId } = get()
     get().loadInitialState()
 
@@ -57,8 +90,21 @@ export const createRealtimeSlice = (set, get) => ({
         event: '*', schema: 'public', table: 'character_states'
       }, (payload) => {
         if (payload.new) {
-          const { characters } = get()
+          const { characters, companionSpellSlots } = get()
           const roster = Array.isArray(characters) ? characters : []
+          const hasRuntimeRow = roster.some((c) => c.id === payload.new.id)
+          if (!hasRuntimeRow) {
+            if (payload.new.spell_slots && typeof payload.new.spell_slots === 'object') {
+              set({
+                companionSpellSlots: {
+                  ...(companionSpellSlots || {}),
+                  [payload.new.id]: payload.new.spell_slots,
+                },
+                lastUpdated: new Date(),
+              })
+            }
+            return
+          }
           const updated = roster.map((c) => {
             if (c.id !== payload.new.id) return c
             return mergeCharacterStateIntoRuntimeRow({ ...c }, payload.new)
@@ -96,7 +142,24 @@ export const createRealtimeSlice = (set, get) => ({
           })
         }
         if (payload.new.type === 'player-save-prompt') {
-          const decoded = decodePlayerSavePrompt(payload.new.text)
+          const decodedStrict = decodePlayerSavePromptStrict(payload.new.text)
+          const decoded = readPlayerSavePromptPayload(payload.new) || (decodedStrict.ok ? decodedStrict.payload : decodePlayerSavePrompt(payload.new.text))
+          if (!decodedStrict.ok && decoded == null) {
+            warnFallback('Realtime save-prompt decode failed', {
+              system: 'playerRealtime',
+              reason: decodedStrict.reason || 'decode_failed',
+            })
+            set({
+              dmRoll: {
+                text: '[System] Save prompt decode failed. Ask DM to resend.',
+                targetId: payload.new.target_id,
+                timestamp: Date.now(),
+                kind: 'save-prompt-error',
+                eventId: payload.new.id,
+              }
+            })
+            return
+          }
           if (!shouldAcceptDmTargetForClient(payload.new.target_id, decoded?.targetId, get().ilyaAssignedTo)) return
           if (!decoded) {
             set({
@@ -116,6 +179,17 @@ export const createRealtimeSlice = (set, get) => ({
             }
           })
         }
+        if (payload.new.type === 'rest' && payload.new.payload && typeof payload.new.payload === 'object') {
+          const restType = payload.new.payload.restType
+          const state = get()
+          const roster = Array.isArray(state.characters) ? state.characters : []
+          const editable = roster.filter((c) => state.canEditCharacterState(c.id))
+          if (restType === 'short') {
+            editable.forEach((c) => state.takeShortRest(c.id))
+          } else if (restType === 'long') {
+            editable.forEach((c) => state.takeLongRest(c.id))
+          }
+        }
       })
       .subscribe()
 
@@ -131,7 +205,25 @@ export const createRealtimeSlice = (set, get) => ({
           .limit(1)
         const row = Array.isArray(data) && data.length > 0 ? data[0] : null
         if (!row || seenDmPromptIds.includes(row.id)) return
-        const decoded = decodePlayerSavePrompt(row.text)
+        const decodedStrict = decodePlayerSavePromptStrict(row.text)
+        const decoded = readPlayerSavePromptPayload(row) || (decodedStrict.ok ? decodedStrict.payload : decodePlayerSavePrompt(row.text))
+        if (!decodedStrict.ok && decoded == null) {
+          warnFallback('Save-prompt poll decode failed', {
+            system: 'playerRealtime',
+            reason: decodedStrict.reason || 'decode_failed',
+          })
+          set((state) => ({
+            dmRoll: {
+              text: '[System] Save prompt decode failed. Ask DM to resend.',
+              targetId: row.target_id,
+              timestamp: Date.now(),
+              kind: 'save-prompt-error',
+              eventId: row.id,
+            },
+            seenDmPromptIds: [row.id, ...(state.seenDmPromptIds || [])].slice(0, 100),
+          }))
+          return
+        }
         if (!shouldAcceptDmTargetForClient(row.target_id, decoded?.targetId, get().ilyaAssignedTo)) {
           set((state) => ({
             seenDmPromptIds: [row.id, ...(state.seenDmPromptIds || [])].slice(0, 100),
@@ -192,13 +284,17 @@ export const createRealtimeSlice = (set, get) => ({
       qaHoldChannel = qaCh
     }
 
+    set({
+      sessionChannel,
+      charChannel,
+      combatChannel,
+      dmRollChannel,
+      qaHoldChannel,
+      savePromptPollId: savePromptPoll,
+    })
+
     return () => {
-      supabase.removeChannel(sessionChannel)
-      supabase.removeChannel(charChannel)
-      supabase.removeChannel(combatChannel)
-      supabase.removeChannel(dmRollChannel)
-      clearInterval(savePromptPoll)
-      if (qaHoldChannel) supabase.removeChannel(qaHoldChannel)
+      get().unsubscribe()
     }
   },
 })

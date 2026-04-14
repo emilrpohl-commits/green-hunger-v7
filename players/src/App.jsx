@@ -9,6 +9,7 @@ import CharacterProfile from './components/CharacterProfile'
 
 export default function App() {
   const subscribe = usePlayerStore(s => s.subscribe)
+  const unsubscribeRealtime = usePlayerStore(s => s.unsubscribe)
   const ilyaAssignedTo = usePlayerStore(s => s.ilyaAssignedTo)
   const characters = usePlayerStore(s => s.characters)
   const [loggedInAs, setLoggedInAs] = useState(null)
@@ -16,9 +17,9 @@ export default function App() {
   const location = useLocation()
 
   useEffect(() => {
-    const unsubscribe = subscribe()
-    return unsubscribe
-  }, [])
+    subscribe()
+    return () => unsubscribeRealtime()
+  }, [subscribe, unsubscribeRealtime])
 
   useEffect(() => {
     if (import.meta.env.VITE_SUPABASE_ANON_PLAYER !== 'true') return

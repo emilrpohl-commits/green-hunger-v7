@@ -1,3 +1,5 @@
+import { featureFlags } from './featureFlags.js'
+
 const DEFAULT_SESSION_RUN_ID = 'session-1'
 
 function canUseStorage() {
@@ -30,6 +32,9 @@ export function getRulesetContext() {
     active_ruleset: '2024',
     fallback_allowed: true,
     source_of_truth: 'canonical',
+    rulesDamagePipeline: featureFlags.rulesDamagePipeline,
+    use5eEngine: featureFlags.use5eEngine,
+    engineConditions: featureFlags.engineConditions,
   }
 }
 
@@ -38,6 +43,9 @@ export function setRulesetContext(context = {}) {
     active_ruleset: ['2024', '2014', 'custom'].includes(context.active_ruleset) ? context.active_ruleset : '2024',
     fallback_allowed: Boolean(context.fallback_allowed),
     source_of_truth: context.source_of_truth || 'canonical',
+    rulesDamagePipeline: context.rulesDamagePipeline == null ? featureFlags.rulesDamagePipeline : Boolean(context.rulesDamagePipeline),
+    use5eEngine: context.use5eEngine == null ? featureFlags.use5eEngine : Boolean(context.use5eEngine),
+    engineConditions: context.engineConditions == null ? featureFlags.engineConditions : Boolean(context.engineConditions),
   }
   if (canUseStorage()) {
     window.localStorage.setItem('gh.ruleset_context', JSON.stringify(normalized))

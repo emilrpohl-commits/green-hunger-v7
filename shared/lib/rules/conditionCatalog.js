@@ -50,3 +50,24 @@ export function normalizeConditionName(raw) {
 export function isCanonicalConditionName(name) {
   return byNameLower.has(String(name || '').toLowerCase())
 }
+
+/**
+ * Normalize free-text condition names into canonical values where possible.
+ * Unknown values are dropped to avoid persisting typo-only states.
+ * @param {unknown[]} values
+ * @returns {string[]}
+ */
+export function toCanonicalConditions(values) {
+  if (!Array.isArray(values)) return []
+  const out = []
+  const seen = new Set()
+  for (const raw of values) {
+    const normalized = normalizeConditionName(raw)
+    if (!isCanonicalConditionName(normalized)) continue
+    const key = normalized.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(normalized)
+  }
+  return out
+}

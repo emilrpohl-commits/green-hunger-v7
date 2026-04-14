@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useCombatStore } from '../../stores/combatStore'
-import { decodeSavePrompt } from '@shared/lib/combatRules.js'
+import { decodeSavePrompt, decodeSavePromptStrict } from '@shared/lib/combatRules.js'
 import { supabase } from '@shared/lib/supabase.js'
 import { getSessionRunId } from '@shared/lib/runtimeContext.js'
 import { qaHoldSavePromptChannelName } from '@shared/lib/qaDevChannels.js'
@@ -297,11 +297,13 @@ export default function CombatPanel() {
                     }}>
                       {event.shared && <span style={{ fontSize: 5, color: 'var(--green-dim)', marginTop: 4, flexShrink: 0 }}>●</span>}
                       {event.type === 'save-prompt' ? (() => {
-                        const p = decodeSavePrompt(event.text)
+                        const strict = decodeSavePromptStrict(event.text)
+                        const p = strict.ok ? strict.payload : decodeSavePrompt(event.text)
                         if (!p) return event.text
                         return `${p.casterName} casts ${p.spellName}: ${p.saveAbility} save DC ${p.saveDc} (${(p.targets || []).map(t => t.name).join(', ')})`
                       })() : event.type === 'save-prompt-resolved' ? (() => {
-                        const p = decodeSavePrompt(event.text)
+                        const strict = decodeSavePromptStrict(event.text)
+                        const p = strict.ok ? strict.payload : decodeSavePrompt(event.text)
                         return p?.resolutionText || event.text
                       })() : event.text}
                     </div>

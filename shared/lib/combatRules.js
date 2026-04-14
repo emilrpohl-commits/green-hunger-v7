@@ -214,6 +214,30 @@ export function decodeSavePrompt(text) {
   }
 }
 
+export function decodeSavePromptStrict(text) {
+  const raw = String(text || '')
+  if (!raw.startsWith(SAVE_PROMPT_PREFIX)) return { ok: false, reason: 'missing_prefix', payload: null }
+  try {
+    const payload = JSON.parse(raw.slice(SAVE_PROMPT_PREFIX.length))
+    if (!payload || typeof payload !== 'object') {
+      return { ok: false, reason: 'invalid_payload_shape', payload: null }
+    }
+    const hasCore =
+      payload.spellName != null
+      && payload.saveAbility != null
+      && Number.isFinite(Number(payload.saveDc))
+    if (!hasCore) return { ok: false, reason: 'missing_required_fields', payload }
+    return { ok: true, reason: null, payload }
+  } catch {
+    return { ok: false, reason: 'json_parse_failed', payload: null }
+  }
+}
+
+export function readSavePromptPayload(row) {
+  if (row?.payload && typeof row.payload === 'object') return row.payload
+  return decodeSavePrompt(row?.text)
+}
+
 export function encodePlayerSavePrompt(payload) {
   return `${PLAYER_SAVE_PROMPT_PREFIX}${JSON.stringify(payload)}`
 }
@@ -226,6 +250,30 @@ export function decodePlayerSavePrompt(text) {
   } catch {
     return null
   }
+}
+
+export function decodePlayerSavePromptStrict(text) {
+  const raw = String(text || '')
+  if (!raw.startsWith(PLAYER_SAVE_PROMPT_PREFIX)) return { ok: false, reason: 'missing_prefix', payload: null }
+  try {
+    const payload = JSON.parse(raw.slice(PLAYER_SAVE_PROMPT_PREFIX.length))
+    if (!payload || typeof payload !== 'object') {
+      return { ok: false, reason: 'invalid_payload_shape', payload: null }
+    }
+    const hasCore =
+      payload.actionName != null
+      && payload.saveAbility != null
+      && Number.isFinite(Number(payload.saveDc))
+    if (!hasCore) return { ok: false, reason: 'missing_required_fields', payload }
+    return { ok: true, reason: null, payload }
+  } catch {
+    return { ok: false, reason: 'json_parse_failed', payload: null }
+  }
+}
+
+export function readPlayerSavePromptPayload(row) {
+  if (row?.payload && typeof row.payload === 'object') return row.payload
+  return decodePlayerSavePrompt(row?.text)
 }
 
 /**

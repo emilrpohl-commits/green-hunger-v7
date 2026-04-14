@@ -100,3 +100,24 @@ export function sanitizeCombatantForPlayer(combatant) {
   delete sanitized.actionOptions
   return sanitized
 }
+
+/**
+ * Merge spell maps by precedence: higher index wins.
+ * Order: rules_entities < spell_compendium < spells_table < homebrew_overlays
+ */
+export function mergeSpellSourceMaps(sourceMaps = [], { logConflicts = false } = {}) {
+  const merged = {}
+  const winnerById = {}
+  for (const source of sourceMaps) {
+    const sourceName = source?.name || 'unknown'
+    const entries = source?.entries || {}
+    for (const [spellId, value] of Object.entries(entries)) {
+      if (merged[spellId] && logConflicts) {
+        console.debug(`[spell-merge] ${spellId}: ${winnerById[spellId]} -> ${sourceName}`)
+      }
+      merged[spellId] = value
+      winnerById[spellId] = sourceName
+    }
+  }
+  return merged
+}
