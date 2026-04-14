@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react'
 import ConditionChips from './subcomponents/ConditionChips.jsx'
 import ActionsList from './subcomponents/ActionsList.jsx'
 import { useCombatStore } from '../../../stores/combatStore.js'
+import { useSessionStore } from '../../../stores/sessionStore.js'
 import {
   isDead, isBloodied, kindColourRaw, typeLine, HP_COLOUR,
 } from './constants.js'
@@ -353,6 +354,8 @@ function StatBadge({ label, value }) {
 // ─────────────────────────────────────────────────────────────────────────────
 function PCCard({ combatant, isActive, flashActive }) {
   const setInitiative = useCombatStore(s => s.setInitiative)
+  const markCombatantDeathSave = useCombatStore((s) => s.markCombatantDeathSave)
+  const markDeathSave = useSessionStore((s) => s.markDeathSave)
 
   const bloodied = isBloodied(combatant)
   const dead     = safeHp(combatant.curHp) === 0
@@ -515,8 +518,52 @@ function PCCard({ combatant, isActive, flashActive }) {
 
       {/* Death saves */}
       {dead && (
-        <div style={{ padding: '6px 12px 8px', borderTop: '1px solid var(--border)', fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--danger)', textAlign: 'center' }}>
-          0 hp — Death Saves
+        <div style={{ padding: '6px 12px 8px', borderTop: '1px solid var(--border)' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--danger)', textAlign: 'center', textTransform: 'uppercase', marginBottom: 6 }}>
+            0 HP — Death Saves
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 10, color: 'var(--green-bright)' }}>✓</span>
+              {[0, 1, 2].map((i) => (
+                <button
+                  key={`pc-succ-${i}`}
+                  type="button"
+                  onClick={() => {
+                    const delta = i < (combatant.deathSaves?.successes || 0) ? -1 : 1
+                    markCombatantDeathSave(combatant.id, 'successes', delta)
+                    markDeathSave(combatant.id, 'successes', delta)
+                  }}
+                  style={{
+                    width: 11, height: 11, borderRadius: '50%',
+                    border: '1px solid var(--green-dim)',
+                    background: i < (combatant.deathSaves?.successes || 0) ? 'var(--green-bright)' : 'transparent',
+                    cursor: 'pointer',
+                  }}
+                />
+              ))}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 10, color: 'var(--danger)' }}>✗</span>
+              {[0, 1, 2].map((i) => (
+                <button
+                  key={`pc-fail-${i}`}
+                  type="button"
+                  onClick={() => {
+                    const delta = i < (combatant.deathSaves?.failures || 0) ? -1 : 1
+                    markCombatantDeathSave(combatant.id, 'failures', delta)
+                    markDeathSave(combatant.id, 'failures', delta)
+                  }}
+                  style={{
+                    width: 11, height: 11, borderRadius: '50%',
+                    border: '1px solid rgba(176,48,48,0.45)',
+                    background: i < (combatant.deathSaves?.failures || 0) ? 'var(--danger)' : 'transparent',
+                    cursor: 'pointer',
+                  }}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

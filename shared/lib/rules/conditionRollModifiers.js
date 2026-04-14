@@ -1,3 +1,5 @@
+import { autoFailSaveFromConditions, targetHasCritCondition } from './criticalConditionRules.js'
+
 /**
  * Condition → advantage / disadvantage and exhaustion D20 penalties (SRD-style).
  */
@@ -55,6 +57,9 @@ export function attackRollModifiersFromConditions(attackerConditions, targetCond
     if (range === 'melee') advantage = true
     else disadvantage = true
   }
+  if (targetHasCritCondition(targetConditions)) {
+    advantage = true
+  }
 
   return cancelAdvDis(advantage, disadvantage)
 }
@@ -80,7 +85,10 @@ export function savingThrowModifiersFromConditions(actorConditions, saveAbility 
   const ab = String(saveAbility || '').toLowerCase().slice(0, 3)
   let disadvantage = false
   if (ab === 'dex' && c.has('restrained')) disadvantage = true
-  return cancelAdvDis(false, disadvantage)
+  return {
+    ...cancelAdvDis(false, disadvantage),
+    autoFail: autoFailSaveFromConditions(actorConditions, ab),
+  }
 }
 
 /**
@@ -103,7 +111,7 @@ export function resolvePlayerD20Modifiers(ctx = {}) {
     saveAbility = '',
   } = ctx
 
-  let advDis = { advantage: false, disadvantage: false }
+  let advDis = { advantage: false, disadvantage: false, autoFail: false }
   if (rollKind === 'attack') {
     advDis = attackRollModifiersFromConditions(actorConditions, targetConditions, options)
   } else if (rollKind === 'save') {

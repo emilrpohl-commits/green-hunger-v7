@@ -137,10 +137,10 @@ export const createDataSlice = (set, get) => ({
         supabase.from('characters').select('*'),
         supabase.from('character_spells').select('*').order('order_index'),
         supabase.from('spells').select('*'),
-        featureFlags.use5eEngine
+        rulesetContext.use5eEngine ?? featureFlags.use5eEngine
           ? supabase.from('rules_entities').select('*').eq('entity_type', 'spells').eq('ruleset', selectedRuleset)
           : Promise.resolve({ data: [] }),
-        featureFlags.use5eEngine && featureFlags.engineConditions
+        (rulesetContext.use5eEngine ?? featureFlags.use5eEngine) && (rulesetContext.engineConditions ?? featureFlags.engineConditions)
           ? supabase.from('rules_entities').select('source_index,name,payload,ruleset,source_url').eq('entity_type', 'conditions').eq('ruleset', selectedRuleset)
           : Promise.resolve({ data: [] }),
         supabase.from('session_state').select('campaign_id').eq('id', sessionRunId).maybeSingle(),
@@ -455,7 +455,9 @@ export const createDataSlice = (set, get) => ({
     const c = get().characters.find((x) => x.id === characterId)
     if (!c || !get().canEditCharacterState(characterId)) return
     const curHp = Math.max(0, Math.min(c.maxHp, newHp))
-    await get().upsertCharacterStateRow(characterId, { curHp })
+    const patch = { curHp }
+    if (curHp > 0) patch.deathSaves = { successes: 0, failures: 0 }
+    await get().upsertCharacterStateRow(characterId, patch)
   },
 
   updateMyCharacterTempHp: async (characterId, tempHp) => {
@@ -484,7 +486,73 @@ export const createDataSlice = (set, get) => ({
   setMyCharacterConditions: async (characterId, conditions) => {
     if (!get().canEditCharacterState(characterId)) return
     const next = normalizeConditionsArray(toCanonicalConditions(Array.isArray(conditions) ? conditions : []))
-    await get().upsertCharacterStateRow(characterId, { conditions: next })
+    const lowered = new Set(next.map((c) => String(c || '').toLowerCase()))
+    const dropsConcentration = lowered.has('unconscious') || lowered.has('incapacitated')
+    const c = get().characters.find((x) => x.id === characterId)
+    const prev = c?.tacticalJson && typeof c.tacticalJson === 'object' ? c.tacticalJson : {}
+    await get().upsertCharacterStateRow(characterId, {
+      conditions: next,
+      ...(dropsConcentration ? { concentration: false, tacticalJson: { ...prev, concentrationSpell: null } } : {}),
+    })
+  },
+
+  markMyCharacterDeathSave: async (characterId, type, delta = 1) => {
+    if (!get().canEditCharacterState(characterId)) return
+    if (type !== 'successes' && type !== 'failures') return
+    const c = get().characters.find((x) => x.id === characterId)
+    if (!c) return
+    const current = c.deathSaves && typeof c.deathSaves === 'object'
+      ? c.deathSaves
+      : { successes: 0, failures: 0 }
+    const safeDelta = Number.isFinite(Number(delta)) ? Number(delta) : 0
+    const next = {
+      ...current,
+      [type]: Math.max(0, Math.min(3, Number(current[type] || 0) + safeDelta)),
+    }
+    await get().upsertCharacterStateRow(characterId, { deathSaves: next })
+    if (next.successes >= 3 || next.failures >= 3) {
+      const { combatActive, combatRound, sessionRunId, playerCharacters } = get()
+      if (combatActive && sessionRunId) {
+        const name = playerCharacters?.[characterId]?.name || characterId
+        const text = next.successes >= 3
+          ? `${name} stabilizes after three successful death saves.`
+          : `${name} falls after three failed death saves.`
+        try {
+          await supabase.from('combat_feed').insert({
+            session_id: sessionRunId,
+            round: combatRound,
+            type: 'system',
+            shared: true,
+            text,
+            timestamp: new Date().toISOString(),
+          })
+        } catch {}
+      }
+    }
+  },
+
+  rollMyDeathSave: async (characterId) => {
+    if (!get().canEditCharacterState(characterId)) return null
+    const c = get().characters.find((x) => x.id === characterId)
+    if (!c) return null
+    const d20 = Math.floor(Math.random() * 20) + 1
+    if (d20 === 20) {
+      await get().upsertCharacterStateRow(characterId, {
+        curHp: 1,
+        deathSaves: { successes: 0, failures: 0 },
+      })
+      return { d20, kind: 'nat20' }
+    }
+    if (d20 === 1) {
+      await get().markMyCharacterDeathSave(characterId, 'failures', 2)
+      return { d20, kind: 'nat1' }
+    }
+    if (d20 >= 10) {
+      await get().markMyCharacterDeathSave(characterId, 'successes', 1)
+      return { d20, kind: 'success' }
+    }
+    await get().markMyCharacterDeathSave(characterId, 'failures', 1)
+    return { d20, kind: 'failure' }
   },
 
   saveMyCharacterSheet: async (characterId, patch = {}) => {
@@ -586,6 +654,7 @@ export const createDataSlice = (set, get) => ({
       tempHp: 0,
       spellSlots: slots,
       concentration: false,
+      deathSaves: { successes: 0, failures: 0 },
       conditions: nextConditions,
       tacticalJson: {
         ...prevTj,

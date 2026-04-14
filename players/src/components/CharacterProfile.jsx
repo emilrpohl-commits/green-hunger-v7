@@ -82,7 +82,7 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
   }
 
   const {
-    char, liveChar, curHp, tempHp, concentration, concentrationSpell, conditionsLive, inspiration, classResources,
+    char, liveChar, curHp, tempHp, concentration, concentrationSpell, conditionsLive, inspiration, classResources, deathSaves, exhaustionLevel,
     canEditState, myCombatant,
     combatActive, combatCombatants, combatActiveCombatantIndex,
     myTurnActive, myEconomy, ilyaAssignedTo,
@@ -218,6 +218,8 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
           conditions={conditionsLive}
           concentration={concentration}
           concentrationSpell={concentrationSpell}
+          deathSaves={deathSaves}
+          exhaustionLevel={exhaustionLevel}
           inspiration={inspiration}
           classResources={classResources}
           combatActive={combatActive}
@@ -229,6 +231,8 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
           onToggleConcentration={() => setMyCharacterConcentration(characterId, true, '')}
           onConcentrationSpellBlur={(text) => patchMyCharacterTacticalJson(characterId, { concentrationSpell: text || null })}
           onEndConcentration={() => setMyCharacterConcentration(characterId, false, null)}
+          onMarkDeathSave={(type, delta) => actions.markMyCharacterDeathSave(characterId, type, delta)}
+          onRollDeathSave={() => actions.rollMyDeathSave(characterId)}
           onRemoveCondition={(name) => setMyCharacterConditions(
             characterId,
             conditionsLive.filter((c) => c !== name)

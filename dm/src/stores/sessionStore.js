@@ -145,7 +145,15 @@ export const useSessionStore = create((set, get) => ({
   updateCharacterHp: async (characterId, newHp) => {
     const { characters } = get()
     const updated = characters.map(c =>
-      c.id === characterId ? { ...c, curHp: Math.max(0, Math.min(c.maxHp, newHp)) } : c
+      c.id === characterId
+        ? {
+            ...c,
+            curHp: Math.max(0, Math.min(c.maxHp, newHp)),
+            deathSaves: Math.max(0, Math.min(c.maxHp, newHp)) > 0
+              ? { successes: 0, failures: 0 }
+              : (c.deathSaves || { successes: 0, failures: 0 }),
+          }
+        : c
     )
     set({ characters: updated })
     await get().syncCharacterState(characterId)
@@ -201,7 +209,13 @@ export const useSessionStore = create((set, get) => ({
     const { characters } = get()
     const updated = characters.map(c => {
       if (c.id !== characterId) return c
-      const saves = { ...c.deathSaves, [type]: Math.min(3, c.deathSaves[type] + (value ? 1 : -1)) }
+      const current = c.deathSaves && typeof c.deathSaves === 'object'
+        ? c.deathSaves
+        : { successes: 0, failures: 0 }
+      const delta = Number(value)
+      const safeDelta = Number.isFinite(delta) ? delta : 0
+      const nextValue = Math.max(0, Math.min(3, Number(current[type] || 0) + safeDelta))
+      const saves = { ...current, [type]: nextValue }
       return { ...c, deathSaves: saves }
     })
     set({ characters: updated })
@@ -315,8 +329,22 @@ export const useSessionStore = create((set, get) => ({
 
   setCharacterConditions: async (characterId, conditions) => {
     const { characters } = get()
+    const lowered = new Set((Array.isArray(conditions) ? conditions : []).map((c) => String(c || '').toLowerCase()))
+    const dropsConcentration = lowered.has('incapacitated') || lowered.has('unconscious')
     const updated = characters.map((c) =>
-      c.id === characterId ? { ...c, conditions: Array.isArray(conditions) ? conditions : [] } : c
+      c.id === characterId
+        ? {
+            ...c,
+            conditions: Array.isArray(conditions) ? conditions : [],
+            ...(dropsConcentration ? {
+              concentration: false,
+              tacticalJson: {
+                ...(c.tacticalJson && typeof c.tacticalJson === 'object' ? c.tacticalJson : {}),
+                concentrationSpell: null,
+              },
+            } : {}),
+          }
+        : c
     )
     set({ characters: updated })
     await get().syncCharacterState(characterId)

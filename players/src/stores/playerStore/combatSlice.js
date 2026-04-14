@@ -1,7 +1,6 @@
 import { supabase } from '@shared/lib/supabase.js'
 import { consumeActionEconomy, ensureActionEconomy, encodeSavePrompt, makeSavePromptEnvelope } from '@shared/lib/combatRules.js'
 import { getRulesetContext, setRulesetContext } from '@shared/lib/runtimeContext.js'
-import { featureFlags } from '@shared/lib/featureFlags.js'
 import { applyDamageComponentsBundle } from '@shared/lib/rules/damagePipeline.js'
 import { appendDamagePipelineDetail } from '@shared/lib/combat/combatFeedFormat.js'
 import { formatDcWithLabel } from '@shared/lib/rules/dcDisplay.js'
@@ -40,6 +39,11 @@ export const createCombatSlice = (set, get) => ({
     if (!row) return
     if (row.ruleset_context && typeof row.ruleset_context === 'object') {
       setRulesetContext(row.ruleset_context)
+    } else {
+      warnFallback('combat_state.ruleset_context missing; using local runtime context', {
+        system: 'playerCombat',
+        reason: 'missing_ruleset_context',
+      })
     }
     let incomingTs = row.updated_at ? Date.parse(row.updated_at) : null
     if (incomingTs != null && Number.isNaN(incomingTs)) incomingTs = null
@@ -133,7 +137,7 @@ export const createCombatSlice = (set, get) => ({
       resistances: target.resistances,
       vulnerabilities: target.vulnerabilities,
       immunities: target.immunities,
-    }, { usePipeline: featureFlags.rulesDamagePipeline })
+    }, { usePipeline: rulesetContext.rulesDamagePipeline !== false })
 
     const hpLoss = bundle.totalFinal
 
@@ -296,7 +300,7 @@ export const createCombatSlice = (set, get) => ({
       resistances: combatRow?.resistances,
       vulnerabilities: combatRow?.vulnerabilities,
       immunities: combatRow?.immunities,
-    }, { usePipeline: featureFlags.rulesDamagePipeline })
+    }, { usePipeline: rulesetContext.rulesDamagePipeline !== false })
     const hpLoss = bundle.totalFinal
     let tempHp = combatRow?.tempHp || 0
     let remaining = hpLoss
@@ -331,10 +335,25 @@ export const createCombatSlice = (set, get) => ({
         if (dmgToHp > 0 && target?.concentration) {
           const concDc = concentrationSaveDc(dmgToHp)
           const dcLine = formatDcWithLabel(concDc)
-          await supabase.from('combat_feed').insert({
-            session_id: sessionRunId, round: combatRound,
-            text: `${displayName} is concentrating — CON save ${dcLine || `DC ${concDc}`} to maintain (lost ${dmgToHp} HP).`,
-            type: 'system', shared: true, timestamp: new Date().toISOString(),
+          await get().pushSavePrompt({
+            promptId: `${Date.now()}-concentration-${targetId}`,
+            spellName: 'Concentration',
+            casterId: sourceName || 'system',
+            casterName: sourceName || 'System',
+            saveAbility: 'CON',
+            saveDc: concDc,
+            targets: [{ id: targetId, name: displayName }],
+            damage: null,
+            effect: {
+              name: 'Concentration',
+              mechanic: 'Lose concentration on failed save',
+            },
+            effect_kinds: ['concentration'],
+            resolution_path: 'save',
+            isConcentrationCheck: true,
+            raw: {
+              note: `${displayName} is concentrating — CON save ${dcLine || `DC ${concDc}`} to maintain (lost ${dmgToHp} HP).`,
+            },
           })
         }
         const updatedCombatants = list.map(c => {

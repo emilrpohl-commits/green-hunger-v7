@@ -8,6 +8,8 @@ export default function PartyStatus() {
   const updateMyCharacterHp = usePlayerStore((s) => s.updateMyCharacterHp)
   const updateMyCharacterTempHp = usePlayerStore((s) => s.updateMyCharacterTempHp)
   const setMyCharacterConditions = usePlayerStore((s) => s.setMyCharacterConditions)
+  const markMyCharacterDeathSave = usePlayerStore((s) => s.markMyCharacterDeathSave)
+  const rollMyDeathSave = usePlayerStore((s) => s.rollMyDeathSave)
 
   const roster = (Array.isArray(characters) ? characters : []).filter((c) => {
     const id = String(c?.id || '').toLowerCase()
@@ -82,12 +84,19 @@ export default function PartyStatus() {
                 {[0, 1, 2].map((i) => (
                   <div
                     key={i}
+                    role={canEdit ? 'button' : undefined}
+                    tabIndex={canEdit ? 0 : undefined}
+                    onClick={canEdit ? () => markMyCharacterDeathSave(char.id, 'successes', i < (char.deathSaves?.successes || 0) ? -1 : 1) : undefined}
+                    onKeyDown={canEdit ? (e) => {
+                      if (e.key === 'Enter') markMyCharacterDeathSave(char.id, 'successes', i < (char.deathSaves?.successes || 0) ? -1 : 1)
+                    } : undefined}
                     style={{
                       width: 10,
                       height: 10,
                       borderRadius: '50%',
                       background: i < (char.deathSaves?.successes || 0) ? 'var(--green-bright)' : 'transparent',
                       border: '1px solid var(--green-dim)',
+                      cursor: canEdit ? 'pointer' : 'default',
                     }}
                   />
                 ))}
@@ -97,17 +106,45 @@ export default function PartyStatus() {
                 {[0, 1, 2].map((i) => (
                   <div
                     key={i}
+                    role={canEdit ? 'button' : undefined}
+                    tabIndex={canEdit ? 0 : undefined}
+                    onClick={canEdit ? () => markMyCharacterDeathSave(char.id, 'failures', i < (char.deathSaves?.failures || 0) ? -1 : 1) : undefined}
+                    onKeyDown={canEdit ? (e) => {
+                      if (e.key === 'Enter') markMyCharacterDeathSave(char.id, 'failures', i < (char.deathSaves?.failures || 0) ? -1 : 1)
+                    } : undefined}
                     style={{
                       width: 10,
                       height: 10,
                       borderRadius: '50%',
                       background: i < (char.deathSaves?.failures || 0) ? 'var(--danger)' : 'transparent',
                       border: '1px solid rgba(176,48,48,0.4)',
+                      cursor: canEdit ? 'pointer' : 'default',
                     }}
                   />
                 ))}
               </div>
             </div>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => rollMyDeathSave(char.id)}
+                style={{
+                  marginTop: 8,
+                  padding: '4px 10px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 9,
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)',
+                  background: 'var(--bg-raised)',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                Roll Death Save
+              </button>
+            )}
           </div>
         ) : null}
       />
