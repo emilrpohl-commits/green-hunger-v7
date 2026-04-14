@@ -17,12 +17,12 @@ import {
 import { fetchSpellCompendiumAll } from '@shared/lib/spellCompendium/fetchPaged.js'
 import { compendiumRowToPlayerEntry } from '@shared/lib/spellCompendium/mappers.js'
 import { CHARACTERS } from '@shared/content/session1.js'
-import { normalizeConditionName } from '@shared/lib/rules/conditionCatalog.js'
+import { normalizeConditionName, toCanonicalConditions } from '@shared/lib/rules/conditionCatalog.js'
 import { normalizeConditionsArray } from '@shared/lib/rules/conditionHydration.js'
 import { applyLongRestHpOnly, applyLongRestExhaustion } from '@shared/lib/rules/restOrchestrator.js'
 import {
   normalizeSpellId, mergeSpellWithOverride, toEngineCompendiumSpell,
-  withSpellIds, sanitizeIlyaSheet,
+  withSpellIds, sanitizeIlyaSheet, mergeSpellSourceMaps,
 } from './helpers.js'
 
 const useBundledPlayerRuntime = !featureFlags.seedlessPlatform || featureFlags.demoCampaign
@@ -183,12 +183,15 @@ export const createDataSlice = (set, get) => ({
       }
       set({ charactersLoadError: null })
 
-      const spellCompendium = {}
+      const baseCompendium = {}
       for (const crow of spellCompendiumTableRows || []) {
         const entry = compendiumRowToPlayerEntry(crow)
-        if (entry?.spellId) spellCompendium[entry.spellId] = entry
+        if (entry?.spellId) baseCompendium[entry.spellId] = entry
       }
-      const compendiumTableSpellIds = new Set(Object.keys(spellCompendium))
+      const compendiumTableSpellIds = new Set(Object.keys(baseCompendium))
+      const spellsTableMap = {}
+      const campaignSpellsMap = {}
+      const rulesMap = {}
 
       const spellsTableSpellToEntry = (row) => {
         const spellId = normalizeSpellId(row.spell_id || row.name)
@@ -240,19 +243,24 @@ export const createDataSlice = (set, get) => ({
         if (row.campaign_id == null) {
           if (compendiumTableSpellIds.has(spellId)) return
           const entry = spellsTableSpellToEntry(row)
-          if (entry) spellCompendium[spellId] = entry
+          if (entry) spellsTableMap[spellId] = entry
         } else if (campaignId && row.campaign_id === campaignId) {
           const entry = spellsTableSpellToEntry(row)
-          if (entry) spellCompendium[spellId] = entry
+          if (entry) campaignSpellsMap[spellId] = entry
         }
       })
       ;(rulesSpellRows || []).forEach((row) => {
         const mapped = toEngineCompendiumSpell(row)
         if (!mapped?.spellId) return
-        if (!spellCompendium[mapped.spellId]) {
-          spellCompendium[mapped.spellId] = mapped
-        }
+        rulesMap[mapped.spellId] = mapped
       })
+
+      const spellCompendium = mergeSpellSourceMaps([
+        { name: 'rules_entities', entries: rulesMap },
+        { name: 'spell_compendium', entries: baseCompendium },
+        { name: 'spells_table', entries: spellsTableMap },
+        { name: 'campaign_spells', entries: campaignSpellsMap },
+      ], { logConflicts: import.meta.env.DEV })
 
       for (const k of Object.keys(spellCompendium)) {
         spellCompendium[k] = applySpellHomebrewOverlays(spellCompendium[k], spellOverlays)
@@ -365,12 +373,20 @@ export const createDataSlice = (set, get) => ({
       if (validStates.length > 0) {
         const { characters } = get()
         const roster = Array.isArray(characters) ? characters : []
+        const rosterIds = new Set(roster.map((c) => c.id))
         const updated = roster.map((c) => {
           const saved = validStates.find((d) => d.id === c.id)
           if (!saved) return c
           return mergeCharacterStateIntoRuntimeRow({ ...c }, saved)
         })
-        set({ characters: updated })
+        const companionSpellSlots = {}
+        for (const state of validStates) {
+          if (rosterIds.has(state.id)) continue
+          if (state.spell_slots && typeof state.spell_slots === 'object') {
+            companionSpellSlots[state.id] = state.spell_slots
+          }
+        }
+        set({ characters: updated, companionSpellSlots })
       }
       const { data: combatData } = await supabase
         .from('combat_state').select('*').eq('id', sessionRunId).single()
@@ -467,7 +483,7 @@ export const createDataSlice = (set, get) => ({
 
   setMyCharacterConditions: async (characterId, conditions) => {
     if (!get().canEditCharacterState(characterId)) return
-    const next = normalizeConditionsArray(Array.isArray(conditions) ? conditions : [])
+    const next = normalizeConditionsArray(toCanonicalConditions(Array.isArray(conditions) ? conditions : []))
     await get().upsertCharacterStateRow(characterId, { conditions: next })
   },
 

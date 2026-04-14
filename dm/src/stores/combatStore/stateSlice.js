@@ -1,6 +1,6 @@
 import { supabase } from '@shared/lib/supabase.js'
 import { ensureActionEconomy } from '@shared/lib/combatRules.js'
-import { getRulesetContext, getSessionRunId } from '@shared/lib/runtimeContext.js'
+import { getRulesetContext, getSessionRunId, setRulesetContext } from '@shared/lib/runtimeContext.js'
 import { parseCombatantsArray } from '@shared/lib/validation/storeBoundaries.js'
 import { normalizeCombatantConditions } from '@shared/lib/rules/conditionHydration.js'
 import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
@@ -39,6 +39,9 @@ export const createStateSlice = (set, get) => ({
 
   applyCombatStateRow: (row) => {
     if (!row) return
+    if (row.ruleset_context && typeof row.ruleset_context === 'object') {
+      setRulesetContext(row.ruleset_context)
+    }
     let incomingTs = row.updated_at ? Date.parse(row.updated_at) : null
     if (incomingTs != null && Number.isNaN(incomingTs)) incomingTs = null
     const lastApplied = get()._combatStateSyncedAt

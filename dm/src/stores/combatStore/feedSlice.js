@@ -1,5 +1,5 @@
 import { supabase } from '@shared/lib/supabase.js'
-import { decodeSavePrompt } from '@shared/lib/combatRules.js'
+import { decodeSavePrompt, decodeSavePromptStrict, readSavePromptPayload } from '@shared/lib/combatRules.js'
 import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
 
 export const createFeedSlice = (set, get) => ({
@@ -48,16 +48,39 @@ export const createFeedSlice = (set, get) => ({
         .limit(50)
 
       if (data) {
+        const decodeErrors = []
         const feed = data
           .filter(d => d.type !== 'player-save-prompt')
           .map(d => ({
             id: d.id, round: d.round, text: d.text, type: d.type, shared: d.shared,
+            payload: d.payload && typeof d.payload === 'object' ? d.payload : undefined,
             metadata: d.metadata && typeof d.metadata === 'object' ? d.metadata : undefined,
           }))
         const savePrompts = data
           .filter(d => d.type === 'save-prompt')
-          .map(d => ({ ...(decodeSavePrompt(d.text) || {}), eventId: d.id, resolved: false }))
+          .map(d => {
+            const payload = readSavePromptPayload(d)
+            const strict = decodeSavePromptStrict(d.text)
+            if (payload && typeof payload === 'object') return { ...payload, eventId: d.id, resolved: false }
+            if (strict.ok) return { ...strict.payload, eventId: d.id, resolved: false }
+            const loose = decodeSavePrompt(d.text)
+            if (loose) return { ...loose, eventId: d.id, resolved: false }
+            decodeErrors.push(d.id)
+            return null
+          })
+          .filter(Boolean)
           .filter(p => p.promptId)
+        if (decodeErrors.length > 0) {
+          const text = `[System] Save prompt decode failed for event(s): ${decodeErrors.join(', ')}`
+          feed.unshift({
+            id: `save-decode-${Date.now()}`,
+            round: 0,
+            text,
+            type: 'system',
+            shared: false,
+          })
+          console.error(text)
+        }
         set({ feed, savePrompts })
       }
     } catch (e) {
@@ -126,10 +149,12 @@ export const createFeedSlice = (set, get) => ({
           shared: row.shared,
           timestamp: row.timestamp,
           metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : undefined,
+          payload: row.payload && typeof row.payload === 'object' ? row.payload : undefined,
         }
         set(state => ({ feed: [event, ...state.feed].slice(0, 80) }))
         if (row.type === 'save-prompt') {
-          const prompt = decodeSavePrompt(row.text)
+          const strict = decodeSavePromptStrict(row.text)
+          const prompt = readSavePromptPayload(row) || (strict.ok ? strict.payload : decodeSavePrompt(row.text))
           if (!prompt) return
           set(state => ({
             savePrompts: [
@@ -139,7 +164,8 @@ export const createFeedSlice = (set, get) => ({
           }))
         }
         if (row.type === 'save-prompt-resolved') {
-          const resolvedPrompt = decodeSavePrompt(row.text)
+          const strict = decodeSavePromptStrict(row.text)
+          const resolvedPrompt = readSavePromptPayload(row) || (strict.ok ? strict.payload : decodeSavePrompt(row.text))
           const promptId = resolvedPrompt?.promptId
           if (!promptId) return
           set(state => ({ savePrompts: state.savePrompts.map(p => p.promptId === promptId ? { ...p, resolved: true } : p) }))

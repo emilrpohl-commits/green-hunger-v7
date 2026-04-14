@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { supabase } from '@shared/lib/supabase.js'
 import { getSessionRunId } from '@shared/lib/runtimeContext.js'
-import { decodeSavePrompt, decodePlayerSavePrompt } from '@shared/lib/combatRules.js'
+import { decodeSavePrompt, decodeSavePromptStrict, decodePlayerSavePrompt, readSavePromptPayload } from '@shared/lib/combatRules.js'
 import { usePlayerStore } from '../stores/playerStore'
 
 function formatPlayerFeedEvent(event) {
@@ -9,15 +9,19 @@ function formatPlayerFeedEvent(event) {
   if (event.type === 'player-save-prompt') return null
   if (decodePlayerSavePrompt(event.text)) return null
   if (event.type === 'save-prompt-resolved') {
-    const p = decodeSavePrompt(event.text)
+    const strict = decodeSavePromptStrict(event.text)
+    const p = readSavePromptPayload(event) || (strict.ok ? strict.payload : decodeSavePrompt(event.text))
+    if (!p) return '[System] Save prompt resolution failed to decode.'
     return p?.resolutionText ?? null
   }
   if (event.type === 'save-prompt') {
-    const p = decodeSavePrompt(event.text)
+    const strict = decodeSavePromptStrict(event.text)
+    const p = readSavePromptPayload(event) || (strict.ok ? strict.payload : decodeSavePrompt(event.text))
     if (p) {
       const names = (p.targets || []).map(t => t.name).filter(Boolean).join(', ')
       return `${p.casterName || 'Someone'} casts ${p.spellName || 'a spell'}: ${p.saveAbility} save DC ${p.saveDc}${names ? ` (${names})` : ''}`
     }
+    return '[System] Save prompt failed to decode.'
   }
   return event.text
 }

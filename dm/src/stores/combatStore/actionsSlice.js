@@ -10,9 +10,27 @@ import { appendDamagePipelineDetail } from '@shared/lib/combat/combatFeedFormat.
 
 export const createActionsSlice = (set, get) => ({
   savePrompts: [],
+  emitRestEvent: async (restType = 'short') => {
+    const normalized = restType === 'long' ? 'long' : 'short'
+    const { sessionRunId, round } = get()
+    try {
+      await supabase.from('combat_feed').insert({
+        session_id: sessionRunId,
+        session_run_id: sessionRunId,
+        round,
+        text: normalized === 'long' ? 'Long Rest' : 'Short Rest',
+        type: 'rest',
+        payload: { restType: normalized },
+        shared: true,
+        timestamp: new Date().toISOString(),
+      })
+    } catch (e) {
+      console.error('emitRestEvent failed', e)
+    }
+  },
 
   damageCombatant: async (combatantId, amount, damageType = null, options = {}) => {
-    const { combatants } = get()
+    const { combatants, round, active, activeCombatantIndex, initiativePhase, ilyaAssignedTo, sessionRunId } = get()
     const combatant = combatants.find(c => c.id === combatantId)
     if (!combatant) return
 
@@ -49,12 +67,41 @@ export const createActionsSlice = (set, get) => ({
       ? `${combatant.name} is DOWN (0 HP).`
       : `${combatant.name} takes ${hpLoss} damage (${newHp}/${combatant.maxHp} HP)`
     const msg = appendDamagePipelineDetail(core, bundle.lines)
-    await get().pushFeedEvent(msg, 'damage', isShared, {
-      kind: 'damage',
-      target_id: combatantId,
-      combat_action_id: `dmg-${Date.now()}`,
-    })
-    await get().syncCombatState()
+    const rulesetContext = getRulesetContext()
+    try {
+      const { data, error } = await supabase.rpc('apply_combat_damage', {
+        p_session_id: sessionRunId,
+        p_combatant_id: combatantId,
+        p_new_cur_hp: newHp,
+        p_new_temp_hp: newTempHp,
+        p_round: round,
+        p_message: msg,
+        p_shared: isShared,
+        p_metadata: {
+          kind: 'damage',
+          target_id: combatantId,
+          combat_action_id: `dmg-${Date.now()}`,
+        },
+        p_combat_active: active,
+        p_active_combatant_index: activeCombatantIndex,
+        p_initiative_phase: initiativePhase,
+        p_ilya_assigned_to: ilyaAssignedTo,
+        p_ruleset_context: rulesetContext,
+      })
+      if (error) throw error
+      const row = Array.isArray(data) ? data[0] : data
+      if (Array.isArray(row?.updated_combatants)) {
+        set({ combatants: row.updated_combatants.map((c) => normalizeCombatantConditions({ ...c, actionEconomy: c.actionEconomy || makeActionEconomy() })) })
+      }
+    } catch (e) {
+      console.error('Failed to apply combat damage atomically:', e)
+      await get().pushFeedEvent(msg, 'damage', isShared, {
+        kind: 'damage',
+        target_id: combatantId,
+        combat_action_id: `dmg-${Date.now()}`,
+      })
+      await get().syncCombatState()
+    }
   },
 
   healCombatant: async (combatantId, amount) => {
@@ -228,6 +275,7 @@ export const createActionsSlice = (set, get) => ({
         session_id: sessionRunId,
         round,
         text: encodeSavePrompt({ promptId: prompt.promptId, resolutionText }),
+        payload: { promptId: prompt.promptId, resolutionText },
         type: 'save-prompt-resolved',
         shared: true,
         visibility: 'player_visible',
@@ -261,6 +309,26 @@ export const createActionsSlice = (set, get) => ({
     const updatedCombatants = combatants.map((c, i) => {
       if (i === idx) return { ...c, actionEconomy: makeActionEconomy() }
       return c
+    }).map((c) => {
+      const rows = Array.isArray(c.conditionMetadata) ? c.conditionMetadata : []
+      if (rows.length === 0) return c
+      const nextRows = rows
+        .map((row) => {
+          if (!row || typeof row !== 'object') return row
+          const duration = row.duration
+          if (!duration || typeof duration !== 'object') return row
+          if (duration.type !== 'turns') return row
+          const value = Math.max(0, Math.floor(Number(duration.value) || 0) - 1)
+          return { ...row, duration: { ...duration, value } }
+        })
+        .filter((row) => {
+          const duration = row?.duration
+          if (!duration || typeof duration !== 'object') return true
+          if (duration.type !== 'turns') return true
+          return (Math.floor(Number(duration.value) || 0) > 0)
+        })
+      if (nextRows.length === rows.length) return c
+      return { ...c, conditionMetadata: nextRows }
     })
     set({ activeCombatantIndex: idx, round: newRound, combatants: updatedCombatants })
     await get().pushFeedEvent(`${combatants[idx]?.name}'s turn.`, 'turn', false)
