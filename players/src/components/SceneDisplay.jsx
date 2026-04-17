@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { usePlayerStore } from '../stores/playerStore'
 import { getSceneMediaPublicUrl } from '@shared/lib/sceneMediaStorage.js'
+import { sanitizeUserText } from '@shared/lib/sanitizeUserText.js'
 
 const SESSION_ERROR_COPY = {
   no_active_session: 'The DM has not set a live session yet. Scene text will appear once they select a session in the DM console. If the DM is in seedless mode, they must load a campaign before sessions exist.',
@@ -118,11 +119,11 @@ export default function SceneDisplay() {
       </div>
 
       {/* Scene title */}
-      <h2 className="scene-title" style={{ position: 'relative', zIndex: 1, textShadow: coverUrl ? '0 2px 16px rgba(0,0,0,0.7)' : undefined }}>{scene.title}</h2>
+      <h2 className="scene-title" style={{ position: 'relative', zIndex: 1, textShadow: coverUrl ? '0 2px 16px rgba(0,0,0,0.7)' : undefined }}>{sanitizeUserText(scene.title)}</h2>
 
       {/* Scene description (player-safe subtitle) */}
       {scene.subtitle && (
-        <div className="scene-description" style={{ position: 'relative', zIndex: 1 }}>{scene.subtitle}</div>
+        <div className="scene-description" style={{ position: 'relative', zIndex: 1 }}>{sanitizeUserText(scene.subtitle)}</div>
       )}
 
       {/* Current beat */}
@@ -139,7 +140,7 @@ export default function SceneDisplay() {
               {tone.label}
             </span>
             {currentBeat.title && (
-              <span className="scene-beat__title">{currentBeat.title}</span>
+              <span className="scene-beat__title">{sanitizeUserText(currentBeat.title)}</span>
             )}
           </div>
           {currentBeat.flavour_text && (
@@ -154,11 +155,11 @@ export default function SceneDisplay() {
                 marginBottom: 10,
               }}
             >
-              {currentBeat.flavour_text}
+              {sanitizeUserText(currentBeat.flavour_text)}
             </div>
           )}
           {currentBeat.playerText && (
-            <div className="scene-beat__text">{currentBeat.playerText}</div>
+            <div className="scene-beat__text">{sanitizeUserText(currentBeat.playerText)}</div>
           )}
         </div>
       )}

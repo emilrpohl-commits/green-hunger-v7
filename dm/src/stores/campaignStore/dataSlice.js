@@ -1,27 +1,57 @@
 import { supabase } from '@shared/lib/supabase.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
-import { loadSessionContentTree } from '@shared/lib/sessionTreeLoader.js'
 import { filterValidSpellRows } from '@shared/lib/validation/storeBoundaries.js'
 import { compendiumRowToDmListRow } from '@shared/lib/spellCompendium/mappers.js'
 import { fetchSpellCompendiumAll } from '@shared/lib/spellCompendium/fetchPaged.js'
 
-async function fetchStatBlocksForCampaignPaged(campaignId, pageSize = 250) {
-  const rows = []
-  let from = 0
-  while (true) {
-    const to = from + pageSize - 1
-    const { data, error } = await supabase
+const MAX_STAT_BLOCK_PAGES = 30
+
+async function fetchStatBlocksForCampaignPaged(campaignId, {
+  includeArchived = false,
+  pageSize = 100,
+  maxPages = MAX_STAT_BLOCK_PAGES,
+  retries = 1,
+} = {}) {
+  const runPageQuery = async (from, to) => {
+    let q = supabase
       .from('stat_blocks')
       .select('*')
       .eq('campaign_id', campaignId)
-      .range(from, to)
+    q = includeArchived ? q.not('archived_at', 'is', null) : q.is('archived_at', null)
+    q = includeArchived
+      ? q.order('archived_at', { ascending: false })
+      : q.order('name', { ascending: true })
+    return q.range(from, to)
+  }
+
+  const rows = []
+  let from = 0
+  let pageIndex = 0
+  for (;;) {
+    if (pageIndex >= maxPages) {
+      return { rows, truncated: true }
+    }
+    pageIndex += 1
+    const to = from + pageSize - 1
+    let attempt = 0
+    let data = null
+    let error = null
+    while (attempt <= retries) {
+      const res = await runPageQuery(from, to)
+      data = res.data
+      error = res.error
+      if (!error) break
+      const msg = String(error.message || '').toLowerCase()
+      if (!msg.includes('statement timeout') && !msg.includes('canceling statement due to statement timeout')) break
+      if (attempt === retries) break
+      attempt += 1
+    }
     if (error) throw new Error(`stat_blocks: ${error.message}`)
     const batch = data || []
     rows.push(...batch)
-    if (batch.length < pageSize) break
+    if (batch.length < pageSize) return { rows, truncated: false }
     from += pageSize
   }
-  return rows.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
 }
 
 function emptyCampaignState(campaignChoices = []) {
@@ -41,6 +71,13 @@ function emptyCampaignState(campaignChoices = []) {
     encounters: [],
     archivedSessions: [],
     archivedStatBlocks: [],
+    statBlockLoadInfo: {
+      fetched: 0,
+      active: 0,
+      archived: 0,
+      warning: null,
+      campaignId: null,
+    },
     campaignChoices,
     characters: [],
   }
@@ -66,6 +103,13 @@ export function createDataSlice(set, get) {
     characters: [],
     archivedSessions: [],
     archivedStatBlocks: [],
+    statBlockLoadInfo: {
+      fetched: 0,
+      active: 0,
+      archived: 0,
+      warning: null,
+      campaignId: null,
+    },
     /** Seedless boot: multiple campaigns when no slug was passed — DM picks one to load */
     campaignChoices: [],
 
@@ -133,18 +177,49 @@ export function createDataSlice(set, get) {
           .single()
         if (ce) throw new Error(`campaign: ${ce.message}`)
 
-        let statBlocks = []
+        let activeStatBlocks = []
+        let archivedStatBlocks = []
+        let statBlockLoadWarning = null
+        let activeTruncated = false
+        let archivedTruncated = false
         try {
-          statBlocks = await fetchStatBlocksForCampaignPaged(campaign.id)
+          const activeRes = await fetchStatBlocksForCampaignPaged(campaign.id, {
+            includeArchived: false,
+            pageSize: 100,
+            retries: 1,
+          })
+          activeStatBlocks = activeRes.rows
+          activeTruncated = activeRes.truncated
+          const archRes = await fetchStatBlocksForCampaignPaged(campaign.id, {
+            includeArchived: true,
+            pageSize: 100,
+            retries: 1,
+          })
+          archivedStatBlocks = archRes.rows
+          archivedTruncated = archRes.truncated
         } catch (e) {
           // Non-fatal: let DM app load while surfacing the warning.
           console.warn('stat_blocks load:', e?.message || e)
-          statBlocks = []
+          statBlockLoadWarning = `Stat blocks failed to load for this campaign: ${e?.message || e}`
+          activeStatBlocks = []
+          archivedStatBlocks = []
         }
 
-        const allStatBlocks = statBlocks || []
-        const activeStatBlocks = allStatBlocks.filter(sb => !sb.archived_at)
-        const archivedStatBlocks = allStatBlocks.filter(sb => !!sb.archived_at)
+        if (activeTruncated || archivedTruncated) {
+          const parts = []
+          if (activeTruncated) parts.push(`active list capped at ~${MAX_STAT_BLOCK_PAGES * 100} rows`)
+          if (archivedTruncated) parts.push('archived list capped similarly')
+          statBlockLoadWarning = [statBlockLoadWarning, parts.join('; ')].filter(Boolean).join(' — ')
+        }
+
+        const allStatBlocks = [...activeStatBlocks, ...archivedStatBlocks]
+        const statBlockLoadInfo = {
+          fetched: allStatBlocks.length,
+          active: activeStatBlocks.length,
+          archived: archivedStatBlocks.length,
+          warning: statBlockLoadWarning,
+          campaignId: campaign.id,
+        }
         const statBlockMap = {}
         ;activeStatBlocks.forEach(sb => {
           statBlockMap[sb.slug] = sb
@@ -314,6 +389,7 @@ export function createDataSlice(set, get) {
           sessions: sessionsWithContent,
           statBlocks: activeStatBlocks,
           archivedStatBlocks,
+          statBlockLoadInfo,
           statBlockMap,
           spells: campaignSpellsOnly,
           compendiumSpells,
@@ -336,8 +412,6 @@ export function createDataSlice(set, get) {
         return { ok: false, error: e.message }
       }
     },
-
-    loadSessionContent: async (session) => loadSessionContentTree(supabase, session),
 
     refreshCompendiumSpells: async () => {
       try {
@@ -366,53 +440,23 @@ export function createDataSlice(set, get) {
       }
     },
 
-    refreshSession: async (sessionId) => {
-      const { data: session } = await supabase.from('sessions').select('*').eq('id', sessionId).single()
-      if (!session) return
-      const refreshed = await get().loadSessionContent(session)
-      const { sessions } = get()
-      set({ sessions: sessions.map(s => s.id === sessionId ? refreshed : s) })
+    /** Server-side compendium name / search_text match (for large libraries). */
+    searchSpellCompendiumIlike: async (q, { limit = 120 } = {}) => {
+      const needle = String(q || '').trim()
+      if (needle.length < 2) return []
+      const pattern = `%${needle}%`
+      const [{ data: byName, error: e1 }, { data: bySearch, error: e2 }] = await Promise.all([
+        supabase.from('spell_compendium').select('*').ilike('name', pattern).limit(limit),
+        supabase.from('spell_compendium').select('*').ilike('search_text', pattern).limit(limit),
+      ])
+      if (e1) console.warn('searchSpellCompendiumIlike name:', e1.message)
+      if (e2) console.warn('searchSpellCompendiumIlike search_text:', e2.message)
+      const byId = new Map()
+      for (const row of [...(byName || []), ...(bySearch || [])]) {
+        if (row?.id) byId.set(row.id, compendiumRowToDmListRow(row))
+      }
+      return Array.from(byId.values()).filter(Boolean)
     },
 
-    getSceneMap: () => {
-      const map = {}
-      get().sessions.forEach(session => {
-        session.scenes?.forEach(scene => {
-          map[scene.id] = scene
-          if (scene.slug) map[scene.slug] = scene
-        })
-      })
-      return map
-    },
-
-    getAllScenes: () => {
-      return get().sessions.flatMap(s => s.scenes || [])
-    },
-
-    createSession: async (title) => {
-      const { adventureId, sessions } = get()
-      if (!adventureId) return { error: 'No adventure loaded — run migration first' }
-
-      const nextNumber = (sessions.length > 0
-        ? Math.max(...sessions.map(s => s.session_number || s.order || 0)) + 1
-        : 1)
-
-      const { data, error } = await supabase
-        .from('sessions')
-        .insert({
-          adventure_id: adventureId,
-          order: nextNumber,
-          session_number: nextNumber,
-          title: title || `Session ${nextNumber}`,
-        })
-        .select()
-        .single()
-
-      if (error) return { error: error.message }
-
-      const refreshed = await get().loadSessionContent(data)
-      set({ sessions: [...get().sessions, refreshed] })
-      return { data: refreshed }
-    },
   }
 }

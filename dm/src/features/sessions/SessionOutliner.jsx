@@ -10,6 +10,7 @@ import { useCampaignStore } from '../../stores/campaignStore'
 import { useSessionStore } from '../../stores/sessionStore'
 import { mono, inputBase, btnSm, btnGreen } from './outlinerStyles'
 import SessionRow from './SessionRow'
+import { sessionRestoreConfirmMessage } from './deleteScopeCopy.js'
 
 export default function SessionOutliner({ onImport }) {
   const sessions = useCampaignStore(s => s.sessions)
@@ -119,6 +120,7 @@ export default function SessionOutliner({ onImport }) {
               </div>
               <button
                 onClick={async () => {
+                  if (!window.confirm(sessionRestoreConfirmMessage(session))) return
                   const result = await restoreSession(session.id)
                   if (!result?.error) syncContentFromDb(useCampaignStore.getState().sessions)
                 }}

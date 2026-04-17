@@ -2,7 +2,7 @@
 
 create table if not exists public.audio_assets (
   id uuid primary key default gen_random_uuid(),
-  campaign_id uuid references public.campaigns(id) on delete cascade not null,
+  campaign_id uuid not null,
   name text not null,
   type text not null default 'sfx',
   storage_path text not null,
@@ -11,8 +11,8 @@ create table if not exists public.audio_assets (
   loop_default boolean default false,
   volume_default numeric(5,4) default 1.0,
   favorite boolean default false,
-  scene_id uuid references public.scenes(id) on delete set null,
-  encounter_id uuid references public.encounters(id) on delete set null,
+  scene_id uuid,
+  encounter_id uuid,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   constraint audio_assets_type_check check (type in ('background', 'sfx'))
@@ -20,7 +20,7 @@ create table if not exists public.audio_assets (
 
 create table if not exists public.audio_playlists (
   id uuid primary key default gen_random_uuid(),
-  campaign_id uuid references public.campaigns(id) on delete cascade not null,
+  campaign_id uuid not null,
   name text not null,
   type text not null default 'sfx',
   description text,
@@ -38,15 +38,22 @@ create table if not exists public.audio_playlist_items (
   updated_at timestamptz default now()
 );
 
-alter table public.scenes
-  add column if not exists default_background_playlist_id uuid references public.audio_playlists(id) on delete set null,
-  add column if not exists default_background_asset_id uuid references public.audio_assets(id) on delete set null,
-  add column if not exists default_sfx_playlist_id uuid references public.audio_playlists(id) on delete set null;
+do $$
+begin
+  if to_regclass('public.scenes') is not null then
+    alter table public.scenes
+      add column if not exists default_background_playlist_id uuid references public.audio_playlists(id) on delete set null,
+      add column if not exists default_background_asset_id uuid references public.audio_assets(id) on delete set null,
+      add column if not exists default_sfx_playlist_id uuid references public.audio_playlists(id) on delete set null;
+  end if;
 
-alter table public.encounters
-  add column if not exists default_background_playlist_id uuid references public.audio_playlists(id) on delete set null,
-  add column if not exists default_background_asset_id uuid references public.audio_assets(id) on delete set null,
-  add column if not exists default_sfx_playlist_id uuid references public.audio_playlists(id) on delete set null;
+  if to_regclass('public.encounters') is not null then
+    alter table public.encounters
+      add column if not exists default_background_playlist_id uuid references public.audio_playlists(id) on delete set null,
+      add column if not exists default_background_asset_id uuid references public.audio_assets(id) on delete set null,
+      add column if not exists default_sfx_playlist_id uuid references public.audio_playlists(id) on delete set null;
+  end if;
+end $$;
 
 create index if not exists audio_assets_campaign_type_name_idx
   on public.audio_assets(campaign_id, type, name);

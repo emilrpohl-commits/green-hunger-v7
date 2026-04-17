@@ -1,10 +1,34 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
 import { BEAT_TYPES, BEAT_TYPE_COLOURS } from '@shared/lib/constants.js'
 import SceneMediaUploader, { BeatIllustrationUploader } from '../../components/SceneMediaUploader.jsx'
 
 const SCENE_TYPES = ['narrative', 'combat', 'exploration', 'social', 'puzzle', 'transition']
 const BRANCH_CONDITION_TYPES = ['explicit', 'implicit', 'conditional']
+
+function sceneFormSnapshot(scene, sceneForm) {
+  if (!scene) return ''
+  return JSON.stringify({
+    title: sceneForm.title || '',
+    subtitle: sceneForm.subtitle || '',
+    scene_type: sceneForm.scene_type || 'narrative',
+    subtype: sceneForm.subtype || '',
+    purpose: sceneForm.purpose || '',
+    summary: sceneForm.summary || '',
+    player_description: sceneForm.player_description || '',
+    dm_notes: sceneForm.dm_notes || '',
+    entry_conditions: sceneForm.entry_conditions || '',
+    environment: sceneForm.environment || '',
+    estimated_time: sceneForm.estimated_time || '',
+    fallback_notes: sceneForm.fallback_notes || '',
+    fail_forward_notes: sceneForm.fail_forward_notes || '',
+    scaling_notes: sceneForm.scaling_notes || '',
+    is_published: !!sceneForm.is_published,
+    slug: sceneForm.slug || '',
+    image_url: sceneForm.image_url || '',
+    scene_images: Array.isArray(sceneForm.scene_images) ? sceneForm.scene_images : [],
+  })
+}
 
 export default function SceneEditor({ sceneId, sessionId, onClose }) {
   const sessions = useCampaignStore(s => s.sessions)
@@ -23,6 +47,8 @@ export default function SceneEditor({ sceneId, sessionId, onClose }) {
   const [editBeat, setEditBeat] = useState(null)       // beat id being edited
   const [editBranch, setEditBranch] = useState(null)   // branch id being edited
   const [activeTab, setActiveTab] = useState('scene')  // 'scene' | 'beats' | 'branches'
+  const baselineRef = useRef(null)
+  const [autosaveStatus, setAutosaveStatus] = useState(null)
 
   // All scenes (for branch target picker)
   const allScenes = sessions.flatMap(s => s.scenes || [])
@@ -31,7 +57,7 @@ export default function SceneEditor({ sceneId, sessionId, onClose }) {
     const found = allScenes.find(s => s.id === sceneId)
     if (found) {
       setScene(found)
-      setSceneForm({
+      const nextForm = {
         title: found.title || '',
         subtitle: found.subtitle || '',
         scene_type: found.scene_type || 'narrative',
@@ -50,9 +76,45 @@ export default function SceneEditor({ sceneId, sessionId, onClose }) {
         slug: found.slug || '',
         image_url: found.image_url || '',
         scene_images: Array.isArray(found.scene_images) ? found.scene_images : [],
-      })
+      }
+      setSceneForm(nextForm)
+      baselineRef.current = sceneFormSnapshot(found, nextForm)
+      setAutosaveStatus(null)
     }
   }, [sceneId, sessions])
+
+  const updateForm = (field, value) => {
+    setSceneForm(f => ({ ...f, [field]: value }))
+    setSaveMsg(null)
+  }
+
+  const sceneSnap = useMemo(() => (scene ? sceneFormSnapshot(scene, sceneForm) : ''), [scene, sceneForm])
+
+  const sceneRef = useRef(scene)
+  const sceneFormRef = useRef(sceneForm)
+  sceneRef.current = scene
+  sceneFormRef.current = sceneForm
+
+  useEffect(() => {
+    if (!scene || baselineRef.current === null) return undefined
+    if (sceneSnap === baselineRef.current) return undefined
+    if (!(sceneForm.title || '').trim()) return undefined
+    const t = setTimeout(async () => {
+      setAutosaveStatus('saving')
+      const sc = sceneRef.current
+      const sf = sceneFormRef.current
+      const result = await saveScene({ ...sc, ...sf })
+      if (result.error) {
+        setAutosaveStatus('error')
+        setSaveMsg({ type: 'error', text: result.error })
+        return
+      }
+      baselineRef.current = sceneFormSnapshot(sc, sf)
+      setAutosaveStatus('saved')
+      setTimeout(() => setAutosaveStatus((s) => (s === 'saved' ? null : s)), 2200)
+    }, 2500)
+    return () => clearTimeout(t)
+  }, [sceneSnap, scene, saveScene, sceneForm.title])
 
   if (!scene) {
     return (
@@ -62,16 +124,20 @@ export default function SceneEditor({ sceneId, sessionId, onClose }) {
     )
   }
 
-  const updateForm = (field, value) => {
-    setSceneForm(f => ({ ...f, [field]: value }))
-    setSaveMsg(null)
-  }
-
   const handleSaveScene = async () => {
+    if (!(sceneForm.title || '').trim()) {
+      setSaveMsg({ type: 'error', text: 'Title is required before saving.' })
+      return
+    }
     setSaving(true)
     const result = await saveScene({ ...scene, ...sceneForm })
     setSaving(false)
-    setSaveMsg(result.error ? { type: 'error', text: result.error } : { type: 'ok', text: 'Saved' })
+    if (result.error) setSaveMsg({ type: 'error', text: result.error })
+    else {
+      setSaveMsg({ type: 'ok', text: 'Saved' })
+      baselineRef.current = sceneFormSnapshot(scene, sceneForm)
+      setAutosaveStatus(null)
+    }
   }
 
   const mono = { fontFamily: 'var(--font-mono)' }
@@ -101,6 +167,12 @@ export default function SceneEditor({ sceneId, sessionId, onClose }) {
           <div style={{ ...mono, fontSize: 11, color: saveMsg.type === 'ok' ? 'var(--green-bright)' : 'var(--danger)' }}>
             {saveMsg.text}
           </div>
+        )}
+        {autosaveStatus === 'saving' && <span style={{ ...mono, fontSize: 10, color: 'var(--text-muted)' }}>Autosaving…</span>}
+        {autosaveStatus === 'saved' && <span style={{ ...mono, fontSize: 10, color: 'var(--green-bright)' }}>All changes saved</span>}
+        {autosaveStatus === 'error' && <span style={{ ...mono, fontSize: 10, color: 'var(--danger)' }}>Autosave failed</span>}
+        {sceneSnap !== baselineRef.current && (sceneForm.title || '').trim() && (
+          <span style={{ ...mono, fontSize: 10, color: 'var(--warning)' }}>Unsaved</span>
         )}
         <button
           onClick={handleSaveScene}
@@ -265,10 +337,17 @@ function BeatsPanel({ scene, statBlocks, saveBeat, deleteBeat, reorderBeats, edi
     if (!result.error && !beatForm.id) setEditBeat(null)
   }
 
-  const handleDeleteBeat = async (id) => {
-    if (!window.confirm('Delete this beat?')) return
-    await deleteBeat(id)
-    if (editBeat === id) setEditBeat(null)
+  const handleDeleteBeat = async (beat) => {
+    const title = (beat.title || '').trim() || 'Untitled beat'
+    if (
+      !window.confirm(
+        `Permanently delete beat "${title}"?\n\n` +
+          'This removes DM/player text and any illustration for this beat. This cannot be undone.',
+      )
+    )
+      return
+    await deleteBeat(beat.id)
+    if (editBeat === beat.id) setEditBeat(null)
   }
 
   const handleMoveUp = async (beat, i) => {
@@ -388,7 +467,7 @@ function BeatsPanel({ scene, statBlocks, saveBeat, deleteBeat, reorderBeats, edi
           </div>
           {beat.stat_block_id && <span style={{ ...mono, fontSize: 9, color: 'var(--danger)', border: '1px solid rgba(196,64,64,0.3)', padding: '2px 6px', borderRadius: 4 }}>STAT BLOCK</span>}
           <button onClick={() => setEditBeat(beat.id)} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text-secondary)', ...mono, fontSize: 9, textTransform: 'uppercase' }}>Edit</button>
-          <button onClick={() => handleDeleteBeat(beat.id)} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(196,64,64,0.3)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--danger)', ...mono, fontSize: 9, textTransform: 'uppercase' }}>Delete</button>
+          <button onClick={() => handleDeleteBeat(beat)} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(196,64,64,0.3)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--danger)', ...mono, fontSize: 9, textTransform: 'uppercase' }}>Delete</button>
         </div>
       ))}
     </div>
@@ -435,9 +514,16 @@ function BranchesPanel({ scene, allScenes, saveBranch, deleteBranch, editBranch,
     if (!result.error) setEditBranch(null)
   }
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this branch?')) return
-    await deleteBranch(id)
+  const handleDelete = async (branch) => {
+    const label = (branch.label || '').trim() || 'Unlabeled branch'
+    if (
+      !window.confirm(
+        `Permanently delete branch "${label}"?\n\n` +
+          'Linked scene routing for this branch will be removed. This cannot be undone.',
+      )
+    )
+      return
+    await deleteBranch(branch.id)
   }
 
   if (editBranch !== null) {
@@ -525,7 +611,7 @@ function BranchesPanel({ scene, allScenes, saveBranch, deleteBranch, editBranch,
                 </div>
               </div>
               <button onClick={() => setEditBranch(branch.id)} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text-secondary)', ...mono, fontSize: 9, textTransform: 'uppercase' }}>Edit</button>
-              <button onClick={() => handleDelete(branch.id)} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(196,64,64,0.3)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--danger)', ...mono, fontSize: 9, textTransform: 'uppercase' }}>Delete</button>
+              <button onClick={() => handleDelete(branch)} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(196,64,64,0.3)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--danger)', ...mono, fontSize: 9, textTransform: 'uppercase' }}>Delete</button>
             </div>
           </div>
         )

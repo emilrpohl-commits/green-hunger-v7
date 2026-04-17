@@ -24,10 +24,16 @@ export const createRealtimeSlice = (set, get) => ({
   savePromptPollId: null,
   combatRealtimeDiagnostics: {
     lastCombatStateUpdatedAt: null,
+    lastCharacterStateUpdatedAt: null,
     lastCombatFeedTimestamp: null,
     lateCombatStateEvents: 0,
     duplicateFeedEvents: 0,
     staleCombatStateDrops: 0,
+    charStateNewerThanCombat: 0,
+    combatRowPatchedFromCharState: 0,
+    localHpPatchAttempts: 0,
+    savePromptResolvedWithDamage: 0,
+    savePromptResolvedZeroMissingMeta: 0,
   },
 
   clearDmRoll: () => set((state) => ({
@@ -117,13 +123,31 @@ export const createRealtimeSlice = (set, get) => ({
             }
             return
           }
+          const charStateMs = parseIsoMs(payload.new.updated_at)
+          const lastCombatMs = get()._combatStateSyncedAt
+          const charStrictlyNewer =
+            charStateMs != null && lastCombatMs != null && charStateMs > lastCombatMs
+          const combatRows = Array.isArray(combatCombatants) ? combatCombatants : []
+          const hasCombatRow = combatRows.some((row) => row.id === payload.new.id)
+          const shouldPatchCombatHp = combatActive && charStrictlyNewer && hasCombatRow
+
           const updated = roster.map((c) => {
             if (c.id !== payload.new.id) return c
             const merged = mergeCharacterStateIntoRuntimeRow({ ...c }, payload.new)
             if (!combatActive) return merged
-            const combatant = (Array.isArray(combatCombatants) ? combatCombatants : []).find((row) => row.id === c.id)
+            const combatant = combatRows.find((row) => row.id === c.id)
             if (!combatant) return merged
             // Authority contract: when combat is active, combat_state owns combat-critical fields.
+            // If character_states is strictly newer than the last applied combat_state watermark, do not
+            // let a stale combatant snapshot overwrite merged HP from the sheet row.
+            if (charStrictlyNewer) {
+              return {
+                ...merged,
+                concentration: combatant.concentration ?? merged.concentration,
+                conditions: Array.isArray(combatant.conditions) ? combatant.conditions : merged.conditions,
+                deathSaves: combatant.deathSaves ?? merged.deathSaves,
+              }
+            }
             return {
               ...merged,
               curHp: combatant.curHp ?? merged.curHp,
@@ -133,7 +157,32 @@ export const createRealtimeSlice = (set, get) => ({
               deathSaves: combatant.deathSaves ?? merged.deathSaves,
             }
           })
-          set({ characters: updated, lastUpdated: new Date() })
+          const nextCombatRows = shouldPatchCombatHp
+            ? combatRows.map((row) => (
+                row.id === payload.new.id
+                  ? {
+                      ...row,
+                      curHp: payload.new.cur_hp ?? row.curHp,
+                      tempHp: payload.new.temp_hp ?? row.tempHp,
+                    }
+                  : row
+              ))
+            : combatRows
+          set((state) => {
+            const cur = state.combatRealtimeDiagnostics || {}
+            return {
+              characters: updated,
+              combatCombatants: shouldPatchCombatHp ? nextCombatRows : state.combatCombatants,
+              lastUpdated: new Date(),
+              combatRealtimeDiagnostics: {
+                ...cur,
+                lastCharacterStateUpdatedAt: payload.new.updated_at || cur.lastCharacterStateUpdatedAt || null,
+                charStateNewerThanCombat: (cur.charStateNewerThanCombat || 0) + (charStrictlyNewer ? 1 : 0),
+                combatRowPatchedFromCharState: (cur.combatRowPatchedFromCharState || 0) + (shouldPatchCombatHp ? 1 : 0),
+                localHpPatchAttempts: (cur.localHpPatchAttempts || 0) + (shouldPatchCombatHp ? 1 : 0),
+              },
+            }
+          })
         }
       })
       .subscribe()

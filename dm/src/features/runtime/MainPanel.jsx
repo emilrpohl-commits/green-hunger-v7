@@ -7,6 +7,11 @@ import { rosterToDmTargetOptions } from '@shared/lib/partyRoster.js'
 import { BEAT_TYPE_LABELS, BEAT_TYPE_STYLES } from '@shared/lib/constants.js'
 import StatBlockView from '../statblocks/StatBlockView'
 import SceneBackdrop from '../../components/SceneBackdrop.jsx'
+import DiceInlineText from '@shared/components/combat/DiceInlineText.jsx'
+import { sanitizeUserText } from '@shared/lib/sanitizeUserText.js'
+import { createDmDiceRollHandler } from '@shared/lib/diceText/dispatch.js'
+import QuickDiceRoller from '@shared/components/combat/QuickDiceRoller.jsx'
+import { MAX_QUICK_DICE_COUNT, MIN_QUICK_DICE_COUNT } from '@shared/lib/combat/quickDiceRollerConstants.js'
 
 const BEAT_TYPE_LABEL = {
   ...BEAT_TYPE_LABELS,
@@ -14,8 +19,6 @@ const BEAT_TYPE_LABEL = {
 }
 
 const BEAT_TYPE_STYLE = { ...BEAT_TYPE_STYLES }
-
-const DICE = [4, 6, 8, 10, 12, 20]
 
 function parseMechanicalEffect(value) {
   if (!value) return null
@@ -121,23 +124,111 @@ function OutcomeTable({ rows }) {
 
 function DmDiceRoller({ supabaseClient }) {
   const roster = useSessionStore(s => s.characters)
+  const damageCombatant = useCombatStore((s) => s.damageCombatant)
+  const healCombatant = useCombatStore((s) => s.healCombatant)
+  const combatants = useCombatStore((s) => s.combatants)
   const dmRollTargets = useMemo(
     () => [...rosterToDmTargetOptions(roster), { id: 'all', name: 'All Players' }],
     [roster]
   )
   const [die, setDie] = useState(20)
+  const [diceCount, setDiceCount] = useState(1)
   const [modifier, setModifier] = useState(0)
   const [target, setTarget] = useState('all')
+  const [damageType, setDamageType] = useState('fire')
+  const [effectKind, setEffectKind] = useState('damage')
+  const [mode, setMode] = useState('roll_only')
+  const [d20Mode, setD20Mode] = useState('normal')
   const [lastRoll, setLastRoll] = useState(null)
+  const canApplyToTarget = target !== 'all'
+
+  useEffect(() => {
+    if (!canApplyToTarget && mode !== 'roll_only') setMode('roll_only')
+  }, [canApplyToTarget, mode])
+
+  useEffect(() => {
+    if (effectKind === 'check' && mode !== 'roll_only') setMode('roll_only')
+  }, [effectKind, mode])
+
+  useEffect(() => {
+    if (die === 20 && d20Mode !== 'normal') setDiceCount(1)
+  }, [die, d20Mode])
 
   const roll = async () => {
     const sessionRunId = getSessionRunId()
-    const result = Math.floor(Math.random() * die) + 1
-    const total = result + modifier
     const targetLabel = dmRollTargets.find(c => c.id === target)?.name || 'All Players'
+    const applying = mode === 'roll_apply' && canApplyToTarget && effectKind !== 'check'
+    const typeLabel = effectKind === 'damage' && damageType ? ` (${damageType})` : ''
+
+    const nPool = Math.min(MAX_QUICK_DICE_COUNT, Math.max(MIN_QUICK_DICE_COUNT, Number(diceCount) || 1))
+
+    let rollA = null
+    let rollB = null
+    let picked = null
+    let rollDescriptor = ''
+    const individualRolls = []
+
+    if (die === 20 && d20Mode !== 'normal') {
+      rollA = Math.floor(Math.random() * 20) + 1
+      rollB = Math.floor(Math.random() * 20) + 1
+      const keepHigh = d20Mode === 'advantage'
+      picked = keepHigh ? Math.max(rollA, rollB) : Math.min(rollA, rollB)
+      rollDescriptor = `d20(${rollA},${rollB}) keep ${keepHigh ? 'high' : 'low'} ${picked}`
+    } else {
+      for (let i = 0; i < nPool; i += 1) {
+        individualRolls.push(Math.floor(Math.random() * die) + 1)
+      }
+      picked = individualRolls.reduce((a, b) => a + b, 0)
+      rollDescriptor = nPool === 1
+        ? `d${die}(${individualRolls[0]})`
+        : `${nPool}d${die}(${individualRolls.join('+')}=${picked})`
+    }
+
+    let crit = false
+    let fumble = false
+    if (die === 20 && d20Mode !== 'normal') {
+      crit = picked === 20
+      fumble = picked === 1
+    } else if (die === 20 && nPool === 1) {
+      crit = individualRolls[0] === 20
+      fumble = individualRolls[0] === 1
+    }
+
+    const total = picked + modifier
     const modStr = modifier > 0 ? ` + ${modifier}` : modifier < 0 ? ` − ${Math.abs(modifier)}` : ''
-    const text = `DM rolls d${die}${modStr}: ${result}${modifier !== 0 ? ` → ${total}` : ''}${target !== 'all' ? ` (for ${targetLabel})` : ''}`
-    setLastRoll({ result, total, die, crit: result === 20 && die === 20, fumble: result === 1 && die === 20 })
+    const totalLabel = modifier !== 0 ? ` = ${total}` : ''
+    const text = applying
+      ? effectKind === 'heal'
+        ? `DM rolls ${rollDescriptor}${modStr}${totalLabel} -> heals ${targetLabel} for ${total}`
+        : `DM rolls ${rollDescriptor}${modStr}${totalLabel}${typeLabel} -> applied to ${targetLabel}`
+      : `DM rolls ${rollDescriptor}${modStr}${totalLabel}${typeLabel}${target !== 'all' ? ` (for ${targetLabel})` : ''}`
+
+    setLastRoll({
+      result: picked,
+      total,
+      die,
+      diceCount: nPool,
+      effectKind,
+      damageType: effectKind === 'damage' ? damageType : null,
+      d20Mode: die === 20 ? d20Mode : 'normal',
+      rollA,
+      rollB,
+      crit,
+      fumble,
+    })
+
+    if (applying) {
+      const targetCombatant = (combatants || []).find((c) => c.id === target)
+      if (targetCombatant) {
+        if (effectKind === 'heal') {
+          await healCombatant(target, total)
+        } else {
+          await damageCombatant(target, total, null, {
+            components: [{ amount: Math.max(0, total), type: damageType }],
+          })
+        }
+      }
+    }
     try {
       await supabase.from('combat_feed').insert({
         session_id: sessionRunId,
@@ -147,66 +238,47 @@ function DmDiceRoller({ supabaseClient }) {
         shared: target === 'all',
         visibility: target === 'all' ? 'player_visible' : 'targeted',
         target_id: target,
+        metadata: {
+          kind: 'dm_roll',
+          effect_kind: effectKind,
+          damage_type: effectKind === 'damage' ? damageType : null,
+          apply_damage: applying && effectKind === 'damage',
+          apply_heal: applying && effectKind === 'heal',
+          dice_count: die === 20 && d20Mode !== 'normal' ? 2 : nPool,
+          d20_mode: die === 20 ? d20Mode : 'normal',
+          roll_a: rollA,
+          roll_b: rollB,
+        },
         timestamp: new Date().toISOString()
       })
     } catch (e) {}
   }
 
-  const resultColour = lastRoll?.crit ? '#d4a820' : lastRoll?.fumble ? '#b03030' : 'var(--green-bright)'
-
   return (
-    <div style={{ marginTop: 20, background: 'rgba(64,96,64,0.08)', border: '1px solid var(--border-bright)', borderRadius: 'var(--radius-lg)', padding: '14px 18px' }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>
-        DM Roll → Players
-      </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        {/* Die selector */}
-        <div style={{ display: 'flex', gap: 4 }}>
-          {DICE.map(d => (
-            <button key={d} onClick={() => setDie(d)} style={{
-              padding: '4px 8px',
-              fontFamily: 'var(--font-mono)', fontSize: 11,
-              background: die === d ? 'var(--green-dim)' : 'var(--bg-raised)',
-              border: `1px solid ${die === d ? 'var(--green-mid)' : 'var(--border)'}`,
-              borderRadius: 'var(--radius)',
-              color: die === d ? 'var(--green-bright)' : 'var(--text-muted)',
-              cursor: 'pointer'
-            }}>d{d}</button>
-          ))}
-        </div>
-        {/* Modifier */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <button onClick={() => setModifier(m => m - 1)} style={{ padding: '4px 8px', fontFamily: 'var(--font-mono)', fontSize: 12, background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-muted)', cursor: 'pointer' }}>−</button>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: modifier === 0 ? 'var(--text-muted)' : 'var(--text-primary)', minWidth: 28, textAlign: 'center' }}>
-            {modifier >= 0 ? `+${modifier}` : modifier}
-          </span>
-          <button onClick={() => setModifier(m => m + 1)} style={{ padding: '4px 8px', fontFamily: 'var(--font-mono)', fontSize: 12, background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-muted)', cursor: 'pointer' }}>+</button>
-        </div>
-        {/* Target */}
-        <select value={target} onChange={e => setTarget(e.target.value)} style={{
-          padding: '5px 8px', fontFamily: 'var(--font-mono)', fontSize: 11,
-          background: 'var(--bg-raised)', border: '1px solid var(--border)',
-          borderRadius: 'var(--radius)', color: 'var(--text-secondary)'
-        }}>
-          {dmRollTargets.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        {/* Roll button */}
-        <button onClick={roll} style={{
-          padding: '6px 18px', fontFamily: 'var(--font-mono)', fontSize: 12,
-          background: 'var(--green-dim)', border: '1px solid var(--green-mid)',
-          borderRadius: 'var(--radius)', color: 'var(--green-bright)', cursor: 'pointer',
-          letterSpacing: '0.06em', textTransform: 'uppercase'
-        }}>Roll</button>
-        {/* Last result */}
-        {lastRoll && (
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: resultColour, marginLeft: 8 }}>
-            {lastRoll.total}
-            {lastRoll.crit && <span style={{ fontSize: 11, marginLeft: 5, color: '#d4a820' }}>CRIT</span>}
-            {lastRoll.fumble && <span style={{ fontSize: 11, marginLeft: 5, color: '#b03030' }}>nat 1</span>}
-          </span>
-        )}
-      </div>
-    </div>
+    <QuickDiceRoller
+      title="DM Roll → Players"
+      die={die}
+      diceCount={diceCount}
+      modifier={modifier}
+      target={target}
+      damageType={damageType}
+      mode={mode}
+      effectKind={effectKind}
+      d20Mode={d20Mode}
+      targets={dmRollTargets}
+      canApplyToTarget={canApplyToTarget}
+      lastRoll={lastRoll}
+      layout="dm"
+      onDieChange={setDie}
+      onDiceCountChange={setDiceCount}
+      onModifierChange={setModifier}
+      onTargetChange={setTarget}
+      onDamageTypeChange={setDamageType}
+      onModeChange={setMode}
+      onEffectKindChange={setEffectKind}
+      onD20ModeChange={setD20Mode}
+      onRoll={roll}
+    />
   )
 }
 
@@ -220,6 +292,7 @@ export default function MainPanel() {
   const prevBeat = useSessionStore(s => s.prevBeat)
   const jumpToSceneById = useSessionStore(s => s.jumpToSceneById)
   const launchEncounterByStatBlockId = useCombatStore(s => s.launchEncounterByStatBlockId)
+  const pushFeedEvent = useCombatStore(s => s.pushFeedEvent)
 
   // Keyboard navigation — must be before any early returns (Rules of Hooks)
   useEffect(() => {
@@ -287,6 +360,12 @@ export default function MainPanel() {
         consequence: r?.consequence ?? r?.whatTheyLearn ?? r?.result ?? '',
       }))
     : []
+  const handleInlineRoll = createDmDiceRollHandler({
+    pushFeedEvent,
+    type: 'roll',
+    shared: true,
+    defaultContextLabel: beat.title || scene.title || 'Session text',
+  })
 
   return (
     <div style={{
@@ -339,7 +418,7 @@ export default function MainPanel() {
           textShadow: scene.image_url ? '0 1px 12px rgba(0,0,0,0.65)' : 'none',
         }}
         >
-          {scene.title}
+          {sanitizeUserText(scene.title)}
         </h1>
         <div style={{
           fontSize: 14,
@@ -347,7 +426,7 @@ export default function MainPanel() {
           fontStyle: 'italic',
           marginTop: 2
         }}>
-          {scene.subtitle}
+          {sanitizeUserText(scene.subtitle)}
         </div>
       </div>
 
@@ -395,11 +474,15 @@ export default function MainPanel() {
           textShadow: scene.image_url ? '0 1px 10px rgba(0,0,0,0.5)' : 'none',
         }}
         >
-          {beat.title}
+          {sanitizeUserText(beat.title)}
         </h2>
 
         {beat.flavour_text && (
-          <p style={{
+          <DiceInlineText
+            text={beat.flavour_text}
+            contextLabel={`${beat.title}: flavour`}
+            onRoll={handleInlineRoll}
+            style={{
             margin: '0 0 16px',
             fontSize: 14,
             lineHeight: 1.65,
@@ -407,10 +490,9 @@ export default function MainPanel() {
             fontStyle: 'italic',
             opacity: 0.88,
             maxWidth: 720,
+            display: 'block',
           }}
-          >
-            {beat.flavour_text}
-          </p>
+          />
         )}
 
         {checkRows.length > 0 && <SkillCheckTable rows={checkRows} />}
@@ -429,7 +511,17 @@ export default function MainPanel() {
           color: 'var(--text-primary)',
           fontStyle: 'italic'
         }}>
-          {beat.content}
+          <DiceInlineText
+            text={beat.content}
+            contextLabel={`${beat.title}: content`}
+            onRoll={handleInlineRoll}
+            style={{
+              fontSize: 16,
+              lineHeight: 1.8,
+              color: 'var(--text-primary)',
+              fontStyle: 'italic',
+            }}
+          />
         </div>
 
         {/* For beats with a linked stat block: render formatted stat block */}
@@ -506,7 +598,12 @@ export default function MainPanel() {
             }}>
               DM Note
             </span>
-            {beat.dmNote}
+            <DiceInlineText
+              text={beat.dmNote}
+              contextLabel={`${beat.title}: DM note`}
+              onRoll={handleInlineRoll}
+              style={{ fontSize: 13, color: '#d4a080', lineHeight: 1.7, opacity: 0.92 }}
+            />
           </div>
         ) : null}
 
@@ -535,7 +632,12 @@ export default function MainPanel() {
             }}>
               Scene Note
             </span>
-            {scene.dmNote}
+            <DiceInlineText
+              text={scene.dmNote}
+              contextLabel={`${scene.title}: scene note`}
+              onRoll={handleInlineRoll}
+              style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, opacity: 0.85 }}
+            />
           </div>
         )}
         {/* DM dice roller — always visible */}
@@ -567,11 +669,11 @@ export default function MainPanel() {
                   transition: 'var(--transition)'
                 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4, letterSpacing: '0.03em' }}>
-                    → {branch.label}
+                    → {sanitizeUserText(branch.label)}
                   </div>
                   {branch.description && (
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                      {branch.description}
+                      {sanitizeUserText(branch.description)}
                     </div>
                   )}
                 </button>

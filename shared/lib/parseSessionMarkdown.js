@@ -467,6 +467,10 @@ function parseInlineStatBlock(sbLines) {
 // ─── Main parser ──────────────────────────────────────────────────────────────
 
 export function parseSessionMarkdown(markdown) {
+  if (markdown == null || typeof markdown !== 'string') {
+    throw new TypeError('parseSessionMarkdown expects a non-null string')
+  }
+
   const result = {
     sessionNumber: null,
     sessionTitle: '',

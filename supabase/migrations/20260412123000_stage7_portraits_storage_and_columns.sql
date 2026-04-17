@@ -1,19 +1,28 @@
 -- Stage 7: portrait storage + crop metadata for characters, stat blocks, and NPCs.
 
-alter table public.characters
-  add column if not exists portrait_original_storage_path text,
-  add column if not exists portrait_crop jsonb default '{}'::jsonb,
-  add column if not exists portrait_thumb_storage_path text;
+do $$
+begin
+  if to_regclass('public.characters') is not null then
+    alter table public.characters
+      add column if not exists portrait_original_storage_path text,
+      add column if not exists portrait_crop jsonb default '{}'::jsonb,
+      add column if not exists portrait_thumb_storage_path text;
+  end if;
 
-alter table public.stat_blocks
-  add column if not exists portrait_original_storage_path text,
-  add column if not exists portrait_crop jsonb default '{}'::jsonb,
-  add column if not exists portrait_thumb_storage_path text;
+  if to_regclass('public.stat_blocks') is not null then
+    alter table public.stat_blocks
+      add column if not exists portrait_original_storage_path text,
+      add column if not exists portrait_crop jsonb default '{}'::jsonb,
+      add column if not exists portrait_thumb_storage_path text;
+  end if;
 
-alter table public.npcs
-  add column if not exists portrait_original_storage_path text,
-  add column if not exists portrait_crop jsonb default '{}'::jsonb,
-  add column if not exists portrait_thumb_storage_path text;
+  if to_regclass('public.npcs') is not null then
+    alter table public.npcs
+      add column if not exists portrait_original_storage_path text,
+      add column if not exists portrait_crop jsonb default '{}'::jsonb,
+      add column if not exists portrait_thumb_storage_path text;
+  end if;
+end $$;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('portraits', 'portraits', true, 10485760, array['image/png', 'image/jpeg', 'image/webp', 'image/gif'])

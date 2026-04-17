@@ -1,21 +1,20 @@
 import React, { useState } from 'react'
 import { useCombatStore } from '../../stores/combatStore'
-import { CONDITIONS } from '@shared/lib/rules/conditionCatalog.js'
 import { DAMAGE_TYPE_SELECT_OPTIONS } from '@shared/lib/rules/damagePipeline.js'
 import {
   readLastManualDamageType,
   writeLastManualDamageType,
 } from './lastManualDamageTypeStorage.js'
+import ConditionChips from './cards/subcomponents/ConditionChips.jsx'
+import './combat.css'
 
 function CombatantRow({ combatant, isActive, index }) {
   const damageCombatant = useCombatStore(s => s.damageCombatant)
   const healCombatant = useCombatStore(s => s.healCombatant)
-  const toggleCondition = useCombatStore(s => s.toggleCondition)
   const setInitiative = useCombatStore(s => s.setInitiative)
 
   const [amount, setAmount] = useState('')
   const [damageTypeId, setDamageTypeId] = useState(readLastManualDamageType)
-  const [showConditions, setShowConditions] = useState(false)
 
   const hpPct = combatant.maxHp > 0 ? (combatant.curHp / combatant.maxHp) * 100 : 0
   const hpColour = combatant.curHp === 0
@@ -210,70 +209,7 @@ function CombatantRow({ combatant, isActive, index }) {
         ))}
       </div>
 
-      {/* Conditions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-        {combatant.conditions.map(cond => (
-          <span
-            key={cond}
-            onClick={() => toggleCondition(combatant.id, cond)}
-            style={{
-              padding: '1px 6px', fontSize: 10,
-              background: 'rgba(196,160,64,0.15)',
-              border: '1px solid rgba(196,160,64,0.35)',
-              borderRadius: 'var(--radius)',
-              color: 'var(--warning)',
-              cursor: 'pointer',
-              fontFamily: 'var(--font-mono)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em'
-            }}
-          >
-            {cond} ×
-          </span>
-        ))}
-        <button
-          onClick={() => setShowConditions(!showConditions)}
-          style={{
-            padding: '1px 6px', fontSize: 10,
-            background: 'transparent',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius)',
-            color: 'var(--text-muted)',
-            cursor: 'pointer'
-          }}
-        >
-          + cond
-        </button>
-      </div>
-
-      {/* Condition picker */}
-      {showConditions && (
-        <div style={{
-          marginTop: 6,
-          display: 'flex', gap: 3, flexWrap: 'wrap',
-          padding: '6px 8px',
-          background: 'var(--bg-raised)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius)'
-        }}>
-          {CONDITIONS.map(cond => (
-            <button
-              key={cond}
-              onClick={() => { toggleCondition(combatant.id, cond); setShowConditions(false) }}
-              style={{
-                padding: '2px 7px', fontSize: 10,
-                background: combatant.conditions.includes(cond) ? 'rgba(196,160,64,0.2)' : 'var(--bg-card)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius)',
-                color: combatant.conditions.includes(cond) ? 'var(--warning)' : 'var(--text-secondary)',
-                cursor: 'pointer'
-              }}
-            >
-              {cond}
-            </button>
-          ))}
-        </div>
-      )}
+      <ConditionChips combatant={combatant} compact showSpellEffects={false} />
     </div>
   )
 }

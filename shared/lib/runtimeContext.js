@@ -1,6 +1,9 @@
 import { featureFlags } from './featureFlags.js'
 
-const DEFAULT_SESSION_RUN_ID = 'session-1'
+/** Override with VITE_DEFAULT_SESSION_RUN_ID; must match `session_state.id` for this table row. */
+const DEFAULT_SESSION_RUN_ID =
+  (typeof import.meta !== 'undefined' && import.meta.env && String(import.meta.env.VITE_DEFAULT_SESSION_RUN_ID || '').trim())
+  || 'session-1'
 
 function canUseStorage() {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'

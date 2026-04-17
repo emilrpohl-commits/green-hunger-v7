@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
+import { sessionArchiveConfirmMessage } from './deleteScopeCopy.js'
 import { useSessionStore } from '../../stores/sessionStore'
 import { mono, label9, inputBase, taBase, btnSm, btnDanger, btnGreen } from './outlinerStyles'
 import LabelField from './LabelField'
@@ -49,7 +50,7 @@ export default function SessionRow({ session, allScenes, statBlocks, onImport })
   }
 
   const handleDelete = async () => {
-    if (!window.confirm(`Archive session "${session.title}"? It will be hidden from active builder/runtime views.`)) return
+    if (!window.confirm(sessionArchiveConfirmMessage(session))) return
     await deleteSession(session.id)
     syncContentFromDb(useCampaignStore.getState().sessions)
   }

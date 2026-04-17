@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { supabase } from '@shared/lib/supabase.js'
 import { getDmAuthSession, signInDmWithEmailPassword } from '@shared/lib/dmAuth.js'
 import { useSessionStore } from './stores/sessionStore'
@@ -16,14 +16,42 @@ import BuilderLayout from './features/builder/BuilderLayout'
 import SoundToastHost from './components/SoundToastHost.jsx'
 import DmToolboxDrawer from './features/toolbox/DmToolboxDrawer.jsx'
 import QuickRulingsMiniDrawer from './features/toolbox/quickRulings/QuickRulingsMiniDrawer.jsx'
+import ErrorBoundary from '@shared/components/ErrorBoundary.jsx'
 
-const DM_PASSWORD = 'Sherlock*123'
+/** Optional short-lived unlock when Supabase Auth is unavailable (never commit real secrets). */
 const DM_UNLOCK_KEY = 'gh_dm_unlocked'
+const DM_UNLOCK_TTL_MS = 8 * 60 * 60 * 1000
+
+function readDmUnlockPayload() {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(DM_UNLOCK_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (parsed && parsed.unlocked && typeof parsed.ts === 'number') {
+      if (Date.now() - parsed.ts > DM_UNLOCK_TTL_MS) {
+        window.localStorage.removeItem(DM_UNLOCK_KEY)
+        return null
+      }
+      return parsed
+    }
+  } catch {
+    window.localStorage.removeItem(DM_UNLOCK_KEY)
+  }
+  return null
+}
+
+function writeDmUnlockPayload() {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(
+    DM_UNLOCK_KEY,
+    JSON.stringify({ unlocked: true, ts: Date.now() })
+  )
+}
 
 function DmGate({ onUnlock }) {
   const [email, setEmail] = useState('')
   const [pw, setPw] = useState('')
-  const [dmPasswordInput, setDmPasswordInput] = useState('')
   const [dmGateError, setDmGateError] = useState('')
   const [authBusy, setAuthBusy] = useState(false)
 
@@ -39,13 +67,18 @@ function DmGate({ onUnlock }) {
     onUnlock()
   }
 
-  const tryLegacyUnlock = () => {
-    if (dmPasswordInput === DM_PASSWORD) {
-      window.localStorage.setItem(DM_UNLOCK_KEY, 'ok')
+  const tryEnvUnlock = () => {
+    const secret = (import.meta.env.VITE_DM_EMERGENCY_UNLOCK || '').trim()
+    if (!secret) {
+      setDmGateError('Emergency unlock is not configured (set VITE_DM_EMERGENCY_UNLOCK locally only).')
+      return
+    }
+    if (pw.trim() === secret) {
+      writeDmUnlockPayload()
       setDmGateError('')
       onUnlock()
     } else {
-      setDmGateError('Incorrect password.')
+      setDmGateError('Incorrect emergency passphrase (uses the password field).')
     }
   }
 
@@ -66,7 +99,7 @@ function DmGate({ onUnlock }) {
           DM Access Required
         </h1>
         <p style={{ margin: '0 0 14px', color: 'var(--text-muted)', fontSize: 13 }}>
-          Sign in with Supabase (recommended), or use the legacy shared password.
+          Sign in with Supabase. For local recovery only, set <code style={{ fontSize: 11 }}>VITE_DM_EMERGENCY_UNLOCK</code> in <code>.env.local</code> and confirm with the password field below.
         </p>
 
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Supabase</div>
@@ -110,22 +143,14 @@ function DmGate({ onUnlock }) {
         </button>
 
         <div style={{ height: 1, background: 'var(--border)', margin: '18px 0' }} />
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Legacy gate</div>
-        <input
-          type="password"
-          value={dmPasswordInput}
-          onChange={(e) => setDmPasswordInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') tryLegacyUnlock() }}
-          placeholder="Shared DM password"
-          style={{
-            width: '100%', padding: '10px 12px', background: 'var(--bg-raised)',
-            border: '1px solid var(--border)', borderRadius: 8,
-            color: 'var(--text-primary)', marginBottom: 10, boxSizing: 'border-box'
-          }}
-        />
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Local emergency unlock</div>
+        <p style={{ margin: '0 0 10px', color: 'var(--text-muted)', fontSize: 11 }}>
+          Uses the password field above. Token expires after {Math.round(DM_UNLOCK_TTL_MS / 3600000)}h.
+        </p>
         <button
           type="button"
-          onClick={tryLegacyUnlock}
+          onClick={tryEnvUnlock}
+          disabled={!pw.trim()}
           style={{
             width: '100%', padding: '10px 12px', background: 'transparent',
             border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-secondary)',
@@ -133,7 +158,7 @@ function DmGate({ onUnlock }) {
             letterSpacing: '0.08em', cursor: 'pointer'
           }}
         >
-          Unlock with legacy password
+          Confirm emergency passphrase
         </button>
         {dmGateError && (
           <div style={{ marginTop: 10, color: '#c87474', fontSize: 12 }}>{dmGateError}</div>
@@ -319,8 +344,10 @@ export default function App() {
 
   useEffect(() => {
     const host = window.location.hostname
-    const isLocal = host === 'localhost' || host === '127.0.0.1'
-    if (isLocal) {
+    const isLocalhost = host === 'localhost' || host === '127.0.0.1'
+    /** Vite dev server only — not “any localhost build” (e.g. preview of production bundle). */
+    const allowDevBypass = import.meta.env.DEV && isLocalhost
+    if (allowDevBypass) {
       setDmUnlocked(true)
       return
     }
@@ -332,7 +359,7 @@ export default function App() {
         setDmUnlocked(true)
         return
       }
-      const unlocked = window.localStorage.getItem(DM_UNLOCK_KEY) === 'ok'
+      const unlocked = !!readDmUnlockPayload()
       setDmUnlocked(unlocked)
     })()
     return () => { cancelled = true }
@@ -380,11 +407,13 @@ export default function App() {
   return (
     <>
       <SoundToastHost />
-      <Routes>
-        <Route path="/run" element={<RunLayout />} />
-        <Route path="/build" element={<BuildLayout />} />
-        <Route path="*" element={<Navigate to="/run" replace />} />
-      </Routes>
+      <ErrorBoundary label="DM Console">
+        <Routes>
+          <Route path="/run" element={<RunLayout />} />
+          <Route path="/build" element={<BuildLayout />} />
+          <Route path="*" element={<Navigate to="/run" replace />} />
+        </Routes>
+      </ErrorBoundary>
     </>
   )
 }

@@ -597,6 +597,17 @@ export default function useCharacterActions(characterId) {
 
   const resolveIncomingSavePrompt = async (isManual = false, manualTotal = null) => {
     if (!dmRoll?.savePrompt) return
+    const bumpCombatRealtimeCounter = (counterKey) => {
+      usePlayerStore.setState((state) => {
+        const cur = state.combatRealtimeDiagnostics || {}
+        return {
+          combatRealtimeDiagnostics: {
+            ...cur,
+            [counterKey]: (cur[counterKey] || 0) + 1,
+          },
+        }
+      })
+    }
     const saveAbility = String(dmRoll.savePrompt.saveAbility || '').toUpperCase()
     const saveEntry = (char.savingThrows || []).find(s => String(s.name || '').toUpperCase() === saveAbility)
     const mod = parseModNum(saveEntry?.mod || 0)
@@ -615,8 +626,12 @@ export default function useCharacterActions(characterId) {
       : (mods.autoFail ? -999 : (modded.total - mods.exhaustionPenalty))
     const success = total >= (dmRoll.savePrompt.saveDc || 10)
     const meta = dmRoll.savePrompt.damageMeta
+    const fallbackDamage = Math.max(0, Math.floor(Number(dmRoll.savePrompt.damage?.amount) || 0))
+    const fallbackHalfOnSuccess = !!dmRoll.savePrompt.damage?.halfOnSuccess
+    const fallbackDamageType = dmRoll.savePrompt.damage?.type || null
     const curForDice = liveChar?.curHp ?? maxHp
     let hpDmg = 0
+    let missingDamageDetails = false
     if (meta) {
       let diceSpec = meta.diceOnFail
       if (meta.variant === 'toll-the-dead' && meta.diceWhenHurt && meta.diceWhenFullHp) {
@@ -629,6 +644,12 @@ export default function useCharacterActions(characterId) {
           ? (meta.halfOnSuccess ? Math.floor(rawTotal / 2) : 0)
           : rawTotal
       }
+    } else if (fallbackDamage > 0) {
+      hpDmg = success
+        ? (fallbackHalfOnSuccess ? Math.floor(fallbackDamage / 2) : 0)
+        : fallbackDamage
+    } else {
+      missingDamageDetails = true
     }
     setRollResult({ type: 'save', name: `${saveAbility} vs ${dmRoll.savePrompt.actionName}`, d20, mod, total, crit: test.rolls.includes(20), fumble: d20 === 1 })
     const dcPrompt = formatDcWithLabel(dmRoll.savePrompt.saveDc) || `DC ${dmRoll.savePrompt.saveDc}`
@@ -637,13 +658,18 @@ export default function useCharacterActions(characterId) {
       `${dmRoll.savePrompt.actionName}: ${saveAbility} save ${mods.autoFail ? 'AUTO-FAIL' : `total ${total}`}${exNote} vs ${dcPrompt} → ${success ? 'SUCCESS' : 'FAIL'}`,
       char.name
     )
+    if (missingDamageDetails) {
+      pushRoll(`[System] ${dmRoll.savePrompt.actionName}: no damage metadata found; HP unchanged.`, char.name)
+      bumpCombatRealtimeCounter('savePromptResolvedZeroMissingMeta')
+    }
     if (hpDmg > 0) {
+      bumpCombatRealtimeCounter('savePromptResolvedWithDamage')
       await applyDamageToCharacter(
         characterId,
         hpDmg,
         dmRoll.savePrompt.sourceName,
         dmRoll.savePrompt.actionName,
-        meta.damageType
+        meta?.damageType || fallbackDamageType
       )
     }
     clearDmRoll()

@@ -1,13 +1,21 @@
 -- Scene imagery, session map videos, spell SFX URL, beat flavour text
 
-alter table public.scenes add column if not exists image_url text;
-alter table public.scenes add column if not exists scene_images jsonb default '[]'::jsonb;
-
-alter table public.sessions add column if not exists session_maps jsonb default '[]'::jsonb;
-
-alter table public.spells add column if not exists sound_effect_url text;
-
-alter table public.beats add column if not exists flavour_text text;
+do $$
+begin
+  if to_regclass('public.scenes') is not null then
+    alter table public.scenes add column if not exists image_url text;
+    alter table public.scenes add column if not exists scene_images jsonb default '[]'::jsonb;
+  end if;
+  if to_regclass('public.sessions') is not null then
+    alter table public.sessions add column if not exists session_maps jsonb default '[]'::jsonb;
+  end if;
+  if to_regclass('public.spells') is not null then
+    alter table public.spells add column if not exists sound_effect_url text;
+  end if;
+  if to_regclass('public.beats') is not null then
+    alter table public.beats add column if not exists flavour_text text;
+  end if;
+end $$;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
 import { validateStatBlock } from '@shared/lib/statBlockActions.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
@@ -66,12 +66,14 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
   const [monsterPrefillBusy, setMonsterPrefillBusy] = useState(false)
   const [prefillNotice, setPrefillNotice] = useState(null)
   const canEngineMonsterPrefill = featureFlags.use5eEngine && featureFlags.engineMonsters
+  const baselineRef = useRef(null)
+  const [autosaveStatus, setAutosaveStatus] = useState(null)
 
   useEffect(() => {
     if (statBlockId) {
       const sb = statBlocks.find(s => s.id === statBlockId)
       if (sb) {
-        setForm({
+        const merged = {
           ...blankStatBlock(),
           ...sb,
           ability_scores: sb.ability_scores || blankStatBlock().ability_scores,
@@ -92,10 +94,44 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
           portrait_original_storage_path: sb.portrait_original_storage_path || null,
           portrait_crop: sb.portrait_crop || blankStatBlock().portrait_crop,
           portrait_thumb_storage_path: sb.portrait_thumb_storage_path || null,
-        })
+        }
+        setForm(merged)
+        baselineRef.current = JSON.stringify(merged)
+        setAutosaveStatus(null)
       }
     }
   }, [statBlockId, statBlocks])
+
+  const statBlockSnapshot = useMemo(() => JSON.stringify(form), [form])
+  const statBlockValidationOk = useMemo(() => validateStatBlock(form).ok, [form])
+
+  const formRef = useRef(form)
+  formRef.current = form
+
+  useEffect(() => {
+    if (!statBlockId || baselineRef.current === null) return undefined
+    if (statBlockSnapshot === baselineRef.current) return undefined
+    if (!(form.name || '').trim() || !statBlockValidationOk) return undefined
+    const t = setTimeout(async () => {
+      setAutosaveStatus('saving')
+      setSaveError(null)
+      const f = formRef.current
+      const result = await saveStatBlock({ ...f, id: statBlockId })
+      if (result.error) {
+        setAutosaveStatus('error')
+        setSaveError(result.error)
+        return
+      }
+      baselineRef.current = JSON.stringify(f)
+      setAutosaveStatus('saved')
+      setSaved(true)
+      setTimeout(() => {
+        setAutosaveStatus((s) => (s === 'saved' ? null : s))
+        setSaved(false)
+      }, 2200)
+    }, 2500)
+    return () => clearTimeout(t)
+  }, [statBlockSnapshot, statBlockId, saveStatBlock, statBlockValidationOk, form.name])
 
   const update = (field, value) => {
     setForm(f => ({ ...f, [field]: value }))
@@ -169,6 +205,8 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
       setSaveError(result.error)
     } else {
       setSaved(true)
+      baselineRef.current = JSON.stringify(form)
+      setAutosaveStatus(null)
     }
   }
 
@@ -211,6 +249,15 @@ export default function StatBlockEditor({ statBlockId, onClose }) {
             {validationWarnings.length} action warning(s) — hover for list
           </div>
         )}
+        {statBlockId && statBlockSnapshot !== baselineRef.current && (form.name || '').trim() && statBlockValidationOk && (
+          <span style={{ ...mono, fontSize: 10, color: 'var(--warning)' }}>Unsaved</span>
+        )}
+        {statBlockId && statBlockSnapshot !== baselineRef.current && (form.name || '').trim() && !statBlockValidationOk && (
+          <span style={{ ...mono, fontSize: 10, color: 'var(--text-muted)' }} title="Fix action validation warnings to enable autosave">Autosave paused</span>
+        )}
+        {autosaveStatus === 'saving' && <span style={{ ...mono, fontSize: 10, color: 'var(--text-muted)' }}>Autosaving…</span>}
+        {autosaveStatus === 'saved' && <span style={{ ...mono, fontSize: 10, color: 'var(--green-bright)' }}>All changes saved</span>}
+        {autosaveStatus === 'error' && <span style={{ ...mono, fontSize: 10, color: 'var(--danger)' }}>Autosave failed</span>}
         {saved && <div style={{ ...mono, fontSize: 11, color: 'var(--green-bright)' }}>Saved</div>}
         <button
           onClick={handleSave}

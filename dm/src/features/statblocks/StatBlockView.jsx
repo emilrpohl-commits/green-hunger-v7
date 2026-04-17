@@ -1,20 +1,35 @@
 import React, { useEffect, useRef } from 'react'
 import { STAT_BLOCKS } from '@shared/content/statblocks.js'
 import { useCampaignStore } from '../../stores/campaignStore'
+import { useCombatStore } from '../../stores/combatStore'
 import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
 import { getPortraitPublicUrl } from '@shared/lib/portraitStorage.js'
+import { DEFAULT_STATBLOCK_PORTRAIT_URL } from '@shared/lib/portraitDefaults.js'
+import DiceInlineText from '@shared/components/combat/DiceInlineText.jsx'
+import { createDmDiceRollHandler } from '@shared/lib/diceText/dispatch.js'
 
 // Normalise DB stat block field names → the shape StatBlockView expects
 function normaliseDbSb(sb) {
   if (!sb) return null
+  const fallbackStats = { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 }
+  const rawStats = sb.ability_scores || sb.stats || fallbackStats
+  const stats = {
+    STR: Number(rawStats?.STR) || 10,
+    DEX: Number(rawStats?.DEX) || 10,
+    CON: Number(rawStats?.CON) || 10,
+    INT: Number(rawStats?.INT) || 10,
+    WIS: Number(rawStats?.WIS) || 10,
+    CHA: Number(rawStats?.CHA) || 10,
+  }
+
   return {
     ...sb,
     type: sb.creature_type || sb.type,
     maxHp: sb.max_hp ?? sb.maxHp,
     hitDice: sb.hit_dice || sb.hitDice,
     acNote: sb.ac_note || sb.acNote,
-    stats: sb.ability_scores || sb.stats,
-    modifiers: sb.modifiers || computeModifiers(sb.ability_scores || sb.stats || {}),
+    stats,
+    modifiers: { ...computeModifiers(stats), ...(sb.modifiers || {}) },
     savingThrows: sb.saving_throws || sb.savingThrows || [],
     resistances: sb.resistances || [],
     vulnerabilities: sb.vulnerabilities || [],
@@ -26,7 +41,8 @@ function normaliseDbSb(sb) {
     reactions: sb.reactions || [],
     portraitUrl: sb.portrait_url
       || getPortraitPublicUrl(sb.portrait_thumb_storage_path || sb.portrait_original_storage_path)
-      || sb.portraitUrl,
+      || sb.portraitUrl
+      || DEFAULT_STATBLOCK_PORTRAIT_URL,
   }
 }
 
@@ -40,6 +56,7 @@ function computeModifiers(scores) {
 
 export default function StatBlockView({ statBlockId, data, compact = false }) {
   const statBlockMap = useCampaignStore(s => s.statBlockMap)
+  const pushFeedEvent = useCombatStore(s => s.pushFeedEvent)
   const warnedRef = useRef(false)
 
   const fromDb = statBlockId ? !!statBlockMap[statBlockId] : false
@@ -59,9 +76,16 @@ export default function StatBlockView({ statBlockId, data, compact = false }) {
   }, [statBlockId, fromDb, data])
 
   if (!sb) return <div style={{ padding: 12, fontSize: 12, color: 'var(--text-muted)' }}>No stat block found{statBlockId ? ` for "${statBlockId}"` : ''}.</div>
+  const safeName = String(sb.name || 'Unnamed Stat Block')
 
   const monoSm = { fontFamily: 'var(--font-mono)', fontSize: 10 }
   const label = { ...monoSm, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }
+  const handleInlineRoll = createDmDiceRollHandler({
+    pushFeedEvent,
+    type: 'roll',
+    shared: true,
+    defaultContextLabel: safeName,
+  })
 
   return (
     <div style={{ fontSize: 12, lineHeight: 1.5 }}>
@@ -70,14 +94,22 @@ export default function StatBlockView({ statBlockId, data, compact = false }) {
         {sb.portraitUrl && (
           <img
             src={sb.portraitUrl}
-            alt={sb.name}
+            alt={safeName}
             style={{ width: compact ? 48 : 72, height: compact ? 48 : 72, objectFit: 'cover', borderRadius: 'var(--radius)', border: '1px solid var(--border)', flexShrink: 0 }}
-            onError={e => { e.target.style.display = 'none' }}
+            onError={(e) => {
+              const img = e.currentTarget
+              if (img.dataset.fallbackApplied === '1') {
+                img.style.display = 'none'
+                return
+              }
+              img.dataset.fallbackApplied = '1'
+              img.src = DEFAULT_STATBLOCK_PORTRAIT_URL
+            }}
           />
         )}
         <div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: compact ? 18 : 22, color: '#d49070', letterSpacing: '0.04em', marginBottom: 2 }}>
-            {sb.name}
+            {safeName}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
             {sb.size} {sb.type} · CR {sb.cr}
@@ -143,7 +175,12 @@ export default function StatBlockView({ statBlockId, data, compact = false }) {
           {sb.traits.map(t => (
             <div key={t.name} style={{ marginBottom: 6, lineHeight: 1.6 }}>
               <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontStyle: 'italic' }}>{t.name}. </span>
-              <span style={{ color: 'var(--text-secondary)' }}>{t.desc}</span>
+              <DiceInlineText
+                text={t.desc}
+                style={{ color: 'var(--text-secondary)' }}
+                contextLabel={`${safeName}: ${t.name}`}
+                onRoll={handleInlineRoll}
+              />
             </div>
           ))}
         </div>
@@ -157,17 +194,28 @@ export default function StatBlockView({ statBlockId, data, compact = false }) {
             <div key={a.name} style={{ marginBottom: 8, lineHeight: 1.6 }}>
               <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontStyle: 'italic' }}>{a.name}. </span>
               {a.type === 'attack' && (
-                <span style={{ color: 'var(--text-secondary)' }}>
-                  <em style={{ color: 'var(--text-muted)' }}>Melee/Ranged Attack:</em> +{a.toHit} to hit, {a.reach || a.range}, one target. <em>Hit:</em> {a.damage}.{a.effect ? ` ${a.effect}` : ''}
-                </span>
+                <DiceInlineText
+                  text={`Melee/Ranged Attack: +${a.toHit} to hit, ${a.reach || a.range}, one target. Hit: ${a.damage}.${a.effect ? ` ${a.effect}` : ''}`}
+                  style={{ color: 'var(--text-secondary)' }}
+                  contextLabel={`${safeName}: ${a.name}`}
+                  onRoll={handleInlineRoll}
+                />
               )}
               {a.type === 'save' && (
-                <span style={{ color: 'var(--text-secondary)' }}>
-                  DC {a.saveDC} {a.saveType} saving throw. {a.damage}.
-                </span>
+                <DiceInlineText
+                  text={`DC ${a.saveDC} ${a.saveType} saving throw. ${a.damage}.`}
+                  style={{ color: 'var(--text-secondary)' }}
+                  contextLabel={`${safeName}: ${a.name}`}
+                  onRoll={handleInlineRoll}
+                />
               )}
               {(a.type === 'special' || (!a.type && a.desc)) && (
-                <span style={{ color: 'var(--text-secondary)' }}>{a.desc}</span>
+                <DiceInlineText
+                  text={a.desc}
+                  style={{ color: 'var(--text-secondary)' }}
+                  contextLabel={`${safeName}: ${a.name}`}
+                  onRoll={handleInlineRoll}
+                />
               )}
             </div>
           ))}
@@ -181,7 +229,12 @@ export default function StatBlockView({ statBlockId, data, compact = false }) {
           {sb.reactions.map(r => (
             <div key={r.name} style={{ marginBottom: 6, lineHeight: 1.6 }}>
               <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontStyle: 'italic' }}>{r.name}{r.recharge ? ` (Recharge ${r.recharge})` : ''}. </span>
-              <span style={{ color: 'var(--text-secondary)' }}>{r.desc}</span>
+              <DiceInlineText
+                text={r.desc}
+                style={{ color: 'var(--text-secondary)' }}
+                contextLabel={`${safeName}: ${r.name}`}
+                onRoll={handleInlineRoll}
+              />
             </div>
           ))}
         </div>
@@ -194,7 +247,12 @@ export default function StatBlockView({ statBlockId, data, compact = false }) {
           {sb.combatPrompts.map(p => (
             <div key={p.trigger} style={{ marginBottom: 8, background: 'var(--rot-dim)', border: '1px solid var(--rot-mid)', borderRadius: 'var(--radius-lg)', padding: '10px 14px' }}>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--rot-bright)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>{p.trigger}</div>
-              <div style={{ color: '#d4a080', fontSize: 14, fontStyle: 'italic', lineHeight: 1.7 }}>{p.text}</div>
+              <DiceInlineText
+                text={p.text}
+                style={{ color: '#d4a080', fontSize: 14, fontStyle: 'italic', lineHeight: 1.7 }}
+                contextLabel={`${safeName}: ${p.trigger}`}
+                onRoll={handleInlineRoll}
+              />
             </div>
           ))}
         </div>
@@ -205,7 +263,15 @@ export default function StatBlockView({ statBlockId, data, compact = false }) {
         <div style={{ padding: '10px 14px', background: 'rgba(40,50,36,0.5)', border: '1px solid var(--border-bright)', borderRadius: 'var(--radius-lg)' }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>DM Notes</div>
           {sb.dmNotes.map((note, i) => (
-            <div key={i} style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 5, lineHeight: 1.6 }}>• {note}</div>
+            <div key={i} style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 5, lineHeight: 1.6 }}>
+              •{' '}
+              <DiceInlineText
+                text={note}
+                contextLabel={`${safeName}: DM note`}
+                onRoll={handleInlineRoll}
+                style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.6 }}
+              />
+            </div>
           ))}
         </div>
       )}

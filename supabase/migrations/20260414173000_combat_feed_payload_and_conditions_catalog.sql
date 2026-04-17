@@ -1,5 +1,10 @@
-alter table public.combat_feed
-  add column if not exists payload jsonb default '{}'::jsonb;
+do $$
+begin
+  if to_regclass('public.combat_feed') is not null then
+    alter table public.combat_feed
+      add column if not exists payload jsonb default '{}'::jsonb;
+  end if;
+end $$;
 
 create table if not exists public.conditions_catalog (
   id text primary key,

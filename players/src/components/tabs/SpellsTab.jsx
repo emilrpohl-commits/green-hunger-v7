@@ -4,6 +4,7 @@ import FilterChipRow from '../ui/FilterChipRow.jsx'
 import { ENTITY_FILTER_LABELS, matchesEntityFilter, spellToFilterTags } from '../../lib/entityFilters.js'
 import { classifySpellCombat } from '@shared/lib/combat/spellCombatClassifier.js'
 import DiceRichText from '@shared/components/combat/DiceRichText.jsx'
+import { createPlayerDiceRollHandler } from '@shared/lib/diceText/dispatch.js'
 
 export default function SpellsTab({
   char, spellSlots, activeSpell, spellSlotLevel, setSpellSlotLevel,
@@ -16,6 +17,7 @@ export default function SpellsTab({
 }) {
   const st = char?.stats && typeof char.stats === 'object' && !Array.isArray(char.stats) ? char.stats : {}
   const [spellFilter, setSpellFilter] = useState('all')
+  const [expandedSpellId, setExpandedSpellId] = useState(null)
 
   useEffect(() => {
     if (!stripSignal?.type) return
@@ -160,13 +162,16 @@ export default function SpellsTab({
                 const slotKey = displaySpell.minSlot || (displaySpell.level > 0 ? displaySpell.level : null)
                 const slot = slotKey ? (spellSlots[slotKey] || { max: 0, used: 0 }) : null
                 const noSlots = !!(slot && slot.used >= slot.max && !isCantrips)
+                const spellRowId = spell?.id || `${level}:${displaySpell.name}`
 
                 return (
                   <SpellCard
-                    key={displaySpell.name}
+                    key={spellRowId}
                     spell={displaySpell}
                     isActive={isActive}
                     isExhausted={noSlots}
+                    isReferenceExpanded={expandedSpellId === spellRowId}
+                    onToggleReference={() => setExpandedSpellId((prev) => (prev === spellRowId ? null : spellRowId))}
                     onCast={() => openSpell(displaySpell)}
                     onCancel={() => closeSpell()}
                     charColour={char.colour}
@@ -202,6 +207,11 @@ function ActiveSpellPanel({
   const effectiveDamageDice = spell.damage
     ? (spell.damage.count + ((spell.perLevel?.count || 0) * extraLevels))
     : null
+  const handleInlineRoll = createPlayerDiceRollHandler({
+    pushRoll,
+    rollerName: char.name,
+    defaultContextLabel: spell.name,
+  })
 
   return (
     <div style={{
@@ -224,13 +234,7 @@ function ActiveSpellPanel({
         <DiceRichText
           text={spell.description}
           contextLabel={spell.name}
-          onRoll={pushRoll
-            ? ({ total, rolls, mod, expr, contextLabel: ctx }) => {
-                const modStr = mod ? (mod >= 0 ? `+${mod}` : `${mod}`) : ''
-                const r = rolls.length ? `[${rolls.join('+')}]${modStr}` : ''
-                pushRoll(`${ctx || spell.name} (${expr}): ${r} = ${total}`, char.name)
-              }
-            : undefined}
+          onRoll={pushRoll ? handleInlineRoll : undefined}
         />
       </div>
 

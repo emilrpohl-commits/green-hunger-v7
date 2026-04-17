@@ -7,6 +7,7 @@ import {
   HOSTILE_SPELL_EFFECTS,
   PC_BUFF_SPELL_EFFECTS,
 } from '../constants.js'
+import '../../combat.css'
 
 /**
  * ConditionChips
@@ -25,7 +26,14 @@ function exhaustionLabel(c) {
   return `Exhaustion ${lv}`
 }
 
-export default function ConditionChips({ combatant, compact = false }) {
+export default function ConditionChips({
+  combatant,
+  compact = false,
+  /** When false, hides spell-effect chips, ✦ Effect control, and effect picker. */
+  showSpellEffects = true,
+  /** When false, hides + Cond and condition picker. */
+  showConditionPicker = true,
+}) {
   const toggleCondition = useCombatStore(s => s.toggleCondition)
   const setCombatantExhaustionLevel = useCombatStore(s => s.setCombatantExhaustionLevel)
   const addEffect       = useCombatStore(s => s.addEffect)
@@ -76,7 +84,7 @@ export default function ConditionChips({ combatant, compact = false }) {
 
   return (
     <div style={{ position: 'relative' }} ref={pickerRef}>
-      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div className="combatant-conditions-bar" style={{ gap: compact ? 3 : 4 }}>
 
         {/* Active conditions */}
         {conditions.map(cond => {
@@ -84,25 +92,22 @@ export default function ConditionChips({ combatant, compact = false }) {
           const title  = CONDITION_DESC[cond] || cond
           const label  = cond === 'Exhaustion' ? exhaustionLabel(combatant) : cond
           return (
-            <span
+            <button
               key={cond}
+              type="button"
               title={title}
-              className="cond-chip"
+              className="condition-chip"
+              style={{ '--chip-colour': colour }}
               onClick={() => toggleCondition(combatant.id, cond)}
-              style={{
-                background: `${colour}20`,
-                borderColor: `${colour}60`,
-                color: colour,
-              }}
             >
               {label}
-              <span style={{ fontSize: 10, opacity: 0.7, lineHeight: 1 }}>×</span>
-            </span>
+              <span className="condition-chip-remove">×</span>
+            </button>
           )
         })}
         {conditions.includes('Exhaustion') && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 2 }}>
-            <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Lv</span>
+          <span className="condition-exhaustion-stepper">
+            <span className="condition-exhaustion-stepper-label">Lv</span>
             {[1, 2, 3, 4, 5, 6].map((lv) => {
               const cur = Math.max(0, Math.min(6, Math.floor(Number(combatant.exhaustionLevel) || 1)))
               const sel = cur === lv
@@ -111,16 +116,7 @@ export default function ConditionChips({ combatant, compact = false }) {
                   key={lv}
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setCombatantExhaustionLevel(combatant.id, lv) }}
-                  style={{
-                    padding: '0 5px',
-                    fontSize: 9,
-                    fontFamily: 'var(--font-mono)',
-                    borderRadius: 4,
-                    border: `1px solid ${sel ? 'var(--green-bright)' : 'var(--border)'}`,
-                    background: sel ? 'rgba(122,184,106,0.15)' : 'var(--bg-card)',
-                    color: sel ? 'var(--green-bright)' : 'var(--text-muted)',
-                    cursor: 'pointer',
-                  }}
+                  className={`condition-exhaustion-lv-btn ${sel ? 'condition-exhaustion-lv-btn--selected' : 'condition-exhaustion-lv-btn--plain'}`}
                 >
                   {lv}
                 </button>
@@ -129,53 +125,54 @@ export default function ConditionChips({ combatant, compact = false }) {
           </span>
         )}
 
+        {combatant.concentration && (
+          <span className="condition-chip condition-chip--conc" title="Concentrating">
+            ◈ Conc.
+          </span>
+        )}
+
         {/* Active spell effects */}
-        {effects.map(eff => (
-          <span
+        {showSpellEffects && effects.map(eff => (
+          <button
             key={eff.name}
+            type="button"
             title={eff.mechanic || eff.name}
-            className="cond-chip"
+            className="condition-chip"
+            style={{ '--chip-colour': eff.colour }}
             onClick={() => removeEffect(combatant.id, eff.name)}
-            style={{
-              background: `${eff.colour}18`,
-              borderColor: `${eff.colour}55`,
-              color: eff.colour,
-            }}
           >
             {eff.concentration && <span style={{ opacity: 0.7 }}>◈</span>}
             {eff.name}
-            <span style={{ fontSize: 10, opacity: 0.7, lineHeight: 1 }}>×</span>
-          </span>
+            <span className="condition-chip-remove">×</span>
+          </button>
         ))}
 
         {/* Add buttons */}
-        {!compact && (
-          <>
-            <button
-              onClick={() => openPopover('condition')}
-              style={{
-                padding: '2px 8px', fontSize: 9, fontFamily: 'var(--font-mono)',
-                background: showCondPicker ? 'rgba(255,255,255,0.06)' : 'transparent',
-                border: '1px solid var(--border)', borderRadius: 20,
-                color: 'var(--text-muted)', cursor: 'pointer',
-                textTransform: 'uppercase', letterSpacing: '0.06em',
-              }}
-            >
-              + Cond
-            </button>
-            <button
-              onClick={() => openPopover('effect')}
-              style={{
-                padding: '2px 8px', fontSize: 9, fontFamily: 'var(--font-mono)',
-                background: showEffectPicker ? 'rgba(160,96,192,0.1)' : 'transparent',
-                border: '1px solid rgba(160,96,192,0.35)', borderRadius: 20,
-                color: '#a060c0', cursor: 'pointer',
-                textTransform: 'uppercase', letterSpacing: '0.06em',
-              }}
-            >
-              ✦ Effect
-            </button>
-          </>
+        {showConditionPicker && (
+          <button
+            type="button"
+            className="condition-add-btn"
+            onClick={() => openPopover('condition')}
+            style={{
+              background: showCondPicker ? 'rgba(255,255,255,0.06)' : undefined,
+            }}
+          >
+            + Cond
+          </button>
+        )}
+        {showSpellEffects && (
+          <button
+            type="button"
+            className="condition-effect-btn"
+            onClick={() => openPopover('effect')}
+            style={{
+              background: showEffectPicker ? 'rgba(160,96,192,0.1)' : 'transparent',
+              border: '1px solid rgba(160,96,192,0.35)',
+              color: '#a060c0',
+            }}
+          >
+            ✦ Effect
+          </button>
         )}
       </div>
 
@@ -198,23 +195,23 @@ export default function ConditionChips({ combatant, compact = false }) {
             return (
               <button
                 key={cond}
+                type="button"
                 title={CONDITION_DESC[cond]}
-                onClick={() => { toggleCondition(combatant.id, cond) }}
-                style={{
-                  padding: '3px 9px', fontSize: 10,
-                  background: active ? `${colour}25` : 'var(--bg-card)',
-                  border: `1px solid ${active ? colour : 'var(--border)'}`,
-                  borderRadius: 20,
-                  color: active ? colour : 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--font-mono)',
-                  transition: 'all 120ms ease',
+                className={`condition-picker-btn ${active ? 'condition-picker-btn--active' : ''}`}
+                style={{ '--chip-colour': colour }}
+                onClick={() => {
+                  const wasActive = conditions.includes(cond)
+                  toggleCondition(combatant.id, cond)
+                  if (!wasActive) setShowCondPicker(false)
                 }}
               >
                 {cond}
               </button>
             )
           })}
+          <button type="button" className="condition-picker-close" onClick={() => setShowCondPicker(false)}>
+            Done
+          </button>
         </div>
       )}
 

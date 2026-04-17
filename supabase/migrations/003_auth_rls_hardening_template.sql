@@ -16,4 +16,9 @@
 --
 -- Do not run this file as-is: it is documentation and a starting point.
 
-comment on table campaigns is 'RLS: tighten with auth.uid() / roles when moving off anon-only deployment.';
+do $$
+begin
+  if to_regclass('public.campaigns') is not null then
+    comment on table campaigns is 'RLS: tighten with auth.uid() / roles when moving off anon-only deployment.';
+  end if;
+end $$;

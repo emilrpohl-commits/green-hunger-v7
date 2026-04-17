@@ -1,19 +1,26 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@shared/lib/supabase.js'
 import { useCampaignStore } from '../../stores/campaignStore'
+import { useCombatStore } from '../../stores/combatStore'
 import { referenceSpellRowToCampaignPayload } from '@shared/lib/reference/referenceSpellToCampaign.js'
 import { srdMonsterToStatBlockDraft } from '@shared/lib/reference/srdMonsterToStatBlock.js'
+import DiceInlineText from '@shared/components/combat/DiceInlineText.jsx'
+import { createDmDiceRollHandler } from '@shared/lib/diceText/dispatch.js'
 
 const TABS = [
   { id: 'spells', label: 'Spells' },
   { id: 'monsters', label: 'Monsters' },
   { id: 'conditions', label: 'Conditions' },
+  { id: 'equipment', label: 'Gear' },
+  { id: 'magic-items', label: 'Magic' },
+  { id: 'backgrounds', label: 'BG' },
 ]
 
 export default function ReferenceLibrary() {
   const campaign = useCampaignStore((s) => s.campaign)
   const saveSpell = useCampaignStore((s) => s.saveSpell)
   const saveStatBlock = useCampaignStore((s) => s.saveStatBlock)
+  const pushFeedEvent = useCombatStore((s) => s.pushFeedEvent)
 
   const [tab, setTab] = useState('spells')
   const [ruleset, setRuleset] = useState('2014')
@@ -26,6 +33,12 @@ export default function ReferenceLibrary() {
   const [error, setError] = useState(null)
 
   const mono = { fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }
+  const handleInlineRoll = createDmDiceRollHandler({
+    pushFeedEvent,
+    type: 'roll',
+    shared: true,
+    defaultContextLabel: selected?.name || 'Reference text',
+  })
 
   const onPickTab = (id) => {
     setTab(id)
@@ -33,10 +46,20 @@ export default function ReferenceLibrary() {
     if ((id === 'spells' || id === 'monsters') && ruleset === '2024') setRuleset('2014')
   }
 
+  const tableForTab = (t) => {
+    if (t === 'spells') return 'reference_spells'
+    if (t === 'monsters') return 'reference_monsters'
+    if (t === 'conditions') return 'reference_conditions'
+    if (t === 'equipment') return 'reference_equipment'
+    if (t === 'magic-items') return 'reference_magic_items'
+    if (t === 'backgrounds') return 'reference_backgrounds'
+    return 'reference_conditions'
+  }
+
   const fetchRows = useCallback(async () => {
     setLoading(true)
     setError(null)
-    const table = tab === 'spells' ? 'reference_spells' : tab === 'monsters' ? 'reference_monsters' : 'reference_conditions'
+    const table = tableForTab(tab)
     try {
       let q = supabase.from(table).select('*').eq('ruleset', ruleset)
       const term = search.trim()
@@ -103,10 +126,20 @@ export default function ReferenceLibrary() {
   }
 
   const copyConditionText = async () => {
-    if (!selected?.description) return
+    if (!selected) return
     try {
-      await navigator.clipboard.writeText(`${selected.name}\n\n${selected.description}`)
-      setNotice('Condition text copied to clipboard.')
+      let text = `${selected.name}\n\n${selected.description || ''}`
+      if (tab === 'equipment') {
+        text = `${selected.name}\n${selected.equipment_category || ''} ${selected.damage_dice || ''} ${selected.damage_type || ''}\n\n${JSON.stringify(selected.raw_json || {}, null, 2)}`.slice(0, 12000)
+      }
+      if (tab === 'magic-items') {
+        text = `${selected.name} (${selected.rarity || ''})\n\n${selected.description || ''}`
+      }
+      if (tab === 'backgrounds') {
+        text = `${selected.name}\n\n${selected.feature_name || ''}\n${selected.feature_description || ''}`
+      }
+      await navigator.clipboard.writeText(text)
+      setNotice('Copied to clipboard.')
     } catch {
       setError('Clipboard not available.')
     }
@@ -142,11 +175,11 @@ export default function ReferenceLibrary() {
             }}
           >
             <option value="2014">2014 SRD</option>
-            <option value="2024">2024 SRD (conditions in bundle)</option>
+            <option value="2024">2024 SRD</option>
           </select>
           {(tab === 'spells' || tab === 'monsters') && (
             <div style={{ ...mono, fontSize: 9, marginTop: 6, lineHeight: 1.4 }}>
-              Spells and monsters import is 2014-only until 2024 JSON packs are added to the ETL.
+              Spells and monsters browse is 2014-only until 2024 packs are imported.
             </div>
           )}
         </div>
@@ -197,7 +230,8 @@ export default function ReferenceLibrary() {
             <div style={{ padding: 16, color: 'var(--danger)', fontSize: 13, lineHeight: 1.5 }}>
               {error}
               <div style={{ ...mono, marginTop: 10, fontSize: 10 }}>
-                Apply migration <code>20260411120000_reference_library_srd.sql</code>, then from <code>dm/</code> run{' '}
+                Apply migrations <code>20260411120000_reference_library_srd.sql</code> and{' '}
+                <code>20260426120000_srd_reference_expand.sql</code>, then from <code>dm/</code> run{' '}
                 <code>npm run reference:import</code> (sets <code>SUPABASE_URL</code> + <code>SUPABASE_SERVICE_ROLE_KEY</code>).
               </div>
             </div>
@@ -227,6 +261,12 @@ export default function ReferenceLibrary() {
               {tab === 'monsters' && r.challenge_rating != null && (
                 <span style={{ ...mono, marginLeft: 8, color: 'var(--text-muted)' }}>CR {r.challenge_rating}</span>
               )}
+              {tab === 'equipment' && r.equipment_category && (
+                <span style={{ ...mono, marginLeft: 8, color: 'var(--text-muted)' }}>{r.equipment_category}</span>
+              )}
+              {tab === 'magic-items' && r.rarity && (
+                <span style={{ ...mono, marginLeft: 8, color: 'var(--text-muted)' }}>{r.rarity}</span>
+              )}
             </button>
           ))}
         </div>
@@ -255,22 +295,28 @@ export default function ReferenceLibrary() {
 
             {tab === 'spells' && (
               <>
-                <pre style={{
-                  whiteSpace: 'pre-wrap',
-                  fontSize: 13,
-                  lineHeight: 1.55,
-                  color: 'var(--text-secondary)',
-                  marginBottom: 16,
-                }}
-                >
-                  {selected.description || '—'}
-                </pre>
+                <DiceInlineText
+                  text={selected.description || '—'}
+                  contextLabel={`${selected.name}: description`}
+                  onRoll={handleInlineRoll}
+                  style={{
+                    whiteSpace: 'pre-wrap',
+                    fontSize: 13,
+                    lineHeight: 1.55,
+                    color: 'var(--text-secondary)',
+                    marginBottom: 16,
+                    display: 'block',
+                  }}
+                />
                 {selected.higher_level && (
                   <div style={{ marginBottom: 16 }}>
                     <div style={{ ...mono, marginBottom: 6 }}>At higher levels</div>
-                    <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: 'var(--text-muted)' }}>
-                      {selected.higher_level}
-                    </pre>
+                    <DiceInlineText
+                      text={selected.higher_level}
+                      contextLabel={`${selected.name}: higher levels`}
+                      onRoll={handleInlineRoll}
+                      style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: 'var(--text-muted)', display: 'block' }}
+                    />
                   </div>
                 )}
               </>
@@ -284,16 +330,64 @@ export default function ReferenceLibrary() {
             )}
 
             {tab === 'conditions' && (
-              <pre style={{
-                whiteSpace: 'pre-wrap',
-                fontSize: 13,
-                lineHeight: 1.55,
-                color: 'var(--text-secondary)',
-                marginBottom: 16,
-              }}
-              >
-                {selected.description || '—'}
-              </pre>
+              <DiceInlineText
+                text={selected.description || '—'}
+                contextLabel={`${selected.name}: condition`}
+                onRoll={handleInlineRoll}
+                style={{
+                  whiteSpace: 'pre-wrap',
+                  fontSize: 13,
+                  lineHeight: 1.55,
+                  color: 'var(--text-secondary)',
+                  marginBottom: 16,
+                  display: 'block',
+                }}
+              />
+            )}
+
+            {tab === 'equipment' && (
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 16 }}>
+                <div style={{ ...mono, marginBottom: 8 }}>
+                  {selected.equipment_category || '—'}
+                  {selected.damage_dice ? ` · ${selected.damage_dice}` : ''}
+                  {selected.damage_type ? ` ${selected.damage_type}` : ''}
+                </div>
+                <pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>
+                  {JSON.stringify(selected.raw_json || {}, null, 2).slice(0, 4000)}
+                </pre>
+              </div>
+            )}
+
+            {tab === 'magic-items' && (
+              <DiceInlineText
+                text={selected.description || '—'}
+                contextLabel={`${selected.name}: magic item`}
+                onRoll={handleInlineRoll}
+                style={{
+                  whiteSpace: 'pre-wrap',
+                  fontSize: 13,
+                  lineHeight: 1.55,
+                  color: 'var(--text-secondary)',
+                  marginBottom: 16,
+                  display: 'block',
+                }}
+              />
+            )}
+
+            {tab === 'backgrounds' && (
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 16 }}>
+                {selected.feature_name && (
+                  <div style={{ marginBottom: 10 }}>
+                    <strong>{selected.feature_name}</strong>
+                    <DiceInlineText
+                      text={selected.feature_description || ''}
+                      contextLabel={`${selected.name}: background feature`}
+                      onRoll={handleInlineRoll}
+                      style={{ whiteSpace: 'pre-wrap', display: 'block', marginTop: 6 }}
+                    />
+                  </div>
+                )}
+              </div>
             )}
 
             {notice && (
@@ -372,6 +466,26 @@ export default function ReferenceLibrary() {
                   }}
                 >
                   Copy text
+                </button>
+              )}
+              {(tab === 'equipment' || tab === 'magic-items' || tab === 'backgrounds') && (
+                <button
+                  type="button"
+                  onClick={copyConditionText}
+                  style={{
+                    padding: '10px 18px',
+                    borderRadius: 'var(--radius)',
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-secondary)',
+                    ...mono,
+                    fontSize: 10,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Copy summary
                 </button>
               )}
             </div>

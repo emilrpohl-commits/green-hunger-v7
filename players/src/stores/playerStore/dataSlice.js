@@ -61,6 +61,9 @@ function coercePlayerSheetShape(sheet) {
 }
 
 export const createDataSlice = (set, get) => ({
+  /** True while loadInitialState / loadCharacters is in flight */
+  loading: false,
+  loadError: null,
   spellCompendium: {},
   knownConditions: [],
   /** Phase 2D: surfaced in UI when character load fails or returns no valid rows */
@@ -349,12 +352,13 @@ export const createDataSlice = (set, get) => ({
         system: 'playerData',
         reason: String(e?.message || e),
       })
-      set({ charactersLoadError: 'fetch_failed' })
+      set({ charactersLoadError: 'fetch_failed', loadError: String(e?.message || e) })
     }
   },
 
   loadInitialState: async () => {
     const { sessionRunId } = get()
+    set({ loading: true, loadError: null })
     await get().loadCharacters()
     try {
       const { data: sessionData } = await supabase
@@ -401,7 +405,10 @@ export const createDataSlice = (set, get) => ({
       set({
         sessionHydrationError: get().sessionHydrationError || 'load_failed',
         sessionHydrationDetail: String(e?.message || e),
+        loadError: String(e?.message || e),
       })
+    } finally {
+      set({ loading: false })
     }
   },
 
@@ -481,6 +488,10 @@ export const createDataSlice = (set, get) => ({
       concentrationSpell: active ? (spellName ?? prev.concentrationSpell ?? '') : null,
     }
     await get().upsertCharacterStateRow(characterId, { concentration: !!active, tacticalJson })
+    if (!active) {
+      const p = get().concentrationSavePrompt
+      if (p?.characterId === characterId) get().dismissConcentrationSave()
+    }
   },
 
   setMyCharacterConditions: async (characterId, conditions) => {
@@ -494,6 +505,10 @@ export const createDataSlice = (set, get) => ({
       conditions: next,
       ...(dropsConcentration ? { concentration: false, tacticalJson: { ...prev, concentrationSpell: null } } : {}),
     })
+    if (dropsConcentration) {
+      const p = get().concentrationSavePrompt
+      if (p?.characterId === characterId) get().dismissConcentrationSave()
+    }
   },
 
   markMyCharacterDeathSave: async (characterId, type, delta = 1) => {

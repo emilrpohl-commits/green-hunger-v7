@@ -1,6 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
 import { uploadSessionMapVideo } from '@shared/lib/sessionMapStorage.js'
+import { sessionArchiveConfirmMessage, sceneDeleteConfirmMessage } from './deleteScopeCopy.js'
+
+function sessionEditorSnapshot(session, form) {
+  if (!session) return ''
+  const objectives = Array.isArray(form.objectives) ? form.objectives : []
+  return JSON.stringify({
+    title: (form.title || '').trim(),
+    subtitle: form.subtitle || '',
+    session_number: Number(form.session_number) || session.session_number || session.order || 1,
+    estimated_duration: form.estimated_duration || '',
+    recap: form.recap || '',
+    objectives,
+    contingency_notes: form.contingency_notes || '',
+    post_session_notes: form.post_session_notes || '',
+    notes: form.notes || '',
+    session_maps: Array.isArray(form.session_maps) ? form.session_maps : [],
+  })
+}
 
 export default function SessionEditor({ sessionId, onClose, onEditScene }) {
   const campaign = useCampaignStore(s => s.campaign)
@@ -16,10 +34,12 @@ export default function SessionEditor({ sessionId, onClose, onEditScene }) {
   const [saveMsg, setSaveMsg] = useState(null)
   const [mapUploadBusy, setMapUploadBusy] = useState(false)
   const mapVideoInputRef = useRef(null)
+  const baselineRef = useRef(null)
+  const [autosaveStatus, setAutosaveStatus] = useState(null) // 'saving' | 'saved' | 'error' | null
 
   useEffect(() => {
     if (session) {
-      setForm({
+      const next = {
         title: session.title || '',
         subtitle: session.subtitle || '',
         session_number: session.session_number || session.order || 1,
@@ -30,9 +50,39 @@ export default function SessionEditor({ sessionId, onClose, onEditScene }) {
         post_session_notes: session.post_session_notes || '',
         notes: session.notes || '',
         session_maps: Array.isArray(session.session_maps) ? session.session_maps : [],
-      })
+      }
+      setForm(next)
+      baselineRef.current = sessionEditorSnapshot(session, next)
+      setAutosaveStatus(null)
     }
   }, [sessionId, sessions])
+
+  const snapshot = useMemo(() => (session ? sessionEditorSnapshot(session, form) : ''), [session, form])
+  const formRef = useRef(form)
+  const sessionRef = useRef(session)
+  formRef.current = form
+  sessionRef.current = session
+
+  useEffect(() => {
+    if (!session || baselineRef.current === null) return undefined
+    if (snapshot === baselineRef.current) return undefined
+    if (!(form.title || '').trim()) return undefined
+    const t = setTimeout(async () => {
+      setAutosaveStatus('saving')
+      const s = sessionRef.current
+      const f = formRef.current
+      const result = await saveSession({ ...s, ...f })
+      if (result.error) {
+        setAutosaveStatus('error')
+        setSaveMsg({ type: 'error', text: result.error })
+        return
+      }
+      baselineRef.current = sessionEditorSnapshot(s, f)
+      setAutosaveStatus('saved')
+      setTimeout(() => setAutosaveStatus((st) => (st === 'saved' ? null : st)), 2200)
+    }, 2500)
+    return () => clearTimeout(t)
+  }, [snapshot, session, saveSession, form.title])
 
   if (!session) return <div style={{ padding: 40, color: 'var(--text-muted)' }}>Session not found.</div>
 
@@ -42,10 +92,19 @@ export default function SessionEditor({ sessionId, onClose, onEditScene }) {
   const taStyle = { ...inputStyle, lineHeight: 1.7, resize: 'vertical', fontFamily: 'inherit' }
 
   const handleSave = async () => {
+    if (!(form.title || '').trim()) {
+      setSaveMsg({ type: 'error', text: 'Title is required before saving.' })
+      return
+    }
     setSaving(true)
     const result = await saveSession({ ...session, ...form })
     setSaving(false)
-    setSaveMsg(result.error ? { type: 'error', text: result.error } : { type: 'ok', text: 'Saved' })
+    if (result.error) setSaveMsg({ type: 'error', text: result.error })
+    else {
+      setSaveMsg({ type: 'ok', text: 'Saved' })
+      baselineRef.current = sessionEditorSnapshot(session, form)
+      setAutosaveStatus(null)
+    }
   }
 
   const handleAddScene = async () => {
@@ -67,12 +126,24 @@ export default function SessionEditor({ sessionId, onClose, onEditScene }) {
           Session {session.session_number}: {session.title}
         </div>
         {saveMsg && <span style={{ ...mono, fontSize: 11, color: saveMsg.type === 'ok' ? 'var(--green-bright)' : 'var(--danger)' }}>{saveMsg.text}</span>}
+        {autosaveStatus === 'saving' && (
+          <span style={{ ...mono, fontSize: 10, color: 'var(--text-muted)' }}>Autosaving…</span>
+        )}
+        {autosaveStatus === 'saved' && (
+          <span style={{ ...mono, fontSize: 10, color: 'var(--green-bright)' }}>All changes saved</span>
+        )}
+        {autosaveStatus === 'error' && (
+          <span style={{ ...mono, fontSize: 10, color: 'var(--danger)' }}>Autosave failed</span>
+        )}
+        {snapshot !== baselineRef.current && (form.title || '').trim() && (
+          <span style={{ ...mono, fontSize: 10, color: 'var(--warning)' }}>Unsaved</span>
+        )}
         <button onClick={async () => {
-          if (!window.confirm(`Delete session "${session.title}"? This will remove all scenes and beats. Cannot be undone.`)) return
+          if (!window.confirm(sessionArchiveConfirmMessage(session))) return
           await deleteSession(sessionId)
           onClose()
         }} style={{ padding: '8px 14px', background: 'transparent', border: '1px solid rgba(196,64,64,0.4)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--danger)', ...mono, fontSize: 11, textTransform: 'uppercase' }}>
-          Delete
+          Archive
         </button>
         <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', background: 'var(--green-bright)', color: '#0a0f0a', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', ...mono, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', opacity: saving ? 0.6 : 1 }}>
           {saving ? 'Saving…' : 'Save'}
@@ -239,7 +310,7 @@ export default function SessionEditor({ sessionId, onClose, onEditScene }) {
               </div>
               <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)' }}>{scene.beats?.length || 0} beats</div>
               <button onClick={() => onEditScene(scene.id)} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text-secondary)', ...mono, fontSize: 9, textTransform: 'uppercase' }}>Edit</button>
-              <button onClick={async () => { if (!window.confirm(`Delete "${scene.title}"? This cannot be undone.`)) return; await deleteScene(scene.id) }} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(196,64,64,0.3)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--danger)', ...mono, fontSize: 9, textTransform: 'uppercase' }}>Delete</button>
+              <button onClick={async () => { if (!window.confirm(sceneDeleteConfirmMessage(scene))) return; await deleteScene(scene.id) }} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(196,64,64,0.3)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--danger)', ...mono, fontSize: 9, textTransform: 'uppercase' }}>Delete</button>
             </div>
           ))}
 

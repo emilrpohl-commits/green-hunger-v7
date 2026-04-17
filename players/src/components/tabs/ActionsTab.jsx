@@ -2,6 +2,9 @@ import React, { useMemo, useState, useEffect } from 'react'
 import { Section } from '../ui/Section'
 import { isAttackRoll } from '../../lib/diceHelpers'
 import FilterChipRow from '../ui/FilterChipRow.jsx'
+import { usePlayerStore } from '../../stores/playerStore'
+import DiceInlineText from '@shared/components/combat/DiceInlineText.jsx'
+import { createPlayerDiceRollHandler } from '@shared/lib/diceText/dispatch.js'
 import {
   ENTITY_FILTER_LABELS,
   matchesEntityFilter,
@@ -18,7 +21,13 @@ export default function ActionsTab({
   bardicInspirationUses, activeBuffs, spellSlots,
   stripSignal = null,
 }) {
+  const pushRoll = usePlayerStore((s) => s.pushRoll)
   const [actFilter, setActFilter] = useState('all')
+  const handleInlineRoll = createPlayerDiceRollHandler({
+    pushRoll,
+    rollerName: char?.name || 'Player',
+    defaultContextLabel: `${char?.name || 'Character'}: actions`,
+  })
 
   useEffect(() => {
     if (!stripSignal?.type) return
@@ -106,9 +115,22 @@ export default function ActionsTab({
               <div>
                 <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>{w.name}</div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                  {w.hit} · {w.damage}
+                  {w.hit} ·{' '}
+                  <DiceInlineText
+                    text={w.damage}
+                    contextLabel={`${char?.name || 'Character'}: ${w.name}`}
+                    onRoll={handleInlineRoll}
+                    style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}
+                  />
                 </div>
-                {w.notes && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>{w.notes}</div>}
+                {w.notes && (
+                  <DiceInlineText
+                    text={w.notes}
+                    contextLabel={`${char?.name || 'Character'}: ${w.name} notes`}
+                    onRoll={handleInlineRoll}
+                    style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}
+                  />
+                )}
               </div>
               <button
                 onClick={() => rollAttack(w, selectedTarget)}
@@ -284,7 +306,12 @@ export default function ActionsTab({
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
                 1d{ba.die} · {ba.action} · {ba.range}
               </div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10 }}>{ba.description}</div>
+              <DiceInlineText
+                text={ba.description}
+                contextLabel={`${char?.name || 'Character'}: ${ba.name}`}
+                onRoll={handleInlineRoll}
+                style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10 }}
+              />
               <button
                 onClick={() => bardicTarget && grantBardic(bardicTarget)}
                 disabled={!bardicTarget || bardicInspirationUses <= 0}

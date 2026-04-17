@@ -12,9 +12,9 @@ export const featureFlags = {
   appTitle: rawTitle || 'Campaign Console',
   /**
    * When true (and demo is off), DM boot lists campaigns from Supabase instead of assuming `green-hunger`.
-   * Player app starts without bundled static party sheets until DB load succeeds.
+   * Default ON. Disable with VITE_SEEDLESS_PLATFORM=0 or use VITE_DEMO_CAMPAIGN=1 for bundled demo PCs.
    */
-  seedlessPlatform: asBool(env.VITE_SEEDLESS_PLATFORM, false),
+  seedlessPlatform: asBool(env.VITE_SEEDLESS_PLATFORM, true),
   /** Restores legacy implicit `green-hunger` + bundled demo content for showcases. */
   demoCampaign: asBool(env.VITE_DEMO_CAMPAIGN, false),
   // Engine integration defaults to on, with legacy fallback always retained.
@@ -38,7 +38,8 @@ export const featureFlags = {
   homebrewOverlayWrite: asBool(env.VITE_HOMEBREW_OVERLAY_WRITE, false),
   uiCombatClarity: asBool(env.VITE_UI_COMBAT_CLARITY, false),
   uiPromptStateBadges: asBool(env.VITE_UI_PROMPT_STATE_BADGES, false),
-  shadowCompareMode: asBool(env.VITE_SHADOW_COMPARE_MODE, false),
+  /** Inline clickable dice parsing/rendering in prose text. */
+  uiDiceTextRolls: asBool(env.VITE_UI_DICE_TEXT_ROLLS, true),
   /** Phase 2C: use encounters + stat_blocks from DB for quick-launch (see kill switch for rollback). */
   encountersDbOnly: asBool(env.VITE_ENCOUNTERS_DB_ONLY, false),
   encountersDbOnlyKillSwitch: asBool(env.VITE_ENCOUNTERS_DB_ONLY_KILL_SWITCH, false),
@@ -49,3 +50,8 @@ export const featureFlags = {
 export function isFeatureEnabled(flagName) {
   return !!featureFlags[flagName]
 }
+
+/**
+ * Flag audit: remove a flag only after both code paths are gone and QA sign-off.
+ * Remaining `VITE_*` toggles above are grouped — engine defaults stay on; rollout flags default off until cutover.
+ */

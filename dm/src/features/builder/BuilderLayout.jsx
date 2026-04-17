@@ -12,6 +12,8 @@ import CharacterEditor from '../characters/CharacterEditor'
 import EncounterLibrary from '../encounters/EncounterLibrary'
 import SoundDock from '../runtime/soundboard/SoundDock.jsx'
 import DmToolboxShell from '../toolbox/DmToolboxShell.jsx'
+import ReferenceLibrary from '../reference/ReferenceLibrary.jsx'
+import SrdImportManager from '../reference/SrdImportManager.jsx'
 
 // Keep the syncContentFromDb call available in Build mode too
 import { useSessionStore } from '../../stores/sessionStore'
@@ -23,6 +25,8 @@ const NAV_ITEMS = [
   { id: 'npcs', label: 'NPCs', icon: '🧙' },
   { id: 'characters', label: 'Character sheets', icon: '🧝' },
   { id: 'encounters', label: 'Encounters', icon: '🎯' },
+  { id: 'reference', label: 'SRD reference', icon: '📚' },
+  { id: 'srd-import', label: 'SRD import', icon: '⬆️' },
   { id: 'toolbox', label: 'DM Toolbox', icon: '🧰' },
 ]
 
@@ -171,6 +175,10 @@ export default function BuilderLayout() {
         return <CharacterEditor />
       case 'encounters':
         return <EncounterLibrary />
+      case 'reference':
+        return <ReferenceLibrary />
+      case 'srd-import':
+        return <SrdImportManager />
       case 'toolbox':
         return (
           <div style={{ padding: '20px 24px 40px', maxWidth: 900 }}>

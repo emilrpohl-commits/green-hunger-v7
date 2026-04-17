@@ -9,7 +9,7 @@ create table if not exists public.session_invites (
 
 create table if not exists public.encounter_templates (
   id uuid primary key default gen_random_uuid(),
-  campaign_id uuid references public.campaigns(id) on delete cascade,
+  campaign_id uuid,
   name text not null,
   template jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),

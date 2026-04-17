@@ -13,6 +13,7 @@
 import React, { useState, useCallback } from 'react'
 import { parseStatBlock } from '@shared/lib/parseStatBlock.js'
 import { parseSpell } from '@shared/lib/parseSpell.js'
+import { validateStatBlockImport } from '@shared/lib/validation/statBlockImportSchema.js'
 import { useCampaignStore } from '../../stores/campaignStore'
 
 // ---------------------------------------------------------------------------
@@ -172,8 +173,16 @@ export default function ImportModal({ type = 'auto', onClose, onSaved }) {
     setDetected(d)
 
     try {
-      if (d === 'statblock') setParsed(parseStatBlock(text))
-      else if (d === 'spell') setParsed(parseSpell(text))
+      if (d === 'statblock') {
+        const raw = parseStatBlock(text)
+        const v = validateStatBlockImport(raw)
+        if (!v.success) {
+          const msg = v.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('\n')
+          setParseError(`Validation:\n${msg}`)
+          return
+        }
+        setParsed(raw)
+      } else if (d === 'spell') setParsed(parseSpell(text))
       else setParseError('Could not detect content type. Try pasting more of the stat block or spell entry.')
     } catch (e) {
       setParseError(`Parse error: ${e.message}`)

@@ -28,8 +28,15 @@ export default function QuickAdjustPanel({ combatant, showHealChips = false }) {
   const [amount, setAmount] = useState('')
   const [damageTypeId, setDamageTypeId] = useState(readLastManualDamageType)
   const [flash, setFlash]   = useState(null) // 'dmg' | 'heal' | null
+  const [inputError, setInputError] = useState('')
   const flashTimer = useRef(null)
   const flashDurationMs = combatQoePolishEnabled ? 400 : 500
+
+  function normalizeAmount(rawValue, fallback = amount) {
+    const source = rawValue ?? fallback
+    const parsed = Number.parseInt(String(source ?? '').trim(), 10)
+    return Number.isFinite(parsed) ? parsed : null
+  }
 
   function triggerFlash(type) {
     clearTimeout(flashTimer.current)
@@ -38,8 +45,12 @@ export default function QuickAdjustPanel({ combatant, showHealChips = false }) {
   }
 
   function applyDamage(val) {
-    const n = parseInt(val) || parseInt(amount)
-    if (!n || n <= 0) return
+    const n = normalizeAmount(val)
+    if (!(n > 0)) {
+      setInputError('Enter a positive amount.')
+      return
+    }
+    setInputError('')
     writeLastManualDamageType(damageTypeId)
     damageCombatant(combatant.id, n, damageTypeId || null)
     setAmount('')
@@ -47,8 +58,12 @@ export default function QuickAdjustPanel({ combatant, showHealChips = false }) {
   }
 
   function applyHeal(val) {
-    const n = parseInt(val) || parseInt(amount)
-    if (!n || n <= 0) return
+    const n = normalizeAmount(val)
+    if (!(n > 0)) {
+      setInputError('Enter a positive amount.')
+      return
+    }
+    setInputError('')
     healCombatant(combatant.id, n)
     setAmount('')
     triggerFlash('heal')
@@ -72,14 +87,17 @@ export default function QuickAdjustPanel({ combatant, showHealChips = false }) {
         <input
           type="number"
           value={amount}
-          onChange={e => setAmount(e.target.value)}
+          onChange={e => {
+            setAmount(e.target.value)
+            if (inputError) setInputError('')
+          }}
           onKeyDown={e => e.key === 'Enter' && applyDamage()}
           placeholder="Amt"
           min="0"
           style={{
             width: 58, padding: '4px 7px',
             fontFamily: 'var(--font-mono)', fontSize: 13,
-            background: 'var(--bg-raised)', border: '1px solid var(--border)',
+            background: 'var(--bg-raised)', border: `1px solid ${inputError ? 'var(--danger)' : 'var(--border)'}`,
             borderRadius: 'var(--radius)', color: 'var(--text-primary)', outline: 'none',
           }}
         />
@@ -128,6 +146,18 @@ export default function QuickAdjustPanel({ combatant, showHealChips = false }) {
           ))}
         </select>
       </div>
+      {inputError && (
+        <div
+          style={{
+            marginTop: 4,
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10,
+            color: 'var(--danger)',
+          }}
+        >
+          {inputError}
+        </div>
+      )}
 
       {/* Quick damage chips */}
       <div style={{ display: 'flex', gap: 3, marginTop: 5, flexWrap: 'wrap' }}>

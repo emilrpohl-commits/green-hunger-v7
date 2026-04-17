@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
+import { sceneDeleteConfirmMessage } from './deleteScopeCopy.js'
 import { mono, label9, inputBase, taBase, btnSm, btnDanger, btnGreen } from './outlinerStyles'
 import LabelField from './LabelField'
 import OutcomeTableEditor from './OutcomeTableEditor'
@@ -63,7 +64,7 @@ export default function SceneRow({ scene, sessionId, sceneIndex, totalScenes, al
   }
 
   const handleDelete = async () => {
-    if (!window.confirm(`Delete scene "${scene.title}" and all its beats? This cannot be undone.`)) return
+    if (!window.confirm(sceneDeleteConfirmMessage(scene))) return
     await deleteScene(scene.id)
   }
 

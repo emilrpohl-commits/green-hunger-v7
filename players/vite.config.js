@@ -10,7 +10,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'node',
-    include: ['../shared/**/*.test.js'],
+    include: ['../shared/**/*.test.js', 'src/**/*.test.js'],
   },
   base: process.env.VITE_BASE_PATH || '/greenhunger-players/',
   build: {
@@ -22,6 +22,7 @@ export default defineConfig({
       '@rules-data': path.join(root, 'data', 'rules'),
       '@supabase/supabase-js': path.join(__dirname, 'node_modules/@supabase/supabase-js'),
       zod: path.join(__dirname, 'node_modules/zod'),
+      dompurify: path.join(__dirname, 'node_modules/dompurify'),
     },
   },
   server: {

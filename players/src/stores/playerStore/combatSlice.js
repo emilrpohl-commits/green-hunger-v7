@@ -10,6 +10,7 @@ import { parseCombatantsArray } from '@shared/lib/validation/storeBoundaries.js'
 import { debugCombatTelemetry, warnFallback } from '@shared/lib/fallbackTelemetry.js'
 import { sanitizeCombatantForPlayer } from './helpers.js'
 import { normalizeCombatantConditions } from '@shared/lib/rules/conditionHydration.js'
+import { parseModNum } from '../../lib/diceHelpers.js'
 
 export const createCombatSlice = (set, get) => ({
   combatActive: false,
@@ -24,6 +25,9 @@ export const createCombatSlice = (set, get) => ({
 
   activeBuffs: {},
   bardicInspirationUses: 4,
+
+  /** Local UI: concentration save after damage (controllers only). */
+  concentrationSavePrompt: null,
 
   bumpCombatStateSyncedFromWrite: (isoString) => {
     const ms = Date.parse(isoString)
@@ -92,18 +96,27 @@ export const createCombatSlice = (set, get) => ({
           deathSaves: combatant.deathSaves ?? character.deathSaves,
         }
       })
-      return ({
-      combatActive: row.active ?? false,
-      combatRound: row.round ?? 1,
-      combatCombatants: combatants,
-      combatActiveCombatantIndex: activeIdx,
-      ilyaAssignedTo: ilyaAssign,
-      initiativePhase: row.initiative_phase ?? false,
-      _combatStateSyncedAt: nextLast,
-      characters: reconciledCharacters.map((c) =>
-        c.id === 'ilya' ? { ...c, assignedPcId: ilyaAssign } : c
-      ),
-    })})
+      const prompt = state.concentrationSavePrompt
+      const pid = prompt?.characterId
+      let nextConcPrompt = prompt
+      if (pid) {
+        const ch = reconciledCharacters.find((c) => c.id === pid)
+        if (!ch?.concentration) nextConcPrompt = null
+      }
+      return {
+        combatActive: row.active ?? false,
+        combatRound: row.round ?? 1,
+        combatCombatants: combatants,
+        combatActiveCombatantIndex: activeIdx,
+        ilyaAssignedTo: ilyaAssign,
+        initiativePhase: row.initiative_phase ?? false,
+        _combatStateSyncedAt: nextLast,
+        characters: reconciledCharacters.map((c) =>
+          c.id === 'ilya' ? { ...c, assignedPcId: ilyaAssign } : c
+        ),
+        concentrationSavePrompt: nextConcPrompt,
+      }
+    })
     return { applied: true }
   },
 
@@ -236,7 +249,7 @@ export const createCombatSlice = (set, get) => ({
           timestamp: ts,
           metadata: { kind: 'damage', target_id: combatantId, combat_action_id: combatActionId },
         })
-        await supabase.from('combat_state').upsert({
+        const { data: csRow } = await supabase.from('combat_state').upsert({
           id: sessionRunId,
           session_run_id: sessionRunId,
           active: combatActive,
@@ -247,8 +260,8 @@ export const createCombatSlice = (set, get) => ({
           ilya_assigned_to: ilyaAssignedTo,
           ruleset_context: rulesetContext,
           updated_at: ts,
-        })
-        get().bumpCombatStateSyncedFromWrite(ts)
+        }).select('updated_at').maybeSingle()
+        get().bumpCombatStateSyncedFromWrite(csRow?.updated_at || ts)
         debugCombatTelemetry('player.damage.fallback_applied', {
           combatActionId,
           updatedAt: ts,
@@ -271,14 +284,14 @@ export const createCombatSlice = (set, get) => ({
     set({ combatCombatants: updatedCombatants })
     const ts = new Date().toISOString()
     try {
-      await supabase.from('combat_state').upsert({
+      const { data: csRow } = await supabase.from('combat_state').upsert({
         id: sessionRunId, session_run_id: sessionRunId,
         active: combatActive, round: combatRound,
         combatants: updatedCombatants, initiative_phase: initiativePhase,
         ilya_assigned_to: ilyaAssignedTo, ruleset_context: rulesetContext,
         updated_at: ts
-      })
-      get().bumpCombatStateSyncedFromWrite(ts)
+      }).select('updated_at').maybeSingle()
+      get().bumpCombatStateSyncedFromWrite(csRow?.updated_at || ts)
       const target = combatCombatants.find(c => c.id === combatantId)
       await supabase.from('combat_feed').insert({
         session_id: sessionRunId, round: combatRound,
@@ -315,35 +328,103 @@ export const createCombatSlice = (set, get) => ({
       await supabase.from('character_states').upsert({
         id: targetId, cur_hp: newHp, updated_at: new Date().toISOString()
       })
-      const msg = `${healerName} uses ${spellName} on ${staticChar?.name || targetId} for ${amount} HP (${newHp}/${maxHp})`
-      if (combatActive) {
-        await supabase.from('combat_feed').insert({
-          session_id: sessionRunId, round: combatRound,
-          text: msg, type: 'heal', shared: true, timestamp: new Date().toISOString()
-        })
-        const list = await get().fetchCombatantsForWrite()
-        const updatedCombatants = list.map(c =>
-          c.id === targetId ? { ...c, curHp: newHp } : c
-        )
-        if (updatedCombatants.some(c => c.id === targetId)) {
-          set({ combatCombatants: updatedCombatants })
-          const ts = new Date().toISOString()
-          const { initiativePhase, ilyaAssignedTo } = get()
-          await supabase.from('combat_state').upsert({
-            id: sessionRunId, session_run_id: sessionRunId,
-            active: combatActive, round: combatRound,
-            combatants: updatedCombatants, initiative_phase: initiativePhase,
-            ilya_assigned_to: ilyaAssignedTo, updated_at: ts
-          })
-          get().bumpCombatStateSyncedFromWrite(ts)
-        }
-      }
     } catch (e) {
-      console.error('Failed to apply healing:', e)
+      warnFallback('applyHealingToCharacter: character_states upsert failed', {
+        system: 'playerCombat',
+        reason: String(e?.message || e),
+        targetId,
+      })
+    }
+
+    const msg = `${healerName} uses ${spellName} on ${staticChar?.name || targetId} for ${amount} HP (${newHp}/${maxHp})`
+    if (!combatActive) return
+
+    const list = await get().fetchCombatantsForWrite()
+    const updatedCombatants = list.map(c =>
+      c.id === targetId ? { ...c, curHp: newHp } : c
+    )
+    if (updatedCombatants.some(c => c.id === targetId)) {
+      set({ combatCombatants: updatedCombatants })
+      const ts = new Date().toISOString()
+      const { initiativePhase, ilyaAssignedTo } = get()
+      try {
+        const { data: csRow } = await supabase.from('combat_state').upsert({
+          id: sessionRunId, session_run_id: sessionRunId,
+          active: combatActive, round: combatRound,
+          combatants: updatedCombatants, initiative_phase: initiativePhase,
+          ilya_assigned_to: ilyaAssignedTo, updated_at: ts
+        }).select('updated_at').maybeSingle()
+        get().bumpCombatStateSyncedFromWrite(csRow?.updated_at || ts)
+      } catch (e) {
+        warnFallback('applyHealingToCharacter: combat_state upsert failed', {
+          system: 'playerCombat',
+          reason: String(e?.message || e),
+          targetId,
+        })
+      }
+    }
+
+    try {
+      await supabase.from('combat_feed').insert({
+        session_id: sessionRunId, round: combatRound,
+        text: msg, type: 'heal', shared: true, timestamp: new Date().toISOString()
+      })
+    } catch (e) {
+      warnFallback('applyHealingToCharacter: combat_feed insert failed', {
+        system: 'playerCombat',
+        reason: String(e?.message || e),
+        targetId,
+      })
     }
   },
 
-  applyDamageToCharacter: async (targetId, amount, sourceName, label, damageType = null) => {
+  applyHealingToEnemy: async (combatantId, amount, healerName, source = 'Dice roller') => {
+    if (!combatantId || !amount || amount <= 0) return
+    const { combatActive, combatRound, initiativePhase, ilyaAssignedTo, sessionRunId } = get()
+    const combatCombatants = await get().fetchCombatantsForWrite()
+    const target = combatCombatants.find(c => c.id === combatantId)
+    if (!target) return
+
+    const healAmount = Math.max(0, Math.floor(Number(amount) || 0))
+    const maxHp = Number(target.maxHp || 0)
+    const curHp = Number(target.curHp || 0)
+    const newHp = Math.min(maxHp, curHp + healAmount)
+
+    const updatedCombatants = combatCombatants.map(c =>
+      c.id === combatantId ? { ...c, curHp: newHp } : c
+    )
+    set({ combatCombatants: updatedCombatants })
+
+    const ts = new Date().toISOString()
+    try {
+      await supabase.from('combat_feed').insert({
+        session_id: sessionRunId,
+        round: combatRound,
+        text: `${healerName} restores ${healAmount} HP to ${target.name} via ${source} (${newHp}/${maxHp} HP)`,
+        type: 'heal',
+        shared: true,
+        timestamp: ts,
+        metadata: { kind: 'heal', target_id: combatantId },
+      })
+      const { data: csRow } = await supabase.from('combat_state').upsert({
+        id: sessionRunId,
+        session_run_id: sessionRunId,
+        active: combatActive,
+        round: combatRound,
+        combatants: updatedCombatants,
+        active_combatant_index: get().combatActiveCombatantIndex,
+        initiative_phase: initiativePhase,
+        ilya_assigned_to: ilyaAssignedTo,
+        updated_at: ts,
+      }).select('updated_at').maybeSingle()
+      get().bumpCombatStateSyncedFromWrite(csRow?.updated_at || ts)
+    } catch (e) {
+      console.error('Failed to apply healing to enemy:', e)
+    }
+  },
+
+
+  applyDamageToCharacter: async (targetId, amount, sourceName, label, damageType = null, options = {}) => {
     if (!targetId || !amount || amount <= 0) return
     const {
       characters, combatActive, combatRound, sessionRunId,
@@ -364,7 +445,9 @@ export const createCombatSlice = (set, get) => ({
     const currentHp = target?.curHp ?? maxHp
     const list = await get().fetchCombatantsForWrite()
     const combatRow = list.find(c => c.id === targetId)
-    const components = [{ amount: Math.max(0, Math.floor(Number(amount) || 0)), type: damageType }]
+    const components = Array.isArray(options.components) && options.components.length > 0
+      ? options.components
+      : [{ amount: Math.max(0, Math.floor(Number(amount) || 0)), type: damageType }]
     const bundle = applyDamageComponentsBundle(components, {
       resistances: combatRow?.resistances,
       vulnerabilities: combatRow?.vulnerabilities,
@@ -392,18 +475,57 @@ export const createCombatSlice = (set, get) => ({
       await supabase.from('character_states').upsert({
         id: targetId, cur_hp: newHp, updated_at: new Date().toISOString(),
       })
-      if (combatActive) {
-        const core = `${sourceName}'s ${label}:${typeStr} ${hpLoss} → ${displayName} (${newHp}/${maxHp} HP)`
-        const msg = appendDamagePipelineDetail(core, bundle.lines)
-        await supabase.from('combat_feed').insert({
-          session_id: sessionRunId, round: combatRound,
-          text: msg, type: 'damage', shared: true, timestamp: new Date().toISOString(),
-          metadata: { kind: 'damage', target_id: targetId },
+    } catch (e) {
+      warnFallback('applyDamageToCharacter: character_states upsert failed', {
+        system: 'playerCombat',
+        reason: String(e?.message || e),
+        targetId,
+      })
+    }
+
+    if (!combatActive) return
+    const core = `${sourceName}'s ${label}:${typeStr} ${hpLoss} → ${displayName} (${newHp}/${maxHp} HP)`
+    const msg = appendDamagePipelineDetail(core, bundle.lines)
+    try {
+      await supabase.from('combat_feed').insert({
+        session_id: sessionRunId, round: combatRound,
+        text: msg, type: 'damage', shared: true, timestamp: new Date().toISOString(),
+        metadata: { kind: 'damage', target_id: targetId },
+      })
+    } catch (e) {
+      warnFallback('applyDamageToCharacter: combat_feed insert failed', {
+        system: 'playerCombat',
+        reason: String(e?.message || e),
+        targetId,
+      })
+    }
+
+    const dmgToHp = remaining
+    if (dmgToHp > 0 && target?.concentration) {
+      const concDc = concentrationSaveDc(dmgToHp)
+      const dcLine = formatDcWithLabel(concDc)
+      const useLocalPrompt = get().canEditCharacterState(targetId)
+      const spellNmRaw = target?.tacticalJson?.concentrationSpell ?? target?.concentrationSpell ?? 'your spell'
+      const spellName = typeof spellNmRaw === 'string' && spellNmRaw.trim() ? spellNmRaw.trim() : 'your spell'
+
+      if (useLocalPrompt) {
+        const prev = get().concentrationSavePrompt
+        const nextDc = prev && prev.characterId === targetId
+          ? Math.max(Number(prev.dc) || 0, concDc)
+          : concDc
+        set({
+          concentrationSavePrompt: {
+            dc: nextDc,
+            spellName,
+            characterId: targetId,
+            d20: null,
+            conMod: null,
+            total: null,
+            passed: null,
+          },
         })
-        const dmgToHp = remaining
-        if (dmgToHp > 0 && target?.concentration) {
-          const concDc = concentrationSaveDc(dmgToHp)
-          const dcLine = formatDcWithLabel(concDc)
+      } else {
+        try {
           await get().pushSavePrompt({
             promptId: `${Date.now()}-concentration-${targetId}`,
             spellName: 'Concentration',
@@ -424,26 +546,39 @@ export const createCombatSlice = (set, get) => ({
               note: `${displayName} is concentrating — CON save ${dcLine || `DC ${concDc}`} to maintain (lost ${dmgToHp} HP).`,
             },
           })
-        }
-        const updatedCombatants = list.map(c => {
-          if (c.id !== targetId) return c
-          return { ...c, curHp: newHp, tempHp }
-        })
-        if (updatedCombatants.some(c => c.id === targetId)) {
-          set({ combatCombatants: updatedCombatants })
-          const ts = new Date().toISOString()
-          await supabase.from('combat_state').upsert({
-            id: sessionRunId, session_run_id: sessionRunId,
-            active: combatActive, round: combatRound,
-            combatants: updatedCombatants, active_combatant_index: combatActiveCombatantIndex,
-            initiative_phase: initiativePhase, ilya_assigned_to: ilyaAssignedTo,
-            ruleset_context: rulesetContext, updated_at: ts,
+        } catch (e) {
+          warnFallback('applyDamageToCharacter: concentration save prompt failed', {
+            system: 'playerCombat',
+            reason: String(e?.message || e),
+            targetId,
           })
-          get().bumpCombatStateSyncedFromWrite(ts)
         }
       }
-    } catch (e) {
-      console.error('Failed to apply damage to character:', e)
+    }
+
+    const updatedCombatants = list.map(c => {
+      if (c.id !== targetId) return c
+      return { ...c, curHp: newHp, tempHp }
+    })
+    if (updatedCombatants.some(c => c.id === targetId)) {
+      set({ combatCombatants: updatedCombatants })
+      const ts = new Date().toISOString()
+      try {
+        const { data: csRow } = await supabase.from('combat_state').upsert({
+          id: sessionRunId, session_run_id: sessionRunId,
+          active: combatActive, round: combatRound,
+          combatants: updatedCombatants, active_combatant_index: combatActiveCombatantIndex,
+          initiative_phase: initiativePhase, ilya_assigned_to: ilyaAssignedTo,
+          ruleset_context: rulesetContext, updated_at: ts,
+        }).select('updated_at').maybeSingle()
+        get().bumpCombatStateSyncedFromWrite(csRow?.updated_at || ts)
+      } catch (e) {
+        warnFallback('applyDamageToCharacter: combat_state upsert failed', {
+          system: 'playerCombat',
+          reason: String(e?.message || e),
+          targetId,
+        })
+      }
     }
   },
 
@@ -514,13 +649,13 @@ export const createCombatSlice = (set, get) => ({
     set({ combatCombatants: updated })
     const ts = new Date().toISOString()
     try {
-      await supabase.from('combat_state').upsert({
+      const { data: csRow } = await supabase.from('combat_state').upsert({
         id: sessionRunId, session_run_id: sessionRunId,
         active: combatActive, round: combatRound,
         combatants: updated, ilya_assigned_to: ilyaAssignedTo,
         initiative_phase: initiativePhase, updated_at: ts
-      })
-      get().bumpCombatStateSyncedFromWrite(ts)
+      }).select('updated_at').maybeSingle()
+      get().bumpCombatStateSyncedFromWrite(csRow?.updated_at || ts)
     } catch (e) {
       console.error('Failed to submit initiative:', e)
     }
@@ -542,14 +677,14 @@ export const createCombatSlice = (set, get) => ({
     set({ combatCombatants: updatedCombatants })
     const ts = new Date().toISOString()
     try {
-      await supabase.from('combat_state').upsert({
+      const { data: csRow } = await supabase.from('combat_state').upsert({
         id: sessionRunId, session_run_id: sessionRunId,
         active: combatActive, round: combatRound,
         combatants: updatedCombatants, active_combatant_index: combatActiveCombatantIndex,
         initiative_phase: initiativePhase, ilya_assigned_to: ilyaAssignedTo,
         updated_at: ts
-      })
-      get().bumpCombatStateSyncedFromWrite(ts)
+      }).select('updated_at').maybeSingle()
+      get().bumpCombatStateSyncedFromWrite(csRow?.updated_at || ts)
       const readable = actionType === 'bonus_action' ? 'bonus action' : actionType
       await get().pushRoll(`${context}: spent ${readable}`, characterId)
       return { ok: true, reason: null }
@@ -588,7 +723,7 @@ export const createCombatSlice = (set, get) => ({
     set({ combatCombatants: updated })
     const ts = new Date().toISOString()
     try {
-      await supabase.from('combat_state').upsert({
+      const { data: csRow } = await supabase.from('combat_state').upsert({
         id: sessionRunId,
         session_run_id: sessionRunId,
         active: combatActive,
@@ -598,22 +733,65 @@ export const createCombatSlice = (set, get) => ({
         initiative_phase: initiativePhase,
         ilya_assigned_to: ilyaAssignedTo,
         updated_at: ts,
-      })
-      get().bumpCombatStateSyncedFromWrite(ts)
+      }).select('updated_at').maybeSingle()
+      get().bumpCombatStateSyncedFromWrite(csRow?.updated_at || ts)
     } catch (e) {
       console.error('toggleMyActionEconomyField', e)
     }
   },
 
-  pushRoll: async (text, charName) => {
+  dismissConcentrationSave: () => set({ concentrationSavePrompt: null }),
+
+  rollConcentrationSave: async () => {
+    const { concentrationSavePrompt, characters, playerCharacters } = get()
+    if (!concentrationSavePrompt?.characterId) return
+    const { characterId, dc } = concentrationSavePrompt
+    const char = characters.find((c) => c.id === characterId)
+    const saveEntry = (char?.savingThrows || []).find((s) => String(s.name || '').toUpperCase() === 'CON')
+    const conMod = parseModNum(saveEntry?.mod ?? 0)
+    const d20 = Math.floor(Math.random() * 20) + 1
+    const total = d20 + conMod
+    const passed = total >= (Number(dc) || 10)
+
+    set({
+      concentrationSavePrompt: {
+        ...concentrationSavePrompt,
+        d20,
+        conMod,
+        total,
+        passed,
+      },
+    })
+
+    if (!passed) {
+      await get().setMyCharacterConcentration(characterId, false)
+    }
+
+    const rollLabel = conMod >= 0 ? `+${conMod}` : `${conMod}`
+    const charName = playerCharacters?.[characterId]?.name || char?.name || characterId
+    await get().pushRoll(
+      `CON save (concentration DC ${dc}): d20(${d20}) ${rollLabel} = ${total} → ${passed ? 'success' : 'fail'}`,
+      charName,
+      { metadata: { kind: 'concentration_save', passed, dc } },
+    )
+  },
+
+  pushRoll: async (text, charName, options = {}) => {
     const { combatRound, sessionRunId } = get()
+    const { shared = true, visibility = null, targetId = null, metadata = null } = options || {}
     try {
-      await supabase.from('combat_feed').insert({
+      const row = {
         session_id: sessionRunId, round: combatRound,
-        text: `[${charName}] ${text}`, type: 'roll', shared: true,
+        text: `[${charName}] ${text}`, type: 'roll', shared,
         timestamp: new Date().toISOString()
-      })
-    } catch (e) { /* Non-critical */ }
+      }
+      if (visibility) row.visibility = visibility
+      if (targetId) row.target_id = targetId
+      if (metadata && typeof metadata === 'object') row.metadata = metadata
+      await supabase.from('combat_feed').insert(row)
+    } catch (e) {
+      console.warn('pushRoll failed:', e?.message || e)
+    }
   },
 
   pushSavePrompt: async (payload) => {
@@ -638,6 +816,8 @@ export const createCombatSlice = (set, get) => ({
       await logCombatResolutionEvent(supabase, {
         sessionRunId, round: combatRound, kind: 'save_prompt', payload: metadata,
       })
-    } catch (e) { /* Non-critical */ }
+    } catch (e) {
+      console.warn('pushSavePrompt failed:', e?.message || e)
+    }
   },
 })

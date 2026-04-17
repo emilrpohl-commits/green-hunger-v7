@@ -6,7 +6,7 @@ import LabelField from './LabelField'
 import SkillCheckTableEditor from './SkillCheckTableEditor'
 import { BeatIllustrationUploader } from '../../components/SceneMediaUploader.jsx'
 
-export default function BeatRow({ beat, index, total, sceneId, statBlocks, expandedBeatId, setExpandedBeatId }) {
+function BeatRow({ beat, index, total, sceneId, statBlocks, expandedBeatId, setExpandedBeatId }) {
   const saveBeat = useCampaignStore(s => s.saveBeat)
   const deleteBeat = useCampaignStore(s => s.deleteBeat)
   const reorderBeats = useCampaignStore(s => s.reorderBeats)
@@ -179,3 +179,5 @@ export default function BeatRow({ beat, index, total, sceneId, statBlocks, expan
     </div>
   )
 }
+
+export default React.memo(BeatRow)

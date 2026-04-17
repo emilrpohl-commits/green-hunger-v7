@@ -1,4 +1,8 @@
-import React, { useDeferredValue, useMemo, useState, useCallback } from 'react'
+import React, { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useCombatStore } from '../../stores/combatStore'
+import { useCampaignStore } from '../../stores/campaignStore'
+import DiceInlineText from '@shared/components/combat/DiceInlineText.jsx'
+import { createDmDiceRollHandler } from '@shared/lib/diceText/dispatch.js'
 
 /** Avoid React "objects are not valid as a React child" from odd DB/import shapes. */
 function safeSpellText(value, maxLen = 24000) {
@@ -44,7 +48,39 @@ function boolChip(on, label) {
   )
 }
 
-function DetailPanel({ spell, onClose }) {
+/** Prefer richer compendium row when duplicate spell_id appears in the feed. */
+function spellRowScore(s) {
+  let sc = 0
+  if (s._compendiumRow) sc += 4
+  if (s._compendium !== false && s._sourceType !== 'legacy') sc += 2
+  if (s.id) sc += 1
+  const u = s.updated_at || s._compendiumRow?.updated_at
+  if (u) {
+    const t = new Date(u).getTime()
+    if (Number.isFinite(t)) sc += t / 1e15
+  }
+  return sc
+}
+
+function pickBetterSpellRow(a, b) {
+  const sa = spellRowScore(a)
+  const sb = spellRowScore(b)
+  if (sa !== sb) return sa >= sb ? a : b
+  return String(a.id || '').localeCompare(String(b.id || '')) >= 0 ? a : b
+}
+
+function dedupeSpellsById(spells, normalizeSpellId) {
+  const map = new Map()
+  for (const s of spells || []) {
+    const sid = normalizeSpellId(s.spell_id || normalizeSpellId(s.name))
+    const existing = map.get(sid)
+    map.set(sid, existing ? pickBetterSpellRow(existing, s) : s)
+  }
+  return Array.from(map.values())
+}
+
+function SpellCompendiumDetail({ spell, variant = 'inline', onClose }) {
+  const pushFeedEvent = useCombatStore((s) => s.pushFeedEvent)
   if (!spell) return null
   const r = spell._compendiumRow || spell
   const mono = { fontFamily: 'var(--font-mono)' }
@@ -63,17 +99,29 @@ function DetailPanel({ spell, onClose }) {
   const levelLabel = !Number.isFinite(lv) ? 'Level —' : lv === 0 ? 'Cantrip' : `Level ${lv}`
   const detailsText = safeSpellText(r.details ?? spell.description ?? '')
   const link = safeExternalUrl(r.source_link ?? spell.source_url)
+  const handleInlineRoll = createDmDiceRollHandler({
+    pushFeedEvent,
+    type: 'roll',
+    shared: true,
+    defaultContextLabel: safeSpellText(r.name || spell.name, 120),
+  })
 
-  return (
-    <div
-      style={{
+  const outerStyle = variant === 'rail'
+    ? {
         position: 'sticky',
         top: 12,
         maxHeight: 'calc(100vh - 120px)',
         overflowY: 'auto',
         padding: 4,
-      }}
-    >
+      }
+    : {
+        padding: '4px 0 0',
+        maxHeight: 'min(70vh, 720px)',
+        overflowY: 'auto',
+      }
+
+  return (
+    <div style={outerStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
           <h2 style={h2}>{safeSpellText(r.name || spell.name, 500)}</h2>
@@ -113,7 +161,15 @@ function DetailPanel({ spell, onClose }) {
           <div><strong style={{ color: 'var(--text-primary)' }}>Area</strong> — {safeSpellText(r.area ?? '—', 400)}</div>
           <div><strong style={{ color: 'var(--text-primary)' }}>Attack</strong> — {safeSpellText(r.attack || spell.attack_type || '—', 400)}</div>
           <div><strong style={{ color: 'var(--text-primary)' }}>Save</strong> — {safeSpellText(r.save || spell.save_type || '—', 400)}</div>
-          <div><strong style={{ color: 'var(--text-primary)' }}>Damage / effect</strong> — {safeSpellText(r.damage_effect || spell.damage_dice || '—', 800)}</div>
+          <div>
+            <strong style={{ color: 'var(--text-primary)' }}>Damage / effect</strong> —{' '}
+            <DiceInlineText
+              text={safeSpellText(r.damage_effect || spell.damage_dice || '—', 800)}
+              contextLabel={`${safeSpellText(r.name || spell.name, 120)}: damage/effect`}
+              onRoll={handleInlineRoll}
+              style={{ fontSize: 13, color: 'var(--text-secondary)' }}
+            />
+          </div>
         </div>
         <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {boolChip(!!r.ritual || !!spell.ritual, 'Ritual')}
@@ -127,13 +183,23 @@ function DetailPanel({ spell, onClose }) {
       {(r.material_text || (typeof spell.components?.M === 'string' && spell.components.M)) && (
         <div style={block}>
           <div style={{ ...mono, fontSize: 9, color: 'var(--text-muted)', marginBottom: 6 }}>Material</div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{safeSpellText(r.material_text || spell.components?.M, 2000)}</div>
+          <DiceInlineText
+            text={safeSpellText(r.material_text || spell.components?.M, 2000)}
+            contextLabel={`${safeSpellText(r.name || spell.name, 120)}: material`}
+            onRoll={handleInlineRoll}
+            style={{ fontSize: 13, color: 'var(--text-secondary)' }}
+          />
         </div>
       )}
 
       <div style={block}>
         <div style={{ ...mono, fontSize: 9, color: 'var(--text-muted)', marginBottom: 6 }}>Targeting</div>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{safeSpellText(r.targeting || spell.target_mode || '—', 800)}</div>
+        <DiceInlineText
+          text={safeSpellText(r.targeting || spell.target_mode || '—', 800)}
+          contextLabel={`${safeSpellText(r.name || spell.name, 120)}: targeting`}
+          onRoll={handleInlineRoll}
+          style={{ fontSize: 13, color: 'var(--text-secondary)' }}
+        />
         {(r.max_targets != null && r.max_targets !== '') || (r.rules_json && r.rules_json.max_targets_raw != null && r.rules_json.max_targets_raw !== '') ? (
           <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
             Max targets:{' '}
@@ -147,14 +213,24 @@ function DetailPanel({ spell, onClose }) {
       {r.summon_stat_block != null && String(r.summon_stat_block).trim() !== '' && (
         <div style={block}>
           <div style={{ ...mono, fontSize: 9, color: 'var(--text-muted)', marginBottom: 6 }}>Summon stat block</div>
-          <div style={{ fontSize: 13, color: 'var(--amber, #c9a227)' }}>{safeSpellText(r.summon_stat_block, 2000)}</div>
+          <DiceInlineText
+            text={safeSpellText(r.summon_stat_block, 2000)}
+            contextLabel={`${safeSpellText(r.name || spell.name, 120)}: summon`}
+            onRoll={handleInlineRoll}
+            style={{ fontSize: 13, color: 'var(--amber, #c9a227)' }}
+          />
         </div>
       )}
 
       {detailsText && (
         <div style={block}>
           <div style={{ ...mono, fontSize: 9, color: 'var(--text-muted)', marginBottom: 8 }}>Description</div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>{detailsText}</div>
+          <DiceInlineText
+            text={detailsText}
+            style={{ fontSize: 13, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}
+            contextLabel={safeSpellText(r.name || spell.name, 120)}
+            onRoll={handleInlineRoll}
+          />
         </div>
       )}
 
@@ -184,8 +260,10 @@ export default function SpellCompendiumBrowser({
   toggleBulkSpell,
   normalizeSpellId,
 }) {
+  const searchSpellCompendiumIlike = useCampaignStore((s) => s.searchSpellCompendiumIlike)
   const [q, setQ] = useState('')
   const dq = useDeferredValue(q.trim().toLowerCase())
+  const [serverRows, setServerRows] = useState(null)
   const [level, setLevel] = useState('')
   const [school, setSchool] = useState('')
   const [castingTime, setCastingTime] = useState('')
@@ -197,10 +275,31 @@ export default function SpellCompendiumBrowser({
   const [saveFilter, setSaveFilter] = useState('any')
   const [materialFilter, setMaterialFilter] = useState('any')
   const [page, setPage] = useState(0)
-  const [selected, setSelected] = useState(null)
+  const [expandedKey, setExpandedKey] = useState(null)
+
+  const uniqueSpells = useMemo(
+    () => dedupeSpellsById(spells, normalizeSpellId),
+    [spells, normalizeSpellId],
+  )
+
+  useEffect(() => {
+    if (dq.length < 2) {
+      setServerRows(null)
+      return
+    }
+    setServerRows(null)
+    const h = setTimeout(() => {
+      searchSpellCompendiumIlike(dq)
+        .then((rows) => setServerRows(Array.isArray(rows) ? rows : []))
+        .catch(() => setServerRows([]))
+    }, 220)
+    return () => clearTimeout(h)
+  }, [dq, searchSpellCompendiumIlike])
+
+  const filterSource = dq.length >= 2 && Array.isArray(serverRows) ? dedupeSpellsById(serverRows, normalizeSpellId) : uniqueSpells
 
   const filtered = useMemo(() => {
-    return (spells || []).filter((s) => {
+    return filterSource.filter((s) => {
       const r = s._compendiumRow || s
       const hay = `${s.name || ''} ${s.description || ''} ${r.details || ''} ${r.damage_effect || ''} ${s.school || ''} ${r.school || ''} ${s.source || ''} ${r.source || ''} ${s.search_text || r.search_text || ''}`.toLowerCase()
       if (dq && !hay.includes(dq)) return false
@@ -227,7 +326,7 @@ export default function SpellCompendiumBrowser({
       if (materialFilter === 'no' && hasMat) return false
       return true
     })
-  }, [spells, dq, level, school, castingTime, sourceQ, damageQ, conc, ritual, attackFilter, saveFilter, materialFilter])
+  }, [filterSource, dq, level, school, castingTime, sourceQ, damageQ, conc, ritual, attackFilter, saveFilter, materialFilter])
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE))
   const pageSafe = Math.min(page, pageCount - 1)
@@ -236,9 +335,11 @@ export default function SpellCompendiumBrowser({
     return filtered.slice(start, start + PAGE)
   }, [filtered, pageSafe])
 
-  const selectSpell = useCallback((s) => {
-    setSelected(s)
-  }, [])
+  useEffect(() => {
+    if (!expandedKey) return
+    const inSlice = slice.some((s) => normalizeSpellId(s.spell_id || normalizeSpellId(s.name)) === expandedKey)
+    if (!inSlice) setExpandedKey(null)
+  }, [expandedKey, slice, normalizeSpellId])
 
   const mono = { fontFamily: 'var(--font-mono)' }
   const inputStyle = {
@@ -262,107 +363,120 @@ export default function SpellCompendiumBrowser({
     </select>
   )
 
+  const rawCount = (spells || []).length
+  const dedupedCount = uniqueSpells.length
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(320px, 400px)', gap: 20, alignItems: 'start' }}>
-      <div>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-            gap: 10,
-            marginBottom: 14,
-            padding: 14,
-            background: 'var(--bg-raised)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-lg)',
-          }}
-        >
-          <div style={{ gridColumn: '1 / -1' }}>
-            <label style={labelStyle}>Search</label>
-            <input style={inputStyle} value={q} onChange={(e) => { setQ(e.target.value); setPage(0) }} placeholder="Name, description, school, source…" />
-          </div>
-          <div>
-            <label style={labelStyle}>Level</label>
-            <select value={level} onChange={(e) => { setLevel(e.target.value); setPage(0) }} style={inputStyle}>
-              <option value="">All</option>
-              <option value="0">Cantrip</option>
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-                <option key={n} value={String(n)}>{n}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label style={labelStyle}>School</label>
-            <select value={school} onChange={(e) => { setSchool(e.target.value); setPage(0) }} style={inputStyle}>
-              {SCHOOLS.map((s) => (
-                <option key={s || 'all'} value={s}>{s || 'All'}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Casting time contains</label>
-            <input style={inputStyle} value={castingTime} onChange={(e) => { setCastingTime(e.target.value); setPage(0) }} placeholder="action, bonus…" />
-          </div>
-          <div>
-            <label style={labelStyle}>Source contains</label>
-            <input style={inputStyle} value={sourceQ} onChange={(e) => { setSourceQ(e.target.value); setPage(0) }} placeholder="PHB, XGE…" />
-          </div>
-          <div>
-            <label style={labelStyle}>Damage / effect contains</label>
-            <input style={inputStyle} value={damageQ} onChange={(e) => { setDamageQ(e.target.value); setPage(0) }} placeholder="fire, necrotic…" />
-          </div>
-          <div>
-            <label style={labelStyle}>Concentration</label>
-            {tri(conc, (v) => { setConc(v); setPage(0) })}
-          </div>
-          <div>
-            <label style={labelStyle}>Ritual</label>
-            {tri(ritual, (v) => { setRitual(v); setPage(0) })}
-          </div>
-          <div>
-            <label style={labelStyle}>Attack</label>
-            {tri(attackFilter, (v) => { setAttackFilter(v); setPage(0) })}
-          </div>
-          <div>
-            <label style={labelStyle}>Save</label>
-            {tri(saveFilter, (v) => { setSaveFilter(v); setPage(0) })}
-          </div>
-          <div>
-            <label style={labelStyle}>Material</label>
-            {tri(materialFilter, (v) => { setMaterialFilter(v); setPage(0) })}
-          </div>
+    <div style={{ minWidth: 0, maxWidth: 900 }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+          gap: 10,
+          marginBottom: 14,
+          padding: 14,
+          background: 'var(--bg-raised)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-lg)',
+        }}
+      >
+        <div style={{ gridColumn: '1 / -1' }}>
+          <label style={labelStyle}>Search</label>
+          <input style={inputStyle} value={q} onChange={(e) => { setQ(e.target.value); setPage(0) }} placeholder="Name, description, school, source…" />
         </div>
-
-        <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', marginBottom: 8 }}>
-          Showing {slice.length} of {filtered.length} spells
-          {filtered.length !== (spells || []).length ? ` (from ${(spells || []).length} total)` : ''}
+        <div>
+          <label style={labelStyle}>Level</label>
+          <select value={level} onChange={(e) => { setLevel(e.target.value); setPage(0) }} style={inputStyle}>
+            <option value="">All</option>
+            <option value="0">Cantrip</option>
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+              <option key={n} value={String(n)}>{n}</option>
+            ))}
+          </select>
         </div>
+        <div>
+          <label style={labelStyle}>School</label>
+          <select value={school} onChange={(e) => { setSchool(e.target.value); setPage(0) }} style={inputStyle}>
+            {SCHOOLS.map((s) => (
+              <option key={s || 'all'} value={s}>{s || 'All'}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>Casting time contains</label>
+          <input style={inputStyle} value={castingTime} onChange={(e) => { setCastingTime(e.target.value); setPage(0) }} placeholder="action, bonus…" />
+        </div>
+        <div>
+          <label style={labelStyle}>Source contains</label>
+          <input style={inputStyle} value={sourceQ} onChange={(e) => { setSourceQ(e.target.value); setPage(0) }} placeholder="PHB, XGE…" />
+        </div>
+        <div>
+          <label style={labelStyle}>Damage / effect contains</label>
+          <input style={inputStyle} value={damageQ} onChange={(e) => { setDamageQ(e.target.value); setPage(0) }} placeholder="fire, necrotic…" />
+        </div>
+        <div>
+          <label style={labelStyle}>Concentration</label>
+          {tri(conc, (v) => { setConc(v); setPage(0) })}
+        </div>
+        <div>
+          <label style={labelStyle}>Ritual</label>
+          {tri(ritual, (v) => { setRitual(v); setPage(0) })}
+        </div>
+        <div>
+          <label style={labelStyle}>Attack</label>
+          {tri(attackFilter, (v) => { setAttackFilter(v); setPage(0) })}
+        </div>
+        <div>
+          <label style={labelStyle}>Save</label>
+          {tri(saveFilter, (v) => { setSaveFilter(v); setPage(0) })}
+        </div>
+        <div>
+          <label style={labelStyle}>Material</label>
+          {tri(materialFilter, (v) => { setMaterialFilter(v); setPage(0) })}
+        </div>
+      </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {slice.map((spell) => {
-            const sid = spell.spell_id || normalizeSpellId(spell.name)
-            const r = spell._compendiumRow || spell
-            const active =
-              selected &&
-              selected.spell_id === spell.spell_id &&
-              (selected.id ? selected.id === spell.id : true)
-            return (
+      <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', marginBottom: 8 }}>
+        Showing {slice.length} of {filtered.length} spells
+        {filtered.length !== dedupedCount ? ` (of ${dedupedCount} before text filters)` : ''}
+        {dedupedCount !== rawCount ? ` · ${dedupedCount} unique spell_id (${rawCount} rows)` : ''}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {slice.map((spell) => {
+          const sid = normalizeSpellId(spell.spell_id || normalizeSpellId(spell.name))
+          const r = spell._compendiumRow || spell
+          const isOpen = expandedKey === sid
+          return (
+            <div
+              key={sid}
+              style={{
+                background: 'var(--bg-raised)',
+                border: `1px solid ${isOpen ? 'var(--green-mid)' : 'var(--border)'}`,
+                borderRadius: 'var(--radius-lg)',
+                overflow: 'hidden',
+              }}
+            >
               <div
-                key={spell.id || sid}
+                role="button"
+                tabIndex={0}
+                aria-expanded={isOpen}
+                onClick={() => setExpandedKey((prev) => (prev === sid ? null : sid))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    setExpandedKey((prev) => (prev === sid ? null : sid))
+                  }
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'stretch',
                   gap: 10,
                   padding: '10px 12px',
-                  background: active ? 'var(--green-dim)' : 'var(--bg-raised)',
-                  border: `1px solid ${active ? 'var(--green-mid)' : 'var(--border)'}`,
-                  borderRadius: 'var(--radius-lg)',
                   cursor: 'pointer',
+                  textAlign: 'left',
+                  background: isOpen ? 'var(--green-dim)' : 'transparent',
                 }}
-                onClick={() => selectSpell(spell)}
-                onKeyDown={(e) => e.key === 'Enter' && selectSpell(spell)}
-                role="button"
-                tabIndex={0}
               >
                 <input
                   type="checkbox"
@@ -393,37 +507,48 @@ export default function SpellCompendiumBrowser({
                     <div style={{ ...mono, fontSize: 9, color: '#7a8aaf', marginTop: 4 }}>{r.source || spell.source}</div>
                   )}
                 </div>
+                <div style={{ ...mono, minWidth: 84, fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right', letterSpacing: '0.08em', alignSelf: 'center' }}>
+                  {isOpen ? 'Hide ▲' : 'Show ▼'}
+                </div>
               </div>
-            )
-          })}
-        </div>
 
-        {pageCount > 1 && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 16, ...mono, fontSize: 11 }}>
-            <button
-              type="button"
-              disabled={pageSafe <= 0}
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              style={{ padding: '6px 12px', background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', cursor: pageSafe <= 0 ? 'not-allowed' : 'pointer' }}
-            >
-              Prev
-            </button>
-            <span style={{ color: 'var(--text-muted)' }}>
-              Page {pageSafe + 1} / {pageCount}
-            </span>
-            <button
-              type="button"
-              disabled={pageSafe >= pageCount - 1}
-              onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-              style={{ padding: '6px 12px', background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', cursor: pageSafe >= pageCount - 1 ? 'not-allowed' : 'pointer' }}
-            >
-              Next
-            </button>
-          </div>
-        )}
+              {isOpen && (
+                <div style={{ padding: '12px 14px 16px', borderTop: '1px solid var(--border)' }}>
+                  <SpellCompendiumDetail
+                    spell={spell}
+                    variant="inline"
+                    onClose={() => setExpandedKey(null)}
+                  />
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
 
-      <DetailPanel spell={selected} onClose={() => setSelected(null)} />
+      {pageCount > 1 && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 16, ...mono, fontSize: 11 }}>
+          <button
+            type="button"
+            disabled={pageSafe <= 0}
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            style={{ padding: '6px 12px', background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', cursor: pageSafe <= 0 ? 'not-allowed' : 'pointer' }}
+          >
+            Prev
+          </button>
+          <span style={{ color: 'var(--text-muted)' }}>
+            Page {pageSafe + 1} / {pageCount}
+          </span>
+          <button
+            type="button"
+            disabled={pageSafe >= pageCount - 1}
+            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+            style={{ padding: '6px 12px', background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', cursor: pageSafe >= pageCount - 1 ? 'not-allowed' : 'pointer' }}
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,0 +1,104 @@
+[
+  {
+    "name": "basic damage with modifier",
+    "text": "Hit: 16 (2d8 + 7) slashing damage.",
+    "normalized": ["2d8+7"],
+    "hasAveragePrefix": true,
+    "displayAverage": 16,
+    "effectKind": "damage",
+    "damageTypes": ["slashing"]
+  },
+  {
+    "name": "average lightning dice",
+    "text": "Hit: 45 (10d8) Lightning damage.",
+    "normalized": ["10d8"],
+    "hasAveragePrefix": true,
+    "displayAverage": 45,
+    "effectKind": "damage",
+    "damageTypes": ["lightning"]
+  },
+  {
+    "name": "average secondary damage",
+    "text": "plus 5 (1d10) Lightning damage.",
+    "normalized": ["1d10"],
+    "hasAveragePrefix": true,
+    "displayAverage": 5,
+    "effectKind": "damage",
+    "damageTypes": ["lightning"]
+  },
+  {
+    "name": "average high dice",
+    "text": "Hit: 55 (10d10) force damage.",
+    "normalized": ["10d10"],
+    "hasAveragePrefix": true,
+    "displayAverage": 55,
+    "effectKind": "damage",
+    "damageTypes": ["force"]
+  },
+  {
+    "name": "implicit one die",
+    "text": "The target takes d4 force damage.",
+    "normalized": ["1d4"],
+    "effectKind": "damage",
+    "damageTypes": ["force"]
+  },
+  {
+    "name": "percent die",
+    "text": "Roll d% on the wild table.",
+    "normalized": ["1d100"]
+  },
+  {
+    "name": "multiple dice terms",
+    "text": "Deal 1d8+1d4 radiant damage.",
+    "normalized": ["1d8+1d4"],
+    "effectKind": "damage",
+    "damageTypes": ["radiant"]
+  },
+  {
+    "name": "unicode minus",
+    "text": "Damage: 2d6 − 3 cold damage.",
+    "normalized": ["2d6-3"],
+    "effectKind": "damage",
+    "damageTypes": ["cold"]
+  },
+  {
+    "name": "zero count with flat bonus",
+    "text": "Fallback damage 0d6+5 fire damage.",
+    "normalized": ["0d6+5"],
+    "effectKind": "damage",
+    "damageTypes": ["fire"]
+  },
+  {
+    "name": "trailing parenthetical modifier",
+    "text": "The bite deals 1d8 (+1) necrotic damage.",
+    "normalized": ["1d8+1"],
+    "effectKind": "damage",
+    "damageTypes": ["necrotic"]
+  },
+  {
+    "name": "half on success",
+    "text": "Take 3d10 force damage on a failed save, half on a success.",
+    "normalized": ["3d10"],
+    "effectKind": "damage",
+    "damageTypes": ["force"],
+    "halfOnSuccess": true
+  },
+  {
+    "name": "healing detection",
+    "text": "A creature regains 2d8+4 hit points.",
+    "normalized": ["2d8+4"],
+    "effectKind": "healing"
+  },
+  {
+    "name": "temporary hit points detection",
+    "text": "You gain 1d6 temporary hit points.",
+    "normalized": ["1d6"],
+    "effectKind": "temp_hp"
+  },
+  {
+    "name": "ignore date-like tokens",
+    "text": "Session date 03/14/2026 and no dice.",
+    "normalized": []
+  }
+]
+

@@ -3,6 +3,7 @@
  */
 
 import { formatSrdSpeed } from './srdReferenceRows.js'
+import { DEFAULT_STATBLOCK_PORTRAIT_URL } from '../portraitDefaults.js'
 
 function formatSensesObject(senses) {
   if (!senses || typeof senses !== 'object') return ''
@@ -20,6 +21,45 @@ function mapNamedBlocks(list) {
     damage: a.damage,
     dc: a.dc,
   }))
+}
+
+function isImagePath(value) {
+  if (typeof value !== 'string') return false
+  const v = value.trim()
+  if (!v) return false
+  return /\.(png|jpe?g|webp|gif)(\?.*)?$/i.test(v)
+}
+
+function normalizePortraitCandidate(value) {
+  if (!isImagePath(value)) return null
+  const v = value.trim()
+  // Keep absolute links as-is; relative paths are resolved by app/runtime host.
+  if (/^https?:\/\//i.test(v)) return v
+  if (v.startsWith('/')) return v
+  return `/${v}`
+}
+
+function extractPortraitUrl(monster) {
+  const direct = [
+    monster?.portrait_url,
+    monster?.image,
+    monster?.token_url,
+    monster?.img_main,
+  ]
+  for (const c of direct) {
+    const normalized = normalizePortraitCandidate(c)
+    if (normalized) return normalized
+  }
+
+  const imageList = Array.isArray(monster?.images) ? monster.images : []
+  for (const entry of imageList) {
+    const normalized = normalizePortraitCandidate(
+      typeof entry === 'string' ? entry : entry?.url || entry?.src || entry?.image
+    )
+    if (normalized) return normalized
+  }
+
+  return null
 }
 
 /**
@@ -54,11 +94,13 @@ export function srdMonsterToStatBlockDraft(m) {
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
+  const portraitUrl = extractPortraitUrl(m) || DEFAULT_STATBLOCK_PORTRAIT_URL
 
   return {
     name: m.name || 'Creature',
     slug,
     source: 'SRD (reference import)',
+    portrait_url: portraitUrl,
     creature_type: m.type || '',
     size: m.size || 'Medium',
     alignment: m.alignment || '',

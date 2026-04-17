@@ -112,12 +112,13 @@ export const createFeedSlice = (set, get) => ({
         table: 'combat_feed',
         filter: `session_id=eq.${sessionRunId}`
       }, (payload) => {
-        if (payload.new && payload.new.type === 'roll') {
+        if (payload.new && (payload.new.type === 'roll' || payload.new.type === 'dm-roll')) {
           const entry = {
             id: payload.new.id || Date.now(),
             text: payload.new.text,
             round: payload.new.round,
-            timestamp: payload.new.timestamp
+            timestamp: payload.new.timestamp,
+            type: payload.new.type,
           }
           set(state => ({ playerRolls: [entry, ...state.playerRolls].slice(0, 80) }))
         }
@@ -185,12 +186,20 @@ export const createFeedSlice = (set, get) => ({
         .from('combat_feed')
         .select('*')
         .eq('session_id', sessionRunId)
-        .eq('type', 'roll')
+        .in('type', ['roll', 'dm-roll'])
         .order('timestamp', { ascending: false })
         .limit(80)
 
       if (data) {
-        set({ playerRolls: data.map(d => ({ id: d.id, text: d.text, round: d.round, timestamp: d.timestamp })) })
+        set({
+          playerRolls: data.map(d => ({
+            id: d.id,
+            text: d.text,
+            round: d.round,
+            timestamp: d.timestamp,
+            type: d.type,
+          })),
+        })
       }
     } catch (e) {}
   },
@@ -199,7 +208,11 @@ export const createFeedSlice = (set, get) => ({
     const { sessionRunId } = get()
     set({ playerRolls: [] })
     try {
-      await supabase.from('combat_feed').delete().eq('session_id', sessionRunId).eq('type', 'roll')
+      await supabase
+        .from('combat_feed')
+        .delete()
+        .eq('session_id', sessionRunId)
+        .in('type', ['roll', 'dm-roll'])
     } catch (e) {}
   },
 })

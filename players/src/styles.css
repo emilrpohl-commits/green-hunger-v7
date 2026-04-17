@@ -53,6 +53,18 @@
   /* Conditions bar */
   --conditions-bg: rgba(20, 14, 30, 0.80);
   --conditions-border: rgba(80, 50, 120, 0.40);
+
+  /* Spell reference panel (QOL) */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --text-xs: 10px;
+  --text-sm: 12px;
+  --text-md: 14px;
+  --surface-raised: var(--bg-raised);
+  --accent: var(--green-bright);
+  --accent-muted: rgba(106, 170, 90, 0.22);
+  --text-on-accent: #0a0f0a;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -408,4 +420,222 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 400; letter-spacing:
 @keyframes hp-heal-flash {
   0%   { background: rgba(122, 184, 106, 0.45); }
   100% { background: transparent; }
+}
+
+/* Combat feed (migrated from inline styles) */
+.gh-combat-feed__shell {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.gh-combat-feed__shell--active {
+  border-top: 2px solid rgba(196, 64, 64, 0.5);
+}
+.gh-combat-feed__shell--idle {
+  border-top: 2px solid var(--border);
+}
+.gh-combat-feed__header {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gh-combat-feed__list {
+  padding: 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.gh-combat-feed__row {
+  font-size: 13px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+.gh-combat-feed__row:last-child {
+  border-bottom: none;
+}
+
+.gh-login-loading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-deep);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Inline spell reference (Spells tab) — QOL spec */
+.spell-reference-panel {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--surface-raised);
+  border-left: 2px solid var(--accent);
+  margin: var(--space-xs) 0 var(--space-sm);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.spell-ref-meta {
+  display: flex;
+  gap: var(--space-sm);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.spell-ref-components {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.spell-ref-material-note {
+  font-style: italic;
+  margin-left: var(--space-xs);
+}
+
+.spell-ref-conc-tag,
+.spell-ref-ritual-tag {
+  font-size: var(--text-xs);
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.spell-ref-desc {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.spell-ref-higher {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.spell-ref-area,
+.spell-ref-save {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.spell-cast-btn {
+  align-self: flex-end;
+  margin-top: var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.spell-cast-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.spell-card__header-hit {
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+.spell-card__header-hit:focus-visible {
+  outline: 1px solid var(--green-mid);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* Concentration save prompt (combat) — QOL spec */
+.conc-save-prompt {
+  position: fixed;
+  bottom: calc(var(--dice-dock-height, 80px) + var(--space-md));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(360px, 90vw);
+  background: var(--surface-raised);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  z-index: 200;
+}
+
+.conc-save-title {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  color: var(--accent);
+  margin: 0;
+}
+
+.conc-save-spell {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.conc-save-dc {
+  font-size: var(--text-lg);
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.conc-save-result {
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.conc-save-roll-btn {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: var(--radius);
+  font-size: var(--text-md);
+  font-family: var(--font-display);
+  cursor: pointer;
+}
+
+.conc-save-dismiss-btn {
+  padding: var(--space-xs) var(--space-lg);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--text-sm);
 }

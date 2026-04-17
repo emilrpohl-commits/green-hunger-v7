@@ -9,6 +9,8 @@ import {
 } from '@shared/lib/characterSheetShape.js'
 import PortraitUploadField from '../../components/PortraitUploadField.jsx'
 import CharacterSpellLinksPanel from './CharacterSpellLinksPanel.jsx'
+import { supabase } from '@shared/lib/supabase.js'
+import EquipmentPickerModal from '../reference/EquipmentPickerModal.jsx'
 import SRD_RACES from '../../../../docs/5e-database-main/src/2014/5e-SRD-Races.json'
 import SRD_BACKGROUNDS from '../../../../docs/5e-database-main/src/2014/5e-SRD-Backgrounds.json'
 import { formatDcWithLabel } from '@shared/lib/rules/dcDisplay.js'
@@ -84,6 +86,13 @@ export default function CharacterEditor() {
   const [saveMsg, setSaveMsg] = useState(null)
   const [healingActionsText, setHealingActionsText] = useState('[]')
   const [buffActionsText, setBuffActionsText] = useState('[]')
+  const [refRuleset, setRefRuleset] = useState('2014')
+  const [refClasses, setRefClasses] = useState([])
+  const [refSubclasses, setRefSubclasses] = useState([])
+  const [refRaces, setRefRaces] = useState([])
+  const [refBackgrounds, setRefBackgrounds] = useState([])
+  const [srdFeatureRows, setSrdFeatureRows] = useState([])
+  const [showEqPicker, setShowEqPicker] = useState(false)
 
   const SPELL_SLOT_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
@@ -110,14 +119,70 @@ export default function CharacterEditor() {
   }
   const taStyle = { ...inputStyle, lineHeight: 1.7, resize: 'vertical', fontFamily: 'inherit' }
 
-  const raceNames = useMemo(
-    () => [...new Set((SRD_RACES || []).map((r) => r.name).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-    []
-  )
-  const backgroundNames = useMemo(
-    () => [...new Set((SRD_BACKGROUNDS || []).map((b) => b.name).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-    []
-  )
+  const raceNames = useMemo(() => {
+    const fromDb = (refRaces || []).map((r) => r.name).filter(Boolean)
+    const fromJson = (SRD_RACES || []).map((r) => r.name).filter(Boolean)
+    return [...new Set([...fromDb, ...fromJson])].sort((a, b) => a.localeCompare(b))
+  }, [refRaces])
+
+  const backgroundNames = useMemo(() => {
+    const fromDb = (refBackgrounds || []).map((b) => b.name).filter(Boolean)
+    const fromJson = (SRD_BACKGROUNDS || []).map((b) => b.name).filter(Boolean)
+    return [...new Set([...fromDb, ...fromJson])].sort((a, b) => a.localeCompare(b))
+  }, [refBackgrounds])
+
+  const subclassOptions = useMemo(() => {
+    const ci = form.srd_refs?.class_index
+    if (!ci) return []
+    return (refSubclasses || []).filter((s) => s.class_index === ci)
+  }, [form.srd_refs, refSubclasses])
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      if (!campaign?.id) return
+      const rs = refRuleset
+      const [{ data: cls }, { data: sub }, { data: rc }, { data: bg }] = await Promise.all([
+        supabase.from('reference_classes').select('source_index,name,hit_die').eq('ruleset', rs).order('name'),
+        supabase.from('reference_subclasses').select('source_index,name,class_index').eq('ruleset', rs).order('name'),
+        supabase.from('reference_races').select('source_index,name').eq('ruleset', rs).order('name'),
+        supabase.from('reference_backgrounds').select('source_index,name').eq('ruleset', rs).order('name'),
+      ])
+      if (cancelled) return
+      setRefClasses(cls || [])
+      setRefSubclasses(sub || [])
+      setRefRaces(rc || [])
+      setRefBackgrounds(bg || [])
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [campaign?.id, refRuleset])
+
+  useEffect(() => {
+    const ci = form.srd_refs?.class_index
+    const lv = Number(form.level) || 1
+    if (!ci) {
+      setSrdFeatureRows([])
+      return
+    }
+    let cancelled = false
+    const run = async () => {
+      const { data, error } = await supabase
+        .from('reference_class_features')
+        .select('source_index,level,name,feature_type,subclass_index,description')
+        .eq('ruleset', refRuleset)
+        .eq('class_index', ci)
+        .lte('level', lv)
+        .order('level', { ascending: true })
+      if (cancelled || error) {
+        if (!cancelled && error) setSrdFeatureRows([])
+        return
+      }
+      setSrdFeatureRows(data || [])
+    }
+    void run()
+    return () => { cancelled = true }
+  }, [form.srd_refs?.class_index, form.level, refRuleset])
 
   const filtered = characters.filter(
     (c) =>
@@ -140,6 +205,7 @@ export default function CharacterEditor() {
     setSaveMsg(null)
     setHealingActionsText('[]')
     setBuffActionsText('[]')
+    setRefRuleset('2014')
   }
 
   const startEdit = (row) => {
@@ -149,6 +215,10 @@ export default function CharacterEditor() {
     setSaveMsg(null)
     setHealingActionsText(JSON.stringify(row.healing_actions || [], null, 2))
     setBuffActionsText(JSON.stringify(row.buff_actions || [], null, 2))
+    const rs = row.srd_refs && typeof row.srd_refs === 'object' && row.srd_refs.ruleset
+      ? String(row.srd_refs.ruleset)
+      : '2014'
+    setRefRuleset(rs === '2024' ? '2024' : '2014')
   }
 
   const closeEditor = () => {
@@ -157,6 +227,7 @@ export default function CharacterEditor() {
     setSaveMsg(null)
     setHealingActionsText('[]')
     setBuffActionsText('[]')
+    setShowEqPicker(false)
   }
 
   useEffect(() => {
@@ -298,6 +369,7 @@ export default function CharacterEditor() {
     const showWizard = editing === '__new__' && wizardStep >= 1 && wizardStep <= 4
 
     return (
+      <>
       <div style={{ padding: 24, maxWidth: 920 }}>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
           <button
@@ -477,6 +549,72 @@ export default function CharacterEditor() {
                     onChange={(e) => setForm((f) => ({ ...f, level: Number(e.target.value) || 1 }))}
                   />
                 </div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={labelStyle}>SRD ruleset (reference DB)</label>
+                  <select
+                    style={inputStyle}
+                    value={refRuleset}
+                    onChange={(e) => setRefRuleset(e.target.value)}
+                  >
+                    <option value="2014">2014</option>
+                    <option value="2024">2024</option>
+                  </select>
+                </div>
+                {refClasses.length > 0 && (
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={labelStyle}>Link SRD class (optional)</label>
+                    <select
+                      style={inputStyle}
+                      value={form.srd_refs?.class_index || ''}
+                      onChange={(e) => {
+                        const ix = e.target.value
+                        const row = refClasses.find((c) => c.source_index === ix)
+                        setForm((f) => ({
+                          ...f,
+                          class: row?.name || f.class,
+                          srd_refs: {
+                            ...(f.srd_refs && typeof f.srd_refs === 'object' ? f.srd_refs : {}),
+                            ruleset: refRuleset,
+                            class_index: ix || null,
+                            subclass_index: null,
+                          },
+                          subclass: ix ? '' : f.subclass,
+                        }))
+                      }}
+                    >
+                      <option value="">— None —</option>
+                      {refClasses.map((c) => (
+                        <option key={c.source_index} value={c.source_index}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {subclassOptions.length > 0 && (
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={labelStyle}>SRD subclass (optional)</label>
+                    <select
+                      style={inputStyle}
+                      value={form.srd_refs?.subclass_index || ''}
+                      onChange={(e) => {
+                        const ix = e.target.value
+                        const row = subclassOptions.find((s) => s.source_index === ix)
+                        setForm((f) => ({
+                          ...f,
+                          subclass: row?.name || f.subclass,
+                          srd_refs: {
+                            ...(f.srd_refs && typeof f.srd_refs === 'object' ? f.srd_refs : {}),
+                            subclass_index: ix || null,
+                          },
+                        }))
+                      }}
+                    >
+                      <option value="">— None —</option>
+                      {subclassOptions.map((s) => (
+                        <option key={s.source_index} value={s.source_index}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             )}
             {wizardStep === 3 && (
@@ -699,6 +837,87 @@ export default function CharacterEditor() {
               onChange={(e) => setForm((f) => ({ ...f, level: Number(e.target.value) || 1 }))}
             />
           </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={labelStyle}>SRD ruleset (reference DB)</label>
+            <select
+              style={inputStyle}
+              value={refRuleset}
+              onChange={(e) => setRefRuleset(e.target.value)}
+            >
+              <option value="2014">2014</option>
+              <option value="2024">2024</option>
+            </select>
+          </div>
+          {refClasses.length > 0 && (
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Link SRD class (optional)</label>
+              <select
+                style={inputStyle}
+                value={form.srd_refs?.class_index || ''}
+                onChange={(e) => {
+                  const ix = e.target.value
+                  const row = refClasses.find((c) => c.source_index === ix)
+                  setForm((f) => ({
+                    ...f,
+                    class: row?.name || f.class,
+                    srd_refs: {
+                      ...(f.srd_refs && typeof f.srd_refs === 'object' ? f.srd_refs : {}),
+                      ruleset: refRuleset,
+                      class_index: ix || null,
+                      subclass_index: null,
+                    },
+                    subclass: ix ? '' : f.subclass,
+                  }))
+                }}
+              >
+                <option value="">— None —</option>
+                {refClasses.map((c) => (
+                  <option key={c.source_index} value={c.source_index}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {subclassOptions.length > 0 && (
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>SRD subclass (optional)</label>
+              <select
+                style={inputStyle}
+                value={form.srd_refs?.subclass_index || ''}
+                onChange={(e) => {
+                  const ix = e.target.value
+                  const row = subclassOptions.find((s) => s.source_index === ix)
+                  setForm((f) => ({
+                    ...f,
+                    subclass: row?.name || f.subclass,
+                    srd_refs: {
+                      ...(f.srd_refs && typeof f.srd_refs === 'object' ? f.srd_refs : {}),
+                      subclass_index: ix || null,
+                    },
+                  }))
+                }}
+              >
+                <option value="">— None —</option>
+                {subclassOptions.map((s) => (
+                  <option key={s.source_index} value={s.source_index}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {srdFeatureRows.length > 0 && (
+            <div style={{ gridColumn: '1 / -1', marginBottom: 8 }}>
+              <label style={labelStyle}>SRD class features (through current level)</label>
+              <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 10, background: 'var(--bg-raised)' }}>
+                {srdFeatureRows.map((row) => (
+                  <div key={row.source_index || `${row.level}-${row.name}`} style={{ ...mono, fontSize: 11, marginBottom: 8, color: 'var(--text-secondary)' }}>
+                    <strong style={{ color: 'var(--green-bright)' }}>L{row.level}</strong>
+                    {' '}
+                    {row.name}
+                    <span style={{ color: 'var(--text-muted)', marginLeft: 6 }}>({row.feature_type})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div>
             <label style={labelStyle}>Accent colour</label>
             <input
@@ -1256,25 +1475,43 @@ export default function CharacterEditor() {
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <label style={{ ...labelStyle, marginBottom: 0 }}>Weapons & attacks</label>
-            <button
-              type="button"
-              onClick={() => setForm((f) => ({
-                ...f,
-                weapons: [...(Array.isArray(f.weapons) ? f.weapons : []), { name: '', hit: '', damage: '', notes: '' }],
-              }))}
-              style={{
-                padding: '4px 10px',
-                fontSize: 10,
-                ...mono,
-                background: 'rgba(100,200,100,0.1)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius)',
-                cursor: 'pointer',
-                color: 'var(--green-bright)',
-              }}
-            >
-              + Add weapon
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setShowEqPicker(true)}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: 10,
+                  ...mono,
+                  background: 'var(--bg-raised)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)',
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                + From SRD
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({
+                  ...f,
+                  weapons: [...(Array.isArray(f.weapons) ? f.weapons : []), { name: '', hit: '', damage: '', notes: '' }],
+                }))}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: 10,
+                  ...mono,
+                  background: 'rgba(100,200,100,0.1)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)',
+                  cursor: 'pointer',
+                  color: 'var(--green-bright)',
+                }}
+              >
+                + Add weapon
+              </button>
+            </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {(Array.isArray(form.weapons) ? form.weapons : []).map((w, idx) => (
@@ -1468,6 +1705,18 @@ export default function CharacterEditor() {
           />
         </div>
       </div>
+      <EquipmentPickerModal
+        open={showEqPicker}
+        onClose={() => setShowEqPicker(false)}
+        ruleset={refRuleset}
+        onPickWeapon={(weaponRow) => {
+          setForm((f) => ({
+            ...f,
+            weapons: [...(Array.isArray(f.weapons) ? f.weapons : []), weaponRow],
+          }))
+        }}
+      />
+      </>
     )
   }
 

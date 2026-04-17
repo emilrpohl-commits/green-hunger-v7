@@ -299,6 +299,7 @@ export default function CharacterProfile({ characterId, onBackToLogin }) {
 
         {combatActive && (
           <CombatStrip
+            characterId={characterId}
             char={char}
             myTurnActive={myTurnActive}
             myEconomy={myEconomy}

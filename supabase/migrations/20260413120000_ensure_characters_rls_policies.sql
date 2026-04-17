@@ -2,11 +2,16 @@
 -- permissive policy (e.g. DB was migrated without running schema.sql's policy DO block),
 -- inserts fail with: new row violates row-level security policy for table "characters".
 
-ALTER TABLE public.characters ENABLE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+  IF to_regclass('public.characters') IS NOT NULL THEN
+    ALTER TABLE public.characters ENABLE ROW LEVEL SECURITY;
+  END IF;
+END $$;
 
 DO $$
 BEGIN
-  IF NOT EXISTS (
+  IF to_regclass('public.characters') IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'characters'
@@ -21,11 +26,16 @@ BEGIN
 END $$;
 
 -- Same pattern for spell links created right after character save.
-ALTER TABLE public.character_spells ENABLE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+  IF to_regclass('public.character_spells') IS NOT NULL THEN
+    ALTER TABLE public.character_spells ENABLE ROW LEVEL SECURITY;
+  END IF;
+END $$;
 
 DO $$
 BEGIN
-  IF NOT EXISTS (
+  IF to_regclass('public.character_spells') IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'character_spells'
@@ -39,11 +49,16 @@ BEGIN
   END IF;
 END $$;
 
-ALTER TABLE public.spells ENABLE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+  IF to_regclass('public.spells') IS NOT NULL THEN
+    ALTER TABLE public.spells ENABLE ROW LEVEL SECURITY;
+  END IF;
+END $$;
 
 DO $$
 BEGIN
-  IF NOT EXISTS (
+  IF to_regclass('public.spells') IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'spells'

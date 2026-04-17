@@ -1,6 +1,11 @@
-alter table public.reveals
-  add column if not exists reveal_type text default 'handout',
-  add column if not exists image_url text;
+do $$
+begin
+  if to_regclass('public.reveals') is not null then
+    alter table public.reveals
+      add column if not exists reveal_type text default 'handout',
+      add column if not exists image_url text;
+  end if;
+end $$;
 
 create table if not exists public.green_marks_log (
   id bigserial primary key,

@@ -9,6 +9,8 @@ import { applyDamageComponentsBundle } from '@shared/lib/rules/damagePipeline.js
 import { appendDamagePipelineDetail } from '@shared/lib/combat/combatFeedFormat.js'
 import { autoFailSaveFromConditions } from '@shared/lib/rules/criticalConditionRules.js'
 
+const isDevBuild = typeof import.meta !== 'undefined' && !!import.meta.env?.DEV
+
 export const createActionsSlice = (set, get) => ({
   savePrompts: [],
   markCombatantDeathSave: async (combatantId, type, delta = 1) => {
@@ -53,7 +55,17 @@ export const createActionsSlice = (set, get) => ({
   damageCombatant: async (combatantId, amount, damageType = null, options = {}) => {
     const { combatants, round, active, activeCombatantIndex, initiativePhase, ilyaAssignedTo, sessionRunId } = get()
     const combatant = combatants.find(c => c.id === combatantId)
-    if (!combatant) return
+    if (!combatant) {
+      console.warn('damageCombatant ignored: target not found', { combatantId, amount, damageType })
+      if (isDevBuild) {
+        await get().pushFeedEvent(
+          `[Debug] DM damage ignored: target not found (${combatantId || 'unknown'})`,
+          'system',
+          false
+        )
+      }
+      return
+    }
 
     const components = Array.isArray(options.components) && options.components.length > 0
       ? options.components
@@ -67,6 +79,23 @@ export const createActionsSlice = (set, get) => ({
     }, { usePipeline: rulesetContext.rulesDamagePipeline !== false })
 
     const hpLoss = bundle.totalFinal
+    if (!(hpLoss > 0)) {
+      console.warn('damageCombatant ignored: no effective HP loss', {
+        combatantId,
+        amount,
+        damageType,
+        components,
+        hpLoss,
+      })
+      if (isDevBuild) {
+        await get().pushFeedEvent(
+          `[Debug] DM damage ignored: no effective HP loss (${combatant.name})`,
+          'system',
+          false
+        )
+      }
+      return
+    }
 
     let newTempHp = combatant.tempHp
     let newHp = combatant.curHp
@@ -114,24 +143,98 @@ export const createActionsSlice = (set, get) => ({
       if (Array.isArray(row?.updated_combatants)) {
         set({ combatants: row.updated_combatants.map((c) => normalizeCombatantConditions({ ...c, actionEconomy: c.actionEconomy || makeActionEconomy() })) })
       }
+      if (combatant.type === 'player') {
+        const sheetRow = get().combatants.find((c) => c.id === combatantId)
+        const sheetCurHp = sheetRow != null ? sheetRow.curHp : newHp
+        const sheetTempHp = sheetRow != null ? sheetRow.tempHp : newTempHp
+        const sheetTs = row?.updated_at || new Date().toISOString()
+        try {
+          await supabase.from('character_states').upsert({
+            id: combatantId,
+            cur_hp: sheetCurHp,
+            temp_hp: sheetTempHp,
+            updated_at: sheetTs,
+          })
+        } catch (sheetErr) {
+          console.error('Failed to sync character_states after combat damage:', sheetErr)
+        }
+      }
     } catch (e) {
       console.error('Failed to apply combat damage atomically:', e)
-      await get().pushFeedEvent(msg, 'damage', isShared, {
-        kind: 'damage',
-        target_id: combatantId,
-        combat_action_id: `dmg-${Date.now()}`,
-      })
-      await get().syncCombatState()
+      try {
+        await get().pushFeedEvent(msg, 'damage', isShared, {
+          kind: 'damage',
+          target_id: combatantId,
+          combat_action_id: `dmg-${Date.now()}`,
+        })
+      } catch (feedErr) {
+        console.error('Fallback feed write failed after damage error:', feedErr)
+      }
+      try {
+        await get().syncCombatState()
+      } catch (syncErr) {
+        console.error('Fallback combat_state sync failed after damage error:', syncErr)
+      }
+      if (combatant.type === 'player') {
+        const sheetRow = get().combatants.find((c) => c.id === combatantId)
+        try {
+          await supabase.from('character_states').upsert({
+            id: combatantId,
+            cur_hp: sheetRow != null ? sheetRow.curHp : newHp,
+            temp_hp: sheetRow != null ? sheetRow.tempHp : newTempHp,
+            updated_at: new Date().toISOString(),
+          })
+        } catch (sheetErr) {
+          console.error('Fallback character_states sync failed after combat damage:', sheetErr)
+        }
+      }
     }
   },
 
   healCombatant: async (combatantId, amount) => {
     const { combatants } = get()
     const combatant = combatants.find(c => c.id === combatantId)
-    if (!combatant) return
+    if (!combatant) {
+      console.warn('healCombatant ignored: target not found', { combatantId, amount })
+      if (isDevBuild) {
+        await get().pushFeedEvent(
+          `[Debug] DM heal ignored: target not found (${combatantId || 'unknown'})`,
+          'system',
+          false
+        )
+      }
+      return
+    }
 
     const actualAmount = parseInt(amount) || 0
+    if (!(actualAmount > 0)) {
+      console.warn('healCombatant ignored: non-positive amount', { combatantId, amount, actualAmount })
+      if (isDevBuild) {
+        await get().pushFeedEvent(
+          `[Debug] DM heal ignored: invalid amount (${String(amount)})`,
+          'system',
+          false
+        )
+      }
+      return
+    }
     const newHp = Math.min(combatant.maxHp, combatant.curHp + actualAmount)
+    if (newHp === combatant.curHp) {
+      console.warn('healCombatant no-op: already at max or unchanged', {
+        combatantId,
+        curHp: combatant.curHp,
+        maxHp: combatant.maxHp,
+        requested: actualAmount,
+      })
+      if (isDevBuild) {
+        await get().pushFeedEvent(
+          `[Debug] DM heal no-op: ${combatant.name} already unchanged at ${combatant.curHp}/${combatant.maxHp}`,
+          'system',
+          false
+        )
+      }
+      return
+    }
     const updated = combatants.map(c =>
       c.id === combatantId ? { ...c, curHp: newHp } : c
     )
@@ -143,6 +246,19 @@ export const createActionsSlice = (set, get) => ({
       'heal', isShared
     )
     await get().syncCombatState()
+    if (combatant.type === 'player') {
+      const sheetRow = get().combatants.find((c) => c.id === combatantId)
+      try {
+        await supabase.from('character_states').upsert({
+          id: combatantId,
+          cur_hp: sheetRow != null ? sheetRow.curHp : newHp,
+          temp_hp: sheetRow != null ? (sheetRow.tempHp ?? 0) : (combatant.tempHp ?? 0),
+          updated_at: new Date().toISOString(),
+        })
+      } catch (sheetErr) {
+        console.error('Failed to sync character_states after combat heal:', sheetErr)
+      }
+    }
   },
 
   toggleCondition: async (combatantId, condition) => {

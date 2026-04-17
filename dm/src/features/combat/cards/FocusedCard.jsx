@@ -7,6 +7,8 @@ import ActionsList from './subcomponents/ActionsList.jsx'
 import { useCombatStore } from '../../../stores/combatStore.js'
 import { isDead, isBloodied, kindColourRaw, typeLine, HP_COLOUR } from './constants.js'
 import { greenMarkCombatTags } from '@shared/lib/greenMarks.js'
+import DiceInlineText from '@shared/components/combat/DiceInlineText.jsx'
+import { createDmDiceRollHandler } from '@shared/lib/diceText/dispatch.js'
 
 const SAVE_ORDER = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
 
@@ -103,6 +105,7 @@ function abilityScoreParts(raw) {
  */
 export default function FocusedCard({ combatant, players = [] }) {
   const setInitiative = useCombatStore(s => s.setInitiative)
+  const pushFeedEvent = useCombatStore(s => s.pushFeedEvent)
 
   // Enemies default to 'actions' tab so attacks are immediately visible
   const [activeTab, setActiveTab] = useState(combatant.type === 'enemy' ? 'actions' : 'overview')
@@ -145,6 +148,12 @@ export default function FocusedCard({ combatant, players = [] }) {
   if (combatant.stats?.spellSaveDC)          extraBadges.push({ label: 'DC', value: combatant.stats.spellSaveDC })
   if (combatant.stats?.passivePerception)    extraBadges.push({ label: 'PP', value: combatant.stats.passivePerception })
   if (combatant.challengeRating != null)     extraBadges.push({ label: 'CR', value: combatant.challengeRating })
+  const handleInlineRoll = createDmDiceRollHandler({
+    pushFeedEvent,
+    type: 'roll',
+    shared: true,
+    defaultContextLabel: combatant.name,
+  })
 
   return (
     <div style={{
@@ -417,16 +426,20 @@ export default function FocusedCard({ combatant, players = [] }) {
 
             {/* Notes */}
             {combatant.notes && (
-              <div style={{
-                fontFamily: 'var(--font-body)', fontSize: 12,
-                color: 'var(--text-secondary)', lineHeight: 1.5,
-                padding: '6px 8px',
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius)',
-              }}>
-                {combatant.notes}
-              </div>
+              <DiceInlineText
+                text={combatant.notes}
+                contextLabel={`${combatant.name}: notes`}
+                onRoll={handleInlineRoll}
+                style={{
+                  fontFamily: 'var(--font-body)', fontSize: 12,
+                  color: 'var(--text-secondary)', lineHeight: 1.5,
+                  padding: '6px 8px',
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)',
+                  display: 'block',
+                }}
+              />
             )}
 
             {/* Fallback for PCs with no extra data */}
@@ -490,9 +503,12 @@ export default function FocusedCard({ combatant, players = [] }) {
                   {a.recharge && <span style={{ color: 'var(--warning)', marginLeft: 6, fontSize: 9 }}>Recharge {a.recharge}</span>}
                 </div>
                 {a.description && (
-                  <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.45 }}>
-                    {a.description}
-                  </div>
+                  <DiceInlineText
+                    text={a.description}
+                    contextLabel={`${combatant.name}: ${a.name}`}
+                    onRoll={handleInlineRoll}
+                    style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.45, display: 'block' }}
+                  />
                 )}
               </div>
             ))}
@@ -510,7 +526,12 @@ export default function FocusedCard({ combatant, players = [] }) {
             {combatant.traits?.map(t => (
               <div key={t.id || t.name} style={{ padding: '6px 9px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>{t.name}</div>
-                <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.45 }}>{t.description}</div>
+                <DiceInlineText
+                  text={t.description}
+                  contextLabel={`${combatant.name}: ${t.name}`}
+                  onRoll={handleInlineRoll}
+                  style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.45, display: 'block' }}
+                />
               </div>
             ))}
             {combatant.resistances?.length > 0 && (

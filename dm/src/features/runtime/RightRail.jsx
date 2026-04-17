@@ -9,6 +9,7 @@ import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
 import { DmRuntimeCharacterCard, CompanionsAndNpcsSection } from './DmPartyCards.jsx'
 import CollapsibleDmPartyPanel from './CollapsibleDmPartyPanel.jsx'
 import SessionMapsRunPanel from './SessionMapsRunPanel.jsx'
+import MagicItemAwardPanel from './MagicItemAwardPanel.jsx'
 
 function emptyEncounterParticipant() {
   return { stat_block_id: '', count: 1, initiative: '' }
@@ -637,7 +638,7 @@ function RollsPanel() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       <div style={{ padding: '10px 14px 8px', borderBottom: '1px solid var(--border)', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-          Player Rolls ({playerRolls.length})
+          Rolls ({playerRolls.length})
         </div>
         {playerRolls.length > 0 && (
           <button onClick={clearPlayerRolls} style={{
@@ -667,7 +668,22 @@ function RollsPanel() {
               flexDirection: 'column',
               gap: 2
             }}>
-              <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.4 }}>{roll.text}</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.4 }}>{roll.text}</span>
+                <span style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 8,
+                  padding: '2px 6px',
+                  borderRadius: 999,
+                  border: `1px solid ${roll.type === 'dm-roll' ? 'rgba(96,144,176,0.5)' : 'var(--border)'}`,
+                  color: roll.type === 'dm-roll' ? '#8db7cf' : 'var(--text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {roll.type === 'dm-roll' ? 'DM' : 'Player'}
+                </span>
+              </div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)' }}>
                 {roll.round ? `Round ${roll.round}` : ''} {timeLabel(roll.timestamp)}
               </div>
@@ -690,9 +706,13 @@ const TAB_COLOUR = {
 export default function RightRail({ onCollapse = null }) {
   const characters = useSessionStore(s => s.characters)
   const playerRolls = useCombatStore(s => s.playerRolls)
+  const campaign = useCampaignStore((s) => s.campaign)
+  const campaignCharacters = useCampaignStore((s) => s.characters)
+  const saveCharacter = useCampaignStore((s) => s.saveCharacter)
   const [tab, setTab] = useState('party')
 
   const tabs = ['party', 'maps', 'encounters', 'rolls', 'reveal']
+  const monoSmall = { fontFamily: 'var(--font-mono)', fontSize: 10 }
 
   return (
     <div style={{
@@ -765,6 +785,19 @@ export default function RightRail({ onCollapse = null }) {
             Party
           </div>
           <CollapsibleDmPartyPanel characters={characters.filter((c) => !c.isNPC)} tagLabel="Player" />
+          <MagicItemAwardPanel
+            mono={monoSmall}
+            campaignId={campaign?.id}
+            characters={characters}
+            onAward={async (characterId, item) => {
+              const ch = (campaignCharacters || []).find((c) => c.id === characterId)
+                || (characters || []).find((c) => c.id === characterId)
+              if (!ch) throw new Error('Character not found')
+              const magic_items = [...(Array.isArray(ch.magic_items) ? ch.magic_items : []), item]
+              const r = await saveCharacter({ ...ch, magic_items })
+              if (r.error) throw new Error(r.error)
+            }}
+          />
           <CompanionsAndNpcsSection characters={characters} />
         </div>
       ) : tab === 'maps' ? (

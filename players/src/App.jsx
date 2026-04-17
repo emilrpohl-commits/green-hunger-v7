@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
-import { supabase } from '@shared/lib/supabase.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
+import { establishPlayerSessionClaims } from '@shared/lib/playerAuth.js'
 import { usePlayerStore } from './stores/playerStore'
 import LoginScreen from './components/LoginScreen'
 import PartyView from './components/PartyView'
 import CharacterProfile from './components/CharacterProfile'
+import PlayerDiceRollerDock from './components/PlayerDiceRollerDock.jsx'
+import ErrorBoundary from '@shared/components/ErrorBoundary.jsx'
 
 export default function App() {
   const subscribe = usePlayerStore(s => s.subscribe)
@@ -13,28 +15,40 @@ export default function App() {
   const ilyaAssignedTo = usePlayerStore(s => s.ilyaAssignedTo)
   const characters = usePlayerStore(s => s.characters)
   const [loggedInAs, setLoggedInAs] = useState(null)
+  const [diceDockExpanded, setDiceDockExpanded] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
 
   useEffect(() => {
-    subscribe()
-    return () => unsubscribeRealtime()
+    let cancelled = false
+    ;(async () => {
+      const saved = sessionStorage.getItem('gh_player')
+      if (saved) {
+        await establishPlayerSessionClaims({
+          mode: saved === 'party' ? 'party' : 'character',
+          characterId: saved === 'party' ? null : saved,
+        })
+        if (cancelled) return
+        setLoggedInAs(saved)
+        usePlayerStore.getState().setActiveSessionUserId(saved)
+      }
+      if (cancelled) return
+      subscribe()
+    })()
+    return () => {
+      cancelled = true
+      unsubscribeRealtime()
+    }
   }, [subscribe, unsubscribeRealtime])
 
   useEffect(() => {
-    if (import.meta.env.VITE_SUPABASE_ANON_PLAYER !== 'true') return
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) supabase.auth.signInAnonymously().catch(() => {})
-    })
+    const stored = sessionStorage.getItem('gh_player_dice_dock_expanded')
+    setDiceDockExpanded(stored === 'true')
   }, [])
 
   useEffect(() => {
-    const saved = sessionStorage.getItem('gh_player')
-    if (saved) {
-      setLoggedInAs(saved)
-      usePlayerStore.getState().setActiveSessionUserId(saved)
-    }
-  }, [])
+    sessionStorage.setItem('gh_player_dice_dock_expanded', diceDockExpanded ? 'true' : 'false')
+  }, [diceDockExpanded])
 
   const roster = Array.isArray(characters) ? characters : []
   const ilyaLinkedToPlayer = roster.some(
@@ -139,22 +153,29 @@ export default function App() {
         </button>
       </div>
 
-      <div style={{ flex: 1, overflow: 'auto' }}>
-        <Routes>
-          <Route path="/party" element={<PartyView />} />
-          <Route path="/profile" element={
-            isPartyOnly ? <Navigate to="/party" replace /> : (
-              <CharacterProfile characterId={loggedInAs} onBackToLogin={handleLogout} />
-            )
-          } />
-          <Route path="/companion" element={
-            showCompanionTab ? (
-              <CharacterProfile characterId="ilya" onBackToLogin={handleLogout} />
-            ) : <Navigate to="/profile" replace />
-          } />
-          <Route path="*" element={<Navigate to={isPartyOnly ? '/party' : '/profile'} replace />} />
-        </Routes>
+      <div style={{ flex: 1, overflow: 'auto', paddingBottom: diceDockExpanded ? 300 : 72 }}>
+        <ErrorBoundary label="Player app">
+          <Routes>
+            <Route path="/party" element={<PartyView />} />
+            <Route path="/profile" element={
+              isPartyOnly ? <Navigate to="/party" replace /> : (
+                <CharacterProfile characterId={loggedInAs} onBackToLogin={handleLogout} />
+              )
+            } />
+            <Route path="/companion" element={
+              showCompanionTab ? (
+                <CharacterProfile characterId="ilya" onBackToLogin={handleLogout} />
+              ) : <Navigate to="/profile" replace />
+            } />
+            <Route path="*" element={<Navigate to={isPartyOnly ? '/party' : '/profile'} replace />} />
+          </Routes>
+        </ErrorBoundary>
       </div>
+      <PlayerDiceRollerDock
+        actorName={loggedInAs === 'party' ? 'Party' : 'Player'}
+        expanded={diceDockExpanded}
+        onExpandedChange={setDiceDockExpanded}
+      />
     </div>
   )
 }

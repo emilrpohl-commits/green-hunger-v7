@@ -19,6 +19,7 @@ import {
   primaryTypeFromAdaptedDamage,
 } from '@shared/lib/combat/monsterActionAdapter.js'
 import DiceRichText from '@shared/components/combat/DiceRichText.jsx'
+import { createDmDiceRollHandler } from '@shared/lib/diceText/dispatch.js'
 
 /**
  * ActionsList
@@ -50,6 +51,12 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
   const [atkBonus, setAtkBonus]     = useState(4)
   const [dmgInput, setDmgInput]     = useState('2d4+2')
   const [atkResult, setAtkResult]   = useState(null)
+  const handleInlineRoll = createDmDiceRollHandler({
+    pushFeedEvent,
+    type: 'roll',
+    shared: true,
+    defaultContextLabel: `${combatant.name}: ${monsterAction?.name || 'Action'}`,
+  })
 
   const isEnemy = combatant.type === 'enemy'
   const isDead  = combatant.curHp === 0 && isEnemy
@@ -261,11 +268,7 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
             <DiceRichText
               text={monsterAction.desc}
               contextLabel={`${combatant.name}: ${monsterAction.name}`}
-              onRoll={({ total, rolls, mod, expr, contextLabel: ctx }) => {
-                const modStr = mod ? (mod >= 0 ? `+${mod}` : `${mod}`) : ''
-                const r = rolls.length ? `[${rolls.join('+')}]${modStr}` : ''
-                pushFeedEvent(`${ctx || `${combatant.name}: ${monsterAction.name}`}: ${expr} → ${r} = ${total}`, 'roll', true)
-              }}
+              onRoll={handleInlineRoll}
             />
           </div>
         )}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
 import PortraitUploadField from '../../components/PortraitUploadField.jsx'
 
@@ -33,6 +33,32 @@ export default function NpcLibrary() {
   const [form, setForm] = useState(blankNpc())
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState(null)
+  const baselineRef = useRef(null)
+  const [autosaveStatus, setAutosaveStatus] = useState(null)
+  const formRef = useRef(form)
+  formRef.current = form
+
+  const npcSnapshot = useMemo(() => JSON.stringify(form), [form])
+
+  useEffect(() => {
+    if (editing === null || editing === '__new__' || baselineRef.current === null) return undefined
+    if (npcSnapshot === baselineRef.current) return undefined
+    if (!(form.name || '').trim()) return undefined
+    const t = setTimeout(async () => {
+      setAutosaveStatus('saving')
+      const f = formRef.current
+      const result = await saveNpc({ ...f, id: editing })
+      if (result.error) {
+        setAutosaveStatus('error')
+        setSaveMsg({ type: 'error', text: result.error })
+        return
+      }
+      baselineRef.current = JSON.stringify(f)
+      setAutosaveStatus('saved')
+      setTimeout(() => setAutosaveStatus((s) => (s === 'saved' ? null : s)), 2200)
+    }, 2500)
+    return () => clearTimeout(t)
+  }, [npcSnapshot, editing, saveNpc, form.name])
 
   const mono = { fontFamily: 'var(--font-mono)' }
   const inputStyle = { width: '100%', padding: '8px 12px', background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text-primary)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }
@@ -42,17 +68,29 @@ export default function NpcLibrary() {
   const filtered = npcs.filter(n => !search || n.name.toLowerCase().includes(search.toLowerCase()) || (n.role || '').toLowerCase().includes(search.toLowerCase()))
 
   const startEdit = (npc) => {
-    setForm(npc ? { ...blankNpc(), ...npc } : blankNpc())
+    const next = npc ? { ...blankNpc(), ...npc } : blankNpc()
+    setForm(next)
     setEditing(npc?.id || '__new__')
     setSaveMsg(null)
+    baselineRef.current = JSON.stringify(next)
+    setAutosaveStatus(null)
   }
 
   const handleSave = async () => {
+    if (!(form.name || '').trim()) {
+      setSaveMsg({ type: 'error', text: 'Name is required before saving.' })
+      return
+    }
     setSaving(true)
     const result = await saveNpc({ ...form, id: editing !== '__new__' ? editing : undefined })
     setSaving(false)
     if (result.error) setSaveMsg({ type: 'error', text: result.error })
-    else { setSaveMsg({ type: 'ok', text: 'Saved' }); setEditing(null) }
+    else {
+      setSaveMsg({ type: 'ok', text: 'Saved' })
+      baselineRef.current = JSON.stringify(form)
+      setAutosaveStatus(null)
+      setEditing(null)
+    }
   }
 
   if (editing !== null) {
@@ -64,6 +102,21 @@ export default function NpcLibrary() {
             {editing === '__new__' ? 'New NPC' : `Edit: ${form.name}`}
           </div>
           {saveMsg && <span style={{ ...mono, fontSize: 11, color: saveMsg.type === 'ok' ? 'var(--green-bright)' : 'var(--danger)' }}>{saveMsg.text}</span>}
+          {editing !== '__new__' && autosaveStatus === 'saving' && (
+            <span style={{ ...mono, fontSize: 10, color: 'var(--text-muted)' }}>Autosaving…</span>
+          )}
+          {editing !== '__new__' && autosaveStatus === 'saved' && (
+            <span style={{ ...mono, fontSize: 10, color: 'var(--green-bright)' }}>All changes saved</span>
+          )}
+          {editing !== '__new__' && autosaveStatus === 'error' && (
+            <span style={{ ...mono, fontSize: 10, color: 'var(--danger)' }}>Autosave failed</span>
+          )}
+          {editing !== '__new__' && npcSnapshot !== baselineRef.current && (form.name || '').trim() && (
+            <span style={{ ...mono, fontSize: 10, color: 'var(--warning)' }}>Unsaved</span>
+          )}
+          {editing === '__new__' && (
+            <span style={{ ...mono, fontSize: 10, color: 'var(--text-muted)' }}>Save once to enable autosave</span>
+          )}
           <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', background: 'var(--green-bright)', color: '#0a0f0a', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', ...mono, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', opacity: saving ? 0.6 : 1 }}>
             {saving ? 'Saving…' : 'Save'}
           </button>
@@ -151,7 +204,22 @@ export default function NpcLibrary() {
               {npc.role && <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{npc.role}{npc.affiliation ? ` · ${npc.affiliation}` : ''}</div>}
             </div>
             <button onClick={() => startEdit(npc)} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text-secondary)', ...mono, fontSize: 9, textTransform: 'uppercase' }}>Edit</button>
-            <button onClick={() => { if (window.confirm('Delete?')) deleteNpc(npc.id) }} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(196,64,64,0.3)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--danger)', ...mono, fontSize: 9, textTransform: 'uppercase' }}>Delete</button>
+            <button
+              onClick={() => {
+                const label = (npc.name || '').trim() || 'this NPC'
+                if (
+                  !window.confirm(
+                    `Permanently delete "${label}"?\n\n` +
+                      'This removes the NPC record and portrait storage references from this campaign. This cannot be undone.',
+                  )
+                )
+                  return
+                deleteNpc(npc.id)
+              }}
+              style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(196,64,64,0.3)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--danger)', ...mono, fontSize: 9, textTransform: 'uppercase' }}
+            >
+              Delete
+            </button>
           </div>
         ))}
       </div>

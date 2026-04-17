@@ -2,7 +2,7 @@
 
 create table if not exists public.lore_cards (
   id text primary key,
-  campaign_id uuid references public.campaigns(id) on delete cascade,
+  campaign_id uuid,
   category text,
   title text not null,
   content text not null,
@@ -45,77 +45,84 @@ insert into public.lore_cards (id, category, title, content, tone, sort_order) v
 on conflict (id) do nothing;
 
 -- Seed encounters when stat_blocks exist for this campaign (slug match)
-insert into public.encounters (campaign_id, title, type, participants)
-select c.id,
-  'Corrupted Hunt',
-  'combat',
-  jsonb_build_array(
-    jsonb_build_object(
-      'stat_block_id', (select sb.id from public.stat_blocks sb where sb.campaign_id = c.id and sb.slug = 'corrupted-wolf' limit 1),
-      'count', 2,
-      'initiative', 20
-    )
-  )
-from public.campaigns c
-where c.slug = 'green-hunger'
-  and exists (select 1 from public.stat_blocks sb where sb.campaign_id = c.id and sb.slug = 'corrupted-wolf')
-  and not exists (
-    select 1 from public.encounters e where e.campaign_id = c.id and e.title = 'Corrupted Hunt'
-  );
+do $$
+begin
+  if to_regclass('public.campaigns') is not null
+     and to_regclass('public.encounters') is not null
+     and to_regclass('public.stat_blocks') is not null then
+    insert into public.encounters (campaign_id, title, type, participants)
+    select c.id,
+      'Corrupted Hunt',
+      'combat',
+      jsonb_build_array(
+        jsonb_build_object(
+          'stat_block_id', (select sb.id from public.stat_blocks sb where sb.campaign_id = c.id and sb.slug = 'corrupted-wolf' limit 1),
+          'count', 2,
+          'initiative', 20
+        )
+      )
+    from public.campaigns c
+    where c.slug = 'green-hunger'
+      and exists (select 1 from public.stat_blocks sb where sb.campaign_id = c.id and sb.slug = 'corrupted-wolf')
+      and not exists (
+        select 1 from public.encounters e where e.campaign_id = c.id and e.title = 'Corrupted Hunt'
+      );
 
-insert into public.encounters (campaign_id, title, type, participants)
-select c.id,
-  'Darcy, Recombined',
-  'combat',
-  jsonb_build_array(
-    jsonb_build_object(
-      'stat_block_id', (select sb.id from public.stat_blocks sb where sb.campaign_id = c.id and sb.slug = 'darcy-recombined' limit 1),
-      'count', 1,
-      'initiative', 15
-    )
-  )
-from public.campaigns c
-where c.slug = 'green-hunger'
-  and exists (select 1 from public.stat_blocks sb where sb.campaign_id = c.id and sb.slug = 'darcy-recombined')
-  and not exists (
-    select 1 from public.encounters e where e.campaign_id = c.id and e.title = 'Darcy, Recombined'
-  );
+    insert into public.encounters (campaign_id, title, type, participants)
+    select c.id,
+      'Darcy, Recombined',
+      'combat',
+      jsonb_build_array(
+        jsonb_build_object(
+          'stat_block_id', (select sb.id from public.stat_blocks sb where sb.campaign_id = c.id and sb.slug = 'darcy-recombined' limit 1),
+          'count', 1,
+          'initiative', 15
+        )
+      )
+    from public.campaigns c
+    where c.slug = 'green-hunger'
+      and exists (select 1 from public.stat_blocks sb where sb.campaign_id = c.id and sb.slug = 'darcy-recombined')
+      and not exists (
+        select 1 from public.encounters e where e.campaign_id = c.id and e.title = 'Darcy, Recombined'
+      );
 
-insert into public.encounters (campaign_id, title, type, participants)
-select c.id,
-  'Rotting Bloom Encounter',
-  'combat',
-  jsonb_build_array(
-    jsonb_build_object(
-      'stat_block_id', (select sb.id from public.stat_blocks sb where sb.campaign_id = c.id and sb.slug = 'rotting-bloom' limit 1),
-      'count', 3,
-      'initiative', 8
-    )
-  )
-from public.campaigns c
-where c.slug = 'green-hunger'
-  and exists (select 1 from public.stat_blocks sb where sb.campaign_id = c.id and sb.slug = 'rotting-bloom')
-  and not exists (
-    select 1 from public.encounters e where e.campaign_id = c.id and e.title = 'Rotting Bloom Encounter'
-  );
+    insert into public.encounters (campaign_id, title, type, participants)
+    select c.id,
+      'Rotting Bloom Encounter',
+      'combat',
+      jsonb_build_array(
+        jsonb_build_object(
+          'stat_block_id', (select sb.id from public.stat_blocks sb where sb.campaign_id = c.id and sb.slug = 'rotting-bloom' limit 1),
+          'count', 3,
+          'initiative', 8
+        )
+      )
+    from public.campaigns c
+    where c.slug = 'green-hunger'
+      and exists (select 1 from public.stat_blocks sb where sb.campaign_id = c.id and sb.slug = 'rotting-bloom')
+      and not exists (
+        select 1 from public.encounters e where e.campaign_id = c.id and e.title = 'Rotting Bloom Encounter'
+      );
 
-insert into public.encounters (campaign_id, title, type, participants)
-select c.id,
-  'Damir, the Woven Grief',
-  'combat',
-  jsonb_build_array(
-    jsonb_build_object(
-      'stat_block_id', (select sb.id from public.stat_blocks sb where sb.campaign_id = c.id and sb.slug = 'damir-woven-grief' limit 1),
-      'count', 1,
-      'initiative', 18
-    )
-  )
-from public.campaigns c
-where c.slug = 'green-hunger'
-  and exists (select 1 from public.stat_blocks sb where sb.campaign_id = c.id and sb.slug = 'damir-woven-grief')
-  and not exists (
-    select 1 from public.encounters e where e.campaign_id = c.id and e.title = 'Damir, the Woven Grief'
-  );
+    insert into public.encounters (campaign_id, title, type, participants)
+    select c.id,
+      'Damir, the Woven Grief',
+      'combat',
+      jsonb_build_array(
+        jsonb_build_object(
+          'stat_block_id', (select sb.id from public.stat_blocks sb where sb.campaign_id = c.id and sb.slug = 'damir-woven-grief' limit 1),
+          'count', 1,
+          'initiative', 18
+        )
+      )
+    from public.campaigns c
+    where c.slug = 'green-hunger'
+      and exists (select 1 from public.stat_blocks sb where sb.campaign_id = c.id and sb.slug = 'damir-woven-grief')
+      and not exists (
+        select 1 from public.encounters e where e.campaign_id = c.id and e.title = 'Damir, the Woven Grief'
+      );
+  end if;
+end $$;
 
 -- Optional: one-time backfill live session pointer for legacy installs (uncomment if desired)
 -- update public.session_state ss

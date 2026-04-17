@@ -1,13 +1,22 @@
 import React from 'react'
 import { Section, RollBtn } from '../ui/Section'
+import { usePlayerStore } from '../../stores/playerStore'
+import DiceInlineText from '@shared/components/combat/DiceInlineText.jsx'
+import { createPlayerDiceRollHandler } from '@shared/lib/diceText/dispatch.js'
 
 export default function StatsTab({ char, rollSave, rollSkill }) {
+  const pushRoll = usePlayerStore((s) => s.pushRoll)
   const abilityScores = char?.abilityScores && typeof char.abilityScores === 'object' && !Array.isArray(char.abilityScores) ? char.abilityScores : {}
   const savingThrows = Array.isArray(char.savingThrows) ? char.savingThrows : []
   const skills = Array.isArray(char.skills) ? char.skills : []
   const passiveScores = char?.passiveScores && typeof char.passiveScores === 'object' && !Array.isArray(char.passiveScores) ? char.passiveScores : {}
   const weapons = Array.isArray(char.weapons) ? char.weapons : []
   const st = char?.stats && typeof char.stats === 'object' && !Array.isArray(char.stats) ? char.stats : {}
+  const handleInlineRoll = createPlayerDiceRollHandler({
+    pushRoll,
+    rollerName: char?.name || 'Player',
+    defaultContextLabel: `${char?.name || 'Character'}: stats`,
+  })
 
   return (
     <>
@@ -103,11 +112,23 @@ export default function StatsTab({ char, rollSave, rollSkill }) {
           }}>
             <div>
               <div style={{ fontSize: 14, color: 'var(--text-primary)' }}>{w.name}</div>
-              {w.notes && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>{w.notes}</div>}
+              {w.notes && (
+                <DiceInlineText
+                  text={w.notes}
+                  contextLabel={`${char?.name || 'Character'}: ${w.name}`}
+                  onRoll={handleInlineRoll}
+                  style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}
+                />
+              )}
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--green-bright)' }}>{w.hit}</div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>{w.damage}</div>
+              <DiceInlineText
+                text={w.damage}
+                contextLabel={`${char?.name || 'Character'}: ${w.name} damage`}
+                onRoll={handleInlineRoll}
+                style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}
+              />
             </div>
           </div>
         ))}

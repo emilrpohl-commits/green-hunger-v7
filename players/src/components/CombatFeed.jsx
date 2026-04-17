@@ -44,7 +44,9 @@ export default function CombatFeed() {
           .order('timestamp', { ascending: false })
           .limit(20)
         if (feedData) setFeed(feedData)
-      } catch (e) { /* non-critical */ }
+      } catch (e) {
+        console.warn('CombatFeed loadFeed:', e?.message || e)
+      }
     }
 
     loadFeed()
@@ -84,21 +86,8 @@ export default function CombatFeed() {
   if (!combatActive && feed.length === 0) return null
 
   return (
-    <div style={{
-      background: 'var(--bg-card)',
-      border: '1px solid var(--border)',
-      borderTop: combatActive ? '2px solid rgba(196,64,64,0.5)' : '2px solid var(--border)',
-      borderRadius: 'var(--radius-lg)',
-      overflow: 'hidden'
-    }}>
-      <div style={{
-        padding: '12px 18px',
-        borderBottom: '1px solid var(--border)',
-        background: 'var(--bg-surface)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8
-      }}>
+    <div className={`gh-combat-feed__shell ${combatActive ? 'gh-combat-feed__shell--active' : 'gh-combat-feed__shell--idle'}`}>
+      <div className="gh-combat-feed__header">
         {combatActive && (
           <div style={{
             width: 7, height: 7,
@@ -125,7 +114,7 @@ export default function CombatFeed() {
         `}</style>
       </div>
 
-      <div style={{ padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div className="gh-combat-feed__list">
         {feed.length === 0 ? (
           <div style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>
             Waiting for combat to begin…

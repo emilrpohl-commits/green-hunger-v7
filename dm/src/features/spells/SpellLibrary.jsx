@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useDeferredValue } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
 import ImportModal from '../builder/ImportModal'
 import { PLAYER_CHARACTERS } from '@shared/content/playerCharacters.js'
@@ -32,6 +32,7 @@ export default function SpellLibrary() {
   const assignSpellsToCharacters = useCampaignStore(s => s.assignSpellsToCharacters)
   const refreshCompendiumSpells = useCampaignStore(s => s.refreshCompendiumSpells)
   const [search, setSearch] = useState('')
+  const deferredSearch = useDeferredValue(search)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(blankSpell())
   const [saving, setSaving] = useState(false)
@@ -52,11 +53,12 @@ export default function SpellLibrary() {
   const labelStyle = { ...mono, fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 5 }
 
   const list = activeTab === 'campaign' ? spells : compendiumSpells
+  const q = deferredSearch.trim().toLowerCase()
   const filtered = list.filter(s =>
-    !search ||
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    (s.school || '').toLowerCase().includes(search.toLowerCase()) ||
-    (s.classes || []).some(c => c.toLowerCase().includes(search.toLowerCase()))
+    !q ||
+    s.name.toLowerCase().includes(q) ||
+    (s.school || '').toLowerCase().includes(q) ||
+    (s.classes || []).some(c => c.toLowerCase().includes(q))
   )
 
   const startEdit = (spell, asOverride = false) => {
@@ -367,7 +369,7 @@ export default function SpellLibrary() {
   const LEVEL_NAMES = ['Cantrip', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th']
 
   return (
-    <div style={{ padding: 24, maxWidth: activeTab === 'compendium' ? 1320 : 900 }}>
+    <div style={{ padding: 24, maxWidth: 900 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, color: 'var(--text-primary)' }}>Spells</div>

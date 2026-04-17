@@ -1,47 +1,85 @@
 import React, { useState } from 'react'
 import { featureFlags } from '@shared/lib/featureFlags.js'
+import { establishPlayerSessionClaims } from '@shared/lib/playerAuth.js'
 import { usePlayerStore } from '../stores/playerStore'
 
-const PARTY_PASSWORD = 'weald' // anyone can join as party observer
+function getPartyObserverSecret() {
+  const v = import.meta.env.VITE_PARTY_OBSERVER_PASSWORD
+  return v != null ? String(v).trim() : ''
+}
 
 export default function LoginScreen({ onLogin }) {
   const playerCharacters = usePlayerStore(s => s.playerCharacters)
+  const loading = usePlayerStore(s => s.loading)
+  const loadError = usePlayerStore(s => s.loadError)
   const CHARACTERS = Object.values(playerCharacters).filter(c => !c.isNPC)
+  const partyObserverConfigured = getPartyObserverSecret().length > 0
 
   const [selected, setSelected] = useState(null)
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [shaking, setShaking] = useState(false)
+  const [busy, setBusy] = useState(false)
 
   const shake = () => {
     setShaking(true)
     setTimeout(() => setShaking(false), 500)
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setError('')
     if (!selected) return
 
     if (selected === 'party') {
-      if (password.toLowerCase() === PARTY_PASSWORD) {
-        onLogin('party')
-      } else {
+      const secret = getPartyObserverSecret()
+      if (!secret) {
+        setError('Party observer is disabled: set VITE_PARTY_OBSERVER_PASSWORD in .env.local (never commit it).')
+        shake()
+        return
+      }
+      if (password.trim() !== secret) {
         setError('Incorrect password.')
         shake()
+        return
       }
+      setBusy(true)
+      const auth = await establishPlayerSessionClaims({ mode: 'party', characterId: null })
+      setBusy(false)
+      if (!auth.ok) {
+        setError(auth.error || 'Could not start session. Enable Anonymous sign-in in Supabase if RLS is on.')
+        shake()
+        return
+      }
+      onLogin('party')
       return
     }
 
     const char = playerCharacters[selected]
     if (!char) return
 
-    if (password === char.password) {
-      onLogin(selected)
-    } else {
+    if (password !== char.password) {
       setError('Incorrect password.')
       shake()
       setPassword('')
+      return
     }
+    setBusy(true)
+    const auth = await establishPlayerSessionClaims({ mode: 'character', characterId: selected })
+    setBusy(false)
+    if (!auth.ok) {
+      setError(auth.error || 'Could not start session. Enable Anonymous sign-in in Supabase if RLS is on.')
+      shake()
+      return
+    }
+    onLogin(selected)
+  }
+
+  if (loading) {
+    return (
+      <div className="gh-login-loading">
+        Loading session data…
+      </div>
+    )
   }
 
   return (
@@ -106,6 +144,21 @@ export default function LoginScreen({ onLogin }) {
           Who are you?
         </div>
 
+        {loadError && (
+          <div style={{
+            padding: '10px 12px',
+            marginBottom: 12,
+            borderRadius: 'var(--radius)',
+            border: '1px solid var(--danger)',
+            color: 'var(--danger)',
+            fontSize: 12,
+            fontFamily: 'var(--font-mono)',
+          }}
+          >
+            {loadError}
+          </div>
+        )}
+
         {CHARACTERS.length === 0 && (
           <div style={{
             padding: '12px 14px',
@@ -128,6 +181,7 @@ export default function LoginScreen({ onLogin }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
           <button
             type="button"
+            disabled={!partyObserverConfigured}
             onClick={() => { setSelected('party'); setPassword(''); setError('') }}
             style={{
               display: 'flex',
@@ -154,7 +208,9 @@ export default function LoginScreen({ onLogin }) {
                 Party observer
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>
-                Read-only party view · password: weald
+                {partyObserverConfigured
+                  ? 'Read-only party view · password from VITE_PARTY_OBSERVER_PASSWORD'
+                  : 'Read-only party view · disabled until VITE_PARTY_OBSERVER_PASSWORD is set'}
               </div>
             </div>
           </button>
@@ -235,7 +291,7 @@ export default function LoginScreen({ onLogin }) {
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+                onKeyDown={e => e.key === 'Enter' && !busy && handleSubmit()}
                 placeholder="Enter your password…"
                 autoFocus
                 style={{
@@ -252,7 +308,8 @@ export default function LoginScreen({ onLogin }) {
                 }}
               />
               <button
-                onClick={handleSubmit}
+                onClick={() => handleSubmit()}
+                disabled={busy}
                 style={{
                   padding: '10px 20px',
                   background: 'var(--green-dim)',
@@ -265,7 +322,7 @@ export default function LoginScreen({ onLogin }) {
                   cursor: 'pointer'
                 }}
               >
-                Enter
+                {busy ? '…' : 'Enter'}
               </button>
             </div>
             {error && (

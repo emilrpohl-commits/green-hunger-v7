@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { usePlayerStore } from '../stores/playerStore'
 import DiceRichText from '@shared/components/combat/DiceRichText.jsx'
+import { createPlayerDiceRollHandler } from '@shared/lib/diceText/dispatch.js'
 
 /**
  * Determine the display category for a spell based on its mechanic and whether
@@ -141,6 +142,33 @@ function OutcomeLine({ spell, category }) {
   )
 }
 
+function formatSpellComponents(spell) {
+  const c = spell.components ?? spell.rules_json?.components
+  if (c == null || c === '') return ''
+  if (typeof c === 'string') return c
+  if (Array.isArray(c)) return c.join(', ')
+  if (typeof c === 'object') {
+    const parts = []
+    if (c.V || c.verbal) parts.push('V')
+    if (c.S || c.somatic) parts.push('S')
+    const mat = c.M ?? c.material ?? c.material_text ?? spell.material
+    if (typeof mat === 'string' && mat.trim()) parts.push(`M (${mat.trim()})`)
+    else if (mat === true) parts.push('M')
+    return parts.join(', ') || ''
+  }
+  return String(c)
+}
+
+function formatSpellArea(spell) {
+  const a = spell.area
+  if (a && (a.shape || a.size)) {
+    const bits = [a.size, a.shape].filter(Boolean)
+    if (bits.length) return bits.join(' ')
+  }
+  if (spell.aoe) return spell.aoe
+  return ''
+}
+
 /**
  * SpellCard
  *
@@ -161,15 +189,29 @@ export default function SpellCard({
   spell,
   isActive,
   isExhausted,
+  isReferenceExpanded = false,
+  onToggleReference = () => {},
   onCast,
   onCancel,
   charColour,
   rollerName = 'Player',
 }) {
   const pushRoll = usePlayerStore(s => s.pushRoll)
-  const [descExpanded, setDescExpanded] = useState(false)
   const category = getSpellCategory(spell)
   const cssClass = CATEGORY_CSS[category]
+  const handleInlineRoll = createPlayerDiceRollHandler({
+    pushRoll,
+    rollerName,
+    defaultContextLabel: spell.name,
+  })
+
+  const compLine = formatSpellComponents(spell)
+  const matOnly = spell.material && !String(compLine).includes(String(spell.material))
+  const areaLine = formatSpellArea(spell)
+  const higher = spell.higherLevel ?? spell.higher_levels ?? ''
+  const descText = spell.description && String(spell.description).trim()
+    ? spell.description
+    : ''
 
   return (
     <div
@@ -188,8 +230,11 @@ export default function SpellCard({
         alignItems: 'flex-start',
         gap: 10,
       }}>
-        {/* Left: identity */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <button
+          type="button"
+          className="spell-card__header-hit"
+          onClick={() => onToggleReference()}
+        >
           {/* Name row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
             <span style={{
@@ -268,11 +313,12 @@ export default function SpellCard({
               </span>
             )}
           </div>
-        </div>
+        </button>
 
         {/* Right: cast / cancel button */}
         <button
-          onClick={() => isActive ? onCancel() : onCast()}
+          type="button"
+          onClick={() => (isActive ? onCancel() : onCast())}
           style={{
             padding: '6px 14px',
             fontFamily: 'var(--font-mono)',
@@ -291,50 +337,58 @@ export default function SpellCard({
         </button>
       </div>
 
-      {/* ── Description (expandable) ── */}
-      {spell.description && (
-        <>
-          <button
-            onClick={() => setDescExpanded(e => !e)}
-            style={{
-              display: 'block',
-              width: '100%',
-              padding: '4px 12px',
-              background: 'transparent',
-              border: 'none',
-              borderTop: '1px solid var(--border)',
-              cursor: 'pointer',
-              textAlign: 'left',
-              fontFamily: 'var(--font-mono)',
-              fontSize: 8,
-              color: 'var(--text-muted)',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-            }}
-          >
-            {descExpanded ? '▲ Hide' : '▼ Description'}
-          </button>
-          {descExpanded && (
-            <div style={{
-              padding: '8px 12px 10px',
-              fontSize: 12,
-              color: 'var(--text-secondary)',
-              lineHeight: 1.6,
-              fontStyle: 'italic',
-              borderTop: '1px solid var(--border)',
-            }}>
-              <DiceRichText
-                text={spell.description}
-                contextLabel={spell.name}
-                onRoll={({ total, rolls, mod, expr, contextLabel: ctx }) => {
-                  const modStr = mod ? (mod >= 0 ? `+${mod}` : `${mod}`) : ''
-                  const r = rolls.length ? `[${rolls.join('+')}]${modStr}` : ''
-                  pushRoll(`${ctx || spell.name} (${expr}): ${r} = ${total}`, rollerName)
-                }}
-              />
+      {isReferenceExpanded && (
+        <div className="spell-reference-panel">
+          <div className="spell-ref-meta">
+            {spell.castingTime && <span>{spell.castingTime}</span>}
+            {spell.range && <span>{spell.range}</span>}
+            {spell.duration && <span>{spell.duration}</span>}
+            {spell.concentration && <span className="spell-ref-conc-tag">Concentration</span>}
+            {spell.ritual && <span className="spell-ref-ritual-tag">Ritual</span>}
+          </div>
+          {compLine ? (
+            <div className="spell-ref-components">
+              {compLine}
+              {matOnly ? <span className="spell-ref-material-note">({spell.material})</span> : null}
             </div>
+          ) : spell.material ? (
+            <div className="spell-ref-components">
+              <span className="spell-ref-material-note">({spell.material})</span>
+            </div>
+          ) : null}
+          {areaLine ? (
+            <div className="spell-ref-area">{areaLine}</div>
+          ) : null}
+          {spell.saveType ? (
+            <div className="spell-ref-save">{spell.saveType} saving throw</div>
+          ) : null}
+          <div className="spell-ref-desc">
+            {descText ? (
+              <DiceRichText
+                text={descText}
+                contextLabel={spell.name}
+                onRoll={handleInlineRoll}
+              />
+            ) : (
+              'No description available.'
+            )}
+          </div>
+          {higher ? (
+            <p className="spell-ref-higher">
+              <strong>At higher levels:</strong> {higher}
+            </p>
+          ) : null}
+          {!isActive && (
+            <button
+              type="button"
+              className="spell-cast-btn"
+              disabled={isExhausted}
+              onClick={() => onCast()}
+            >
+              Cast
+            </button>
           )}
-        </>
+        </div>
       )}
     </div>
   )

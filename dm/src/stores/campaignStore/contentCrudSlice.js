@@ -1,20 +1,35 @@
 import { supabase } from '@shared/lib/supabase.js'
 
+/** Serialize overlapping saves for the same entity (autosave + manual save). */
+const saveChains = new Map()
+
+function enqueueExclusive(key, fn) {
+  const prev = saveChains.get(key) || Promise.resolve()
+  const job = prev.catch(() => {}).then(fn)
+  saveChains.set(key, job)
+  return job.finally(() => {
+    if (saveChains.get(key) === job) saveChains.delete(key)
+  })
+}
+
 export function createContentCrudSlice(set, get) {
   return {
     saveScene: async (scene) => {
-      const { beats: _b, branches: _br, ...rest } = scene
-      const payload = { ...rest, updated_at: new Date().toISOString() }
-      let result
-      if (scene.id) {
-        result = await supabase.from('scenes').update(payload).eq('id', scene.id).select().single()
-      } else {
-        result = await supabase.from('scenes').insert(payload).select().single()
-      }
-      if (result.error) return { error: result.error.message }
+      const key = `scene:${scene.id || 'new'}`
+      return enqueueExclusive(key, async () => {
+        const { beats: _b, branches: _br, ...rest } = scene
+        const payload = { ...rest, updated_at: new Date().toISOString() }
+        let result
+        if (scene.id) {
+          result = await supabase.from('scenes').update(payload).eq('id', scene.id).select().single()
+        } else {
+          result = await supabase.from('scenes').insert(payload).select().single()
+        }
+        if (result.error) return { error: result.error.message }
 
-      await get().refreshSession(result.data.session_id)
-      return { data: result.data }
+        await get().refreshSession(result.data.session_id)
+        return { data: result.data }
+      })
     },
 
     deleteScene: async (id) => {
@@ -26,26 +41,29 @@ export function createContentCrudSlice(set, get) {
     },
 
     saveBeat: async (beat) => {
-      const allowed = [
-        'scene_id', 'order', 'slug', 'title', 'trigger_text', 'type', 'content',
-        'player_text', 'dm_notes', 'mechanical_effect', 'flavour_text', 'illustration_url',
-        'stat_block_id', 'encounter_id', 'asset_ids',
-      ]
-      const payload = { updated_at: new Date().toISOString() }
-      for (const k of allowed) {
-        if (k in beat && beat[k] !== undefined) payload[k] = beat[k]
-      }
-      let result
-      if (beat.id) {
-        result = await supabase.from('beats').update(payload).eq('id', beat.id).select().single()
-      } else {
-        result = await supabase.from('beats').insert(payload).select().single()
-      }
-      if (result.error) return { error: result.error.message }
+      const key = `beat:${beat.id || 'new'}:${beat.scene_id || ''}`
+      return enqueueExclusive(key, async () => {
+        const allowed = [
+          'scene_id', 'order', 'slug', 'title', 'trigger_text', 'type', 'content',
+          'player_text', 'dm_notes', 'mechanical_effect', 'flavour_text', 'illustration_url',
+          'stat_block_id', 'encounter_id', 'asset_ids',
+        ]
+        const payload = { updated_at: new Date().toISOString() }
+        for (const k of allowed) {
+          if (k in beat && beat[k] !== undefined) payload[k] = beat[k]
+        }
+        let result
+        if (beat.id) {
+          result = await supabase.from('beats').update(payload).eq('id', beat.id).select().single()
+        } else {
+          result = await supabase.from('beats').insert(payload).select().single()
+        }
+        if (result.error) return { error: result.error.message }
 
-      const { data: sceneRow } = await supabase.from('scenes').select('session_id').eq('id', result.data.scene_id).single()
-      if (sceneRow) await get().refreshSession(sceneRow.session_id)
-      return { data: result.data }
+        const { data: sceneRow } = await supabase.from('scenes').select('session_id').eq('id', result.data.scene_id).single()
+        if (sceneRow) await get().refreshSession(sceneRow.session_id)
+        return { data: result.data }
+      })
     },
 
     deleteBeat: async (id) => {
@@ -60,10 +78,16 @@ export function createContentCrudSlice(set, get) {
     },
 
     reorderBeats: async (sceneId, orderedIds) => {
-      const updates = orderedIds.map((id, i) =>
-        supabase.from('beats').update({ order: i + 1 }).eq('id', id)
-      )
-      await Promise.all(updates)
+      const payload = orderedIds.map((id, i) => ({ id, order: i + 1, scene_id: sceneId }))
+      const { error } = await supabase.rpc('reorder_beats', { p_updates: payload })
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.warn('reorder_beats RPC failed, using per-row updates:', error.message)
+        const updates = orderedIds.map((id, i) =>
+          supabase.from('beats').update({ order: i + 1 }).eq('id', id)
+        )
+        await Promise.all(updates)
+      }
       const { data: scene } = await supabase.from('scenes').select('session_id').eq('id', sceneId).single()
       if (scene) await get().refreshSession(scene.session_id)
     },
@@ -121,17 +145,20 @@ export function createContentCrudSlice(set, get) {
     },
 
     saveSession: async (session) => {
-      const { scenes: _nestedScenes, ...sessionRow } = session
-      const payload = { ...sessionRow, updated_at: new Date().toISOString() }
-      let result
-      if (session.id) {
-        result = await supabase.from('sessions').update(payload).eq('id', session.id).select().single()
-      } else {
-        result = await supabase.from('sessions').insert(payload).select().single()
-      }
-      if (result.error) return { error: result.error.message }
-      await get().refreshSession(result.data.id)
-      return { data: result.data }
+      const key = `session:${session.id || 'new'}`
+      return enqueueExclusive(key, async () => {
+        const { scenes: _nestedScenes, ...sessionRow } = session
+        const payload = { ...sessionRow, updated_at: new Date().toISOString() }
+        let result
+        if (session.id) {
+          result = await supabase.from('sessions').update(payload).eq('id', session.id).select().single()
+        } else {
+          result = await supabase.from('sessions').insert(payload).select().single()
+        }
+        if (result.error) return { error: result.error.message }
+        await get().refreshSession(result.data.id)
+        return { data: result.data }
+      })
     },
   }
 }
