@@ -41,11 +41,12 @@ function parseCompactStatblock(text, beatTitle = '') {
   ) || clean(beatTitle) || 'Imported Compact Encounter'
 
   const crMatch = raw.match(/\bCR\s*([0-9]+(?:\/[0-9]+)?)\b/i)
-  const acMatch = raw.match(/\bAC\b\s*:?\s*(\d+)/i)
-  const hpMatch = raw.match(/\bHP\b\s*:?\s*(?:shared\s+pool\s*)?(\d+)/i)
+  /** Prefer last AC/HP match so duplicate “CR … AC … HP …” fragments in prose don’t win. */
+  const acMatches = [...raw.matchAll(/\bAC\b\s*:?\s*(\d+)/gi)]
+  const hpMatches = [...raw.matchAll(/\bHP\b\s*:?\s*(?:shared\s+pool\s*)?(\d+)/gi)]
   const cr = crMatch ? crMatch[1] : '1'
-  const ac = Number(acMatch ? acMatch[1] : 10)
-  const hp = Number(hpMatch ? hpMatch[1] : 10)
+  const ac = acMatches.length ? Number(acMatches[acMatches.length - 1][1]) : 10
+  const hp = hpMatches.length ? Number(hpMatches[hpMatches.length - 1][1]) : 10
 
   const abilityScores = { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 }
   const withMods = raw.match(/STR\s*(\d+)\s*\([^)]+\)\s*DEX\s*(\d+)\s*\([^)]+\)\s*CON\s*(\d+)\s*\([^)]+\)\s*INT\s*(\d+)\s*\([^)]+\)\s*WIS\s*(\d+)\s*\([^)]+\)\s*CHA\s*(\d+)\s*\([^)]+\)/i)

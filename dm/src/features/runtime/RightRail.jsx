@@ -6,6 +6,7 @@ import StatBlockView from '../statblocks/StatBlockView'
 import RevealPanel from '../reveals/RevealPanel'
 import { featureFlags } from '@shared/lib/featureFlags.js'
 import { warnFallback } from '@shared/lib/fallbackTelemetry.js'
+import { collectScriptStatBlockRefs } from '@shared/lib/sessionBeatStatBlocks.js'
 import { DmRuntimeCharacterCard, CompanionsAndNpcsSection } from './DmPartyCards.jsx'
 import CollapsibleDmPartyPanel from './CollapsibleDmPartyPanel.jsx'
 import SessionMapsRunPanel from './SessionMapsRunPanel.jsx'
@@ -21,11 +22,13 @@ function EncountersPanel() {
   const launchRottingBlooms = useCombatStore(s => s.launchRottingBlooms)
   const launchDamir = useCombatStore(s => s.launchDamir)
   const launchEncounterFromDbRow = useCombatStore(s => s.launchEncounterFromDbRow)
+  const launchEncounterByStatBlockId = useCombatStore(s => s.launchEncounterByStatBlockId)
   const encountersFromDb = useCampaignStore(s => s.encounters)
   const statBlocks = useCampaignStore(s => s.statBlocks)
   const saveEncounter = useCampaignStore(s => s.saveEncounter)
   const deleteEncounter = useCampaignStore(s => s.deleteEncounter)
   const sessions = useSessionStore(s => s.sessions)
+  const session = useSessionStore(s => s.session)
   const activeSessionId = useSessionStore(s => s.activeSessionId)
   const switchSession = useSessionStore(s => s.switchSession)
   const rosterCharacters = useSessionStore(s => s.characters)
@@ -51,6 +54,11 @@ function EncountersPanel() {
   const statBlockById = useMemo(
     () => Object.fromEntries(statBlocks.map((sb) => [sb.id, sb])),
     [statBlocks],
+  )
+
+  const scriptStatBlockRefs = useMemo(
+    () => collectScriptStatBlockRefs(session),
+    [session],
   )
 
   const useDbEncounters =
@@ -278,6 +286,71 @@ function EncountersPanel() {
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
         Encounters
       </div>
+      {scriptStatBlockRefs.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+            In this session (script)
+          </div>
+          {scriptStatBlockRefs.map((row) => {
+            const sb = statBlockById[row.statBlockId] || statBlocks.find((s) => s.slug === row.statBlockId)
+            const sub = sb?.name ? `${row.hint} · ${sb.name}` : row.hint
+            const open = expandedStatBlock === row.statBlockId
+            return (
+              <div key={row.statBlockId} style={{ marginBottom: 8 }}>
+                <div style={{
+                  display: 'flex', gap: 6, alignItems: 'stretch',
+                  background: 'rgba(196,64,64,0.07)',
+                  border: '1px solid rgba(196,64,64,0.25)',
+                  borderRadius: 'var(--radius-lg)',
+                  overflow: 'hidden'
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => launchEncounterByStatBlockId(row.statBlockId)}
+                    style={{
+                      flex: 1, padding: '10px 12px',
+                      color: '#d48060', textAlign: 'left', cursor: 'pointer',
+                      background: 'transparent', border: 'none'
+                    }}
+                  >
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 13, letterSpacing: '0.04em', marginBottom: 3 }}>
+                      ⚔ {row.label}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{sub}</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedStatBlock(open ? null : row.statBlockId)}
+                    style={{
+                      padding: '0 12px',
+                      background: open ? 'rgba(196,64,64,0.15)' : 'transparent',
+                      border: 'none', borderLeft: '1px solid rgba(196,64,64,0.2)',
+                      color: '#d48060', cursor: 'pointer',
+                      fontFamily: 'var(--font-mono)', fontSize: 10,
+                      textTransform: 'uppercase', letterSpacing: '0.06em'
+                    }}
+                    title="View stat block"
+                  >
+                    {open ? '▲' : '▼'}
+                  </button>
+                </div>
+                {open && (
+                  <div style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid rgba(196,64,64,0.2)',
+                    borderTop: 'none',
+                    borderRadius: '0 0 var(--radius-lg) var(--radius-lg)',
+                    maxHeight: 420,
+                    overflow: 'auto'
+                  }}>
+                    <StatBlockView statBlockId={row.statBlockId} />
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
       {useDbEncounters && encountersFromDb.map((enc) => {
         const sub = enc.type ? `${enc.type}${enc.difficulty ? ` · ${enc.difficulty}` : ''}` : 'Combat'
         const summary = encounterParticipantSummary(enc)
@@ -455,7 +528,7 @@ function EncountersPanel() {
           )}
         </div>
       ))}
-      {!useDbEncounters && activeEncounters.length === 0 && (
+      {!useDbEncounters && activeEncounters.length === 0 && scriptStatBlockRefs.length === 0 && (
         <div style={{
           padding: '10px 12px',
           background: 'var(--bg-card)',

@@ -29,4 +29,10 @@ describe('findEncounterByStatBlockSlug', () => {
     expect(findEncounterByStatBlockSlug([enc], 'corrupted-wolf', byId)).toEqual(enc)
     expect(findEncounterByStatBlockSlug([enc], 'other', byId)).toBeNull()
   })
+
+  it('finds encounter when ref is participant stat_block_id UUID', () => {
+    const enc = { id: 'e2', title: 'Boss', participants: [{ stat_block_id: 'uuid-123' }] }
+    const byId = { 'uuid-123': { slug: 'boss', name: 'Boss' } }
+    expect(findEncounterByStatBlockSlug([enc], 'uuid-123', byId)).toEqual(enc)
+  })
 })

@@ -39,19 +39,20 @@ export function expandEncounterParticipantsToEnemies(participants, statBlockById
 }
 
 /**
- * Find first encounter whose participants reference a stat block with the given slug.
+ * Find first encounter whose participants reference the stat block (by participant UUID or resolved slug).
  * @param {Array<Record<string, unknown>>} encounters
- * @param {string} statBlockSlug
+ * @param {string} statBlockRef - stat_blocks.slug or participants.stat_block_id (UUID)
  * @param {Record<string, Record<string, unknown>>} statBlockById
  */
-export function findEncounterByStatBlockSlug(encounters, statBlockSlug, statBlockById) {
-  if (!statBlockSlug || !Array.isArray(encounters)) return null
+export function findEncounterByStatBlockSlug(encounters, statBlockRef, statBlockById) {
+  if (!statBlockRef || !Array.isArray(encounters)) return null
   for (const enc of encounters) {
     const parts = enc.participants
     if (!Array.isArray(parts)) continue
     for (const p of parts) {
+      if (p.stat_block_id === statBlockRef) return enc
       const sb = statBlockById[p.stat_block_id]
-      if (sb && sb.slug === statBlockSlug) return enc
+      if (sb && sb.slug === statBlockRef) return enc
     }
   }
   return null

@@ -48,6 +48,29 @@ async function fetchStatBlockMapByCampaign(campaignId) {
   return map
 }
 
+/** Resolve a stat_blocks row by primary key or slug within a campaign (for beat-linked launch). */
+async function fetchStatBlockRowForCampaign(campaignId, ref) {
+  if (!campaignId || !ref) return null
+  const key = String(ref).trim()
+  if (!key) return null
+  const sel = 'slug, name, ac, max_hp'
+  const byId = await supabase
+    .from('stat_blocks')
+    .select(sel)
+    .eq('campaign_id', campaignId)
+    .eq('id', key)
+    .maybeSingle()
+  if (!byId.error && byId.data?.slug) return byId.data
+  const bySlug = await supabase
+    .from('stat_blocks')
+    .select(sel)
+    .eq('campaign_id', campaignId)
+    .eq('slug', key)
+    .maybeSingle()
+  if (!bySlug.error && bySlug.data?.slug) return bySlug.data
+  return null
+}
+
 export const createEncountersSlice = (set, get) => ({
   startEncounter: async (encounterName, enemies) => {
     const slugs = [...new Set((enemies || []).map(e => e.id).filter(Boolean))]
@@ -287,33 +310,45 @@ export const createEncountersSlice = (set, get) => ({
 
   launchEncounterByStatBlockId: async (statBlockId) => {
     if (!statBlockId) return
-    if (useEncountersFromDatabase()) {
-      const campaignId = await fetchRunCampaignId()
-      if (campaignId) {
-        const { data: encList, error: encErr } = await supabase
-          .from('encounters')
-          .select('*')
-          .eq('campaign_id', campaignId)
-        if (!encErr && encList?.length) {
-          const statBlockById = await fetchStatBlockMapByCampaign(campaignId)
-          const match = findEncounterByStatBlockSlug(encList, statBlockId, statBlockById)
-          if (match) {
-            await get().launchEncounterFromDbRow(match, statBlockById)
-            return
-          }
+    const campaignId = await fetchRunCampaignId()
+
+    if (useEncountersFromDatabase() && campaignId) {
+      const { data: encList, error: encErr } = await supabase
+        .from('encounters')
+        .select('*')
+        .eq('campaign_id', campaignId)
+      if (!encErr && encList?.length) {
+        const statBlockById = await fetchStatBlockMapByCampaign(campaignId)
+        const match = findEncounterByStatBlockSlug(encList, statBlockId, statBlockById)
+        if (match) {
+          await get().launchEncounterFromDbRow(match, statBlockById)
+          return
         }
-        warnFallback('No DB encounter matched stat block; using legacy launcher', {
-          system: 'encounters',
-          statBlockId,
-          source: 'static',
-        })
       }
     }
     if (statBlockId === 'corrupted-wolf') return get().launchCorruptedHunt()
     if (statBlockId === 'darcy-recombined') return get().launchDarcy()
     if (statBlockId === 'rotting-bloom') return get().launchRottingBlooms()
     if (statBlockId === 'damir-woven-grief') return get().launchDamir()
-    warnFallback('No encounter launcher registered for stat block slug', {
+
+    if (campaignId) {
+      const sb = await fetchStatBlockRowForCampaign(campaignId, statBlockId)
+      if (sb?.slug) {
+        await get().clearFeed()
+        await get().startEncounter(sb.name || 'Encounter', [{
+          id: sb.slug,
+          name: sb.name || sb.slug,
+          ac: Number(sb.ac) || 10,
+          maxHp: Number(sb.max_hp ?? sb.maxHp) || 10,
+          initiative: 0,
+          type: 'enemy',
+          kind: 'enemy',
+        }])
+        return
+      }
+    }
+
+    warnFallback('No encounter launcher registered for stat block ref', {
       system: 'encounters',
       statBlockId,
     })
