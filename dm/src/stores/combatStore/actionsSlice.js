@@ -1,5 +1,5 @@
 import { supabase } from '@shared/lib/supabase.js'
-import { makeActionEconomy, consumeActionEconomy, sortCombatantsByInitiative, applyDeterministicRollModifiers, encodeSavePrompt, normalizeEffectRecord } from '@shared/lib/combatRules.js'
+import { makeActionEconomy, consumeActionEconomy, sortCombatantsByInitiative, applyDeterministicRollModifiers, encodeSavePrompt, normalizeEffectRecord, useLegendaryAction, resetLegendaryActions } from '@shared/lib/combatRules.js'
 import { useSessionStore } from '../sessionStore.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
 import { getRulesetContext } from '@shared/lib/runtimeContext.js'
@@ -8,8 +8,19 @@ import { normalizeCombatantConditions } from '@shared/lib/rules/conditionHydrati
 import { applyDamageComponentsBundle } from '@shared/lib/rules/damagePipeline.js'
 import { appendDamagePipelineDetail } from '@shared/lib/combat/combatFeedFormat.js'
 import { autoFailSaveFromConditions } from '@shared/lib/rules/criticalConditionRules.js'
+import { pushToast } from '../toastStore.js'
 
 const isDevBuild = typeof import.meta !== 'undefined' && !!import.meta.env?.DEV
+
+function parseRechargeMin(recharge) {
+  if (!recharge) return null
+  if (typeof recharge === 'object' && recharge.min != null) return Number(recharge.min)
+  if (typeof recharge === 'string') {
+    const m = recharge.match(/(\d+)/)
+    return m ? Number(m[1]) : null
+  }
+  return null
+}
 
 export const createActionsSlice = (set, get) => ({
   savePrompts: [],
@@ -57,13 +68,7 @@ export const createActionsSlice = (set, get) => ({
     const combatant = combatants.find(c => c.id === combatantId)
     if (!combatant) {
       console.warn('damageCombatant ignored: target not found', { combatantId, amount, damageType })
-      if (isDevBuild) {
-        await get().pushFeedEvent(
-          `[Debug] DM damage ignored: target not found (${combatantId || 'unknown'})`,
-          'system',
-          false
-        )
-      }
+      pushToast(`Combat: damage target not found (${combatantId || 'unknown'})`, 'error')
       return
     }
 
@@ -196,13 +201,7 @@ export const createActionsSlice = (set, get) => ({
     const combatant = combatants.find(c => c.id === combatantId)
     if (!combatant) {
       console.warn('healCombatant ignored: target not found', { combatantId, amount })
-      if (isDevBuild) {
-        await get().pushFeedEvent(
-          `[Debug] DM heal ignored: target not found (${combatantId || 'unknown'})`,
-          'system',
-          false
-        )
-      }
+      pushToast(`Combat: heal target not found (${combatantId || 'unknown'})`, 'error')
       return
     }
 
@@ -357,6 +356,41 @@ export const createActionsSlice = (set, get) => ({
     return true
   },
 
+  useCombatantLegendaryAction: async (combatantId, actionName, cost = 1) => {
+    const { combatants } = get()
+    const idx = combatants.findIndex(c => c.id === combatantId)
+    if (idx === -1) return false
+    const actor = combatants[idx]
+    const result = useLegendaryAction(actor, cost)
+    if (!result.ok) {
+      pushToast(`${actor.name}: no legendary actions remaining.`, 'error')
+      return false
+    }
+    const updated = combatants.map((c, i) =>
+      i === idx ? { ...c, legendaryActionState: result.legendaryActionState } : c
+    )
+    set({ combatants: updated })
+    if (actionName) {
+      await get().pushFeedEvent(
+        `${actor.name} uses legendary action: ${actionName} (${result.legendaryActionState.used}/${result.legendaryActionState.total} used).`,
+        'action', false
+      )
+    }
+    await get().syncCombatState()
+    return true
+  },
+
+  markActionExpended: async (combatantId, actionName) => {
+    const { combatants } = get()
+    const updated = combatants.map(c =>
+      c.id === combatantId
+        ? { ...c, rechargeState: { ...(c.rechargeState || {}), [actionName]: true } }
+        : c
+    )
+    set({ combatants: updated })
+    await get().syncCombatState()
+  },
+
   addEffect: async (combatantId, effect) => {
     const { combatants } = get()
     const normalizedEffect = normalizeEffectRecord(effect)
@@ -482,8 +516,26 @@ export const createActionsSlice = (set, get) => ({
       const j = combatants.findIndex(eligible)
       if (j >= 0) idx = j
     }
+
+    // Auto-roll recharge for the incoming active combatant's expended abilities.
+    const newActive = combatants[idx]
+    const rechargeEvents = []
+    if (newActive && Array.isArray(newActive.actionOptions)) {
+      for (const action of newActive.actionOptions) {
+        if (!newActive.rechargeState?.[action.name]) continue
+        const min = parseRechargeMin(action.recharge)
+        if (min == null) continue
+        const roll = Math.floor(Math.random() * 6) + 1
+        if (roll >= min) rechargeEvents.push({ name: action.name, roll, min })
+      }
+    }
+
     const updatedCombatants = combatants.map((c, i) => {
-      if (i === idx) return { ...c, actionEconomy: makeActionEconomy() }
+      if (i === idx) {
+        const nextRechargeState = { ...(c.rechargeState || {}) }
+        for (const ev of rechargeEvents) nextRechargeState[ev.name] = false
+        return resetLegendaryActions({ ...c, actionEconomy: makeActionEconomy(), rechargeState: nextRechargeState })
+      }
       return c
     }).map((c) => {
       const rows = Array.isArray(c.conditionMetadata) ? c.conditionMetadata : []
@@ -508,6 +560,12 @@ export const createActionsSlice = (set, get) => ({
     })
     set({ activeCombatantIndex: idx, round: newRound, combatants: updatedCombatants })
     await get().pushFeedEvent(`${combatants[idx]?.name}'s turn.`, 'turn', false)
+    for (const ev of rechargeEvents) {
+      await get().pushFeedEvent(
+        `${combatants[idx]?.name}: ${ev.name} recharges! (rolled ${ev.roll}, needed ${ev.min}+)`,
+        'system', false
+      )
+    }
     await get().syncCombatState()
   },
 

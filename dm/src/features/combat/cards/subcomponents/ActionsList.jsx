@@ -41,9 +41,11 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
     return 'melee'
   }
 
-  const useCombatantActionType = useCombatStore(s => s.useCombatantActionType)
-  const pushFeedEvent          = useCombatStore(s => s.pushFeedEvent)
-  const damageCombatant        = useCombatStore(s => s.damageCombatant)
+  const useCombatantActionType      = useCombatStore(s => s.useCombatantActionType)
+  const useCombatantLegendaryAction = useCombatStore(s => s.useCombatantLegendaryAction)
+  const markActionExpended          = useCombatStore(s => s.markActionExpended)
+  const pushFeedEvent               = useCombatStore(s => s.pushFeedEvent)
+  const damageCombatant             = useCombatStore(s => s.damageCombatant)
 
   const [open, setOpen]             = useState(mode === 'inline')
   const [monsterAction, setMonsterAction] = useState(null)
@@ -80,7 +82,10 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
     const needsTarget = adapted.actionKind !== 'special' && adapted.actionKind !== 'trait' && adapted.actionKind !== 'other'
     if (!atkTarget && needsTarget) return
 
-    if (selected.actionType) {
+    if (selected.actionType === 'legendary') {
+      const ok = await useCombatantLegendaryAction(combatant.id, selected.name, 1)
+      if (!ok) return
+    } else if (selected.actionType) {
       const ok = await useCombatantActionType(combatant.id, selected.actionType, selected.name)
       if (!ok) {
         pushFeedEvent(
@@ -216,36 +221,64 @@ export default function ActionsList({ combatant, players = [], mode = 'inline' }
         {/* Action option buttons */}
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {actionOptions.length > 0 ? actionOptions.map(a => {
-            const sel     = monsterAction?.name === a.name
-            const aTag    = a.actionType === 'bonus_action' ? 'BA' : a.actionType === 'reaction' ? 'R' : 'A'
-            const ad      = adaptMonsterAction(a)
-            const isSpec  = ad.actionKind === 'special' || ad.actionKind === 'trait' || ad.actionKind === 'other'
-            const hitDisp = monsterActionToHit(a)
+            const sel       = monsterAction?.name === a.name
+            const isLA      = a.actionType === 'legendary'
+            const aTag      = isLA ? 'LA' : a.actionType === 'bonus_action' ? 'BA' : a.actionType === 'reaction' ? 'R' : 'A'
+            const ad        = adaptMonsterAction(a)
+            const isSpec    = ad.actionKind === 'special' || ad.actionKind === 'trait' || ad.actionKind === 'other'
+            const hitDisp   = monsterActionToHit(a)
+            const expended  = !!combatant.rechargeState?.[a.name]
+            const baseColor = isLA ? '196,160,64' : '196,64,64'
             return (
-              <button
-                key={`${a.actionType}-${a.name}`}
-                onClick={() => selectAction(a)}
-                style={{
-                  padding: '3px 8px', fontSize: 10, fontFamily: 'var(--font-mono)',
-                  background: sel ? 'rgba(196,64,64,0.2)' : 'rgba(196,64,64,0.05)',
-                  border: `1px solid ${sel ? 'rgba(196,64,64,0.7)' : 'rgba(196,64,64,0.3)'}`,
-                  borderRadius: 'var(--radius)',
-                  color: sel ? '#ff9070' : 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  transition: 'all 120ms ease',
-                }}
-              >
-                {a.name}
-                {hitDisp != null && !isSpec && (
-                  <span style={{ opacity: 0.65, marginLeft: 4 }}>
-                    {Number(hitDisp) >= 0 ? `+${hitDisp}` : hitDisp}
-                  </span>
+              <div key={`${a.actionType}-${a.name}`} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <button
+                  onClick={() => selectAction(a)}
+                  style={{
+                    padding: '3px 8px', fontSize: 10, fontFamily: 'var(--font-mono)',
+                    background: sel
+                      ? `rgba(${baseColor},0.2)`
+                      : expended
+                        ? 'rgba(255,255,255,0.03)'
+                        : `rgba(${baseColor},0.05)`,
+                    border: `1px solid ${sel ? `rgba(${baseColor},0.7)` : expended ? 'rgba(255,255,255,0.1)' : `rgba(${baseColor},0.3)`}`,
+                    borderRadius: 'var(--radius)',
+                    color: expended ? 'var(--text-muted)' : sel ? (isLA ? 'var(--warning)' : '#ff9070') : 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    transition: 'all 120ms ease',
+                    textDecoration: expended ? 'line-through' : 'none',
+                    opacity: expended ? 0.6 : 1,
+                  }}
+                >
+                  {a.name}
+                  {hitDisp != null && !isSpec && (
+                    <span style={{ opacity: 0.65, marginLeft: 4 }}>
+                      {Number(hitDisp) >= 0 ? `+${hitDisp}` : hitDisp}
+                    </span>
+                  )}
+                  {a.recharge && (
+                    <span style={{ color: expended ? 'var(--text-muted)' : 'var(--warning)', marginLeft: 4, fontSize: 8 }}>
+                      [{expended ? '✗' : a.recharge}]
+                    </span>
+                  )}
+                  <span style={{ marginLeft: 4, opacity: 0.45, fontSize: 8 }}>[{aTag}]</span>
+                </button>
+                {a.recharge && !expended && (
+                  <button
+                    title="Mark this action as expended (needs recharge roll next turn)"
+                    onClick={() => markActionExpended(combatant.id, a.name)}
+                    style={{
+                      padding: '2px 5px', fontSize: 8, fontFamily: 'var(--font-mono)',
+                      background: 'transparent',
+                      border: '1px solid rgba(196,160,64,0.25)',
+                      borderRadius: 'var(--radius)',
+                      color: 'rgba(196,160,64,0.5)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ✗
+                  </button>
                 )}
-                {a.recharge && (
-                  <span style={{ color: 'var(--warning)', marginLeft: 4, fontSize: 8 }}>[{a.recharge}]</span>
-                )}
-                <span style={{ marginLeft: 4, opacity: 0.45, fontSize: 8 }}>[{aTag}]</span>
-              </button>
+              </div>
             )
           }) : (
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)' }}>

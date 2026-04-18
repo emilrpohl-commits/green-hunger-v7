@@ -636,6 +636,11 @@ export const createCombatSlice = (set, get) => ({
       })
     } catch (e) {
       console.error('Failed to update spell slots:', e)
+      warnFallback('useSpellSlot: character_states upsert failed', {
+        system: 'playerCombat',
+        characterId,
+        reason: String(e?.message || e),
+      })
     }
     return true
   },

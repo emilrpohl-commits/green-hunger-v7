@@ -3,7 +3,7 @@ import { SESSION_2_ENEMIES } from '@shared/content/session2.js'
 import { fetchPartyRosterForCombat } from '@shared/lib/partyRoster.js'
 import { resolveGreenMarksCurrent } from '@shared/lib/greenMarks.js'
 import { normalizeStatBlockAction } from '@shared/lib/statBlockActions.js'
-import { makeActionEconomy } from '@shared/lib/combatRules.js'
+import { makeActionEconomy, makeLegendaryActionState } from '@shared/lib/combatRules.js'
 import { featureFlags } from '@shared/lib/featureFlags.js'
 import { getMonsterCombatant } from '@shared/lib/engine/rulesService.js'
 import { getSessionRunId } from '@shared/lib/runtimeContext.js'
@@ -37,7 +37,7 @@ async function fetchRunCampaignId() {
 async function fetchStatBlockMapByCampaign(campaignId) {
   const { data, error } = await supabase
     .from('stat_blocks')
-    .select('id, slug, name, ac, max_hp, portrait_url, portrait_original_storage_path, portrait_thumb_storage_path, actions, bonus_actions, reactions, ability_scores, saving_throws')
+    .select('id, slug, name, ac, max_hp, portrait_url, portrait_original_storage_path, portrait_thumb_storage_path, actions, bonus_actions, reactions, legendary_actions, ability_scores, saving_throws')
     .eq('campaign_id', campaignId)
   if (error) {
     console.warn('fetchStatBlockMapByCampaign:', error.message)
@@ -55,7 +55,7 @@ export const createEncountersSlice = (set, get) => ({
     try {
       const { data, error } = await supabase
         .from('stat_blocks')
-        .select('slug, ac, max_hp, portrait_url, portrait_original_storage_path, portrait_thumb_storage_path, actions, bonus_actions, reactions, ability_scores, saving_throws')
+        .select('slug, ac, max_hp, portrait_url, portrait_original_storage_path, portrait_thumb_storage_path, actions, bonus_actions, reactions, legendary_actions, ability_scores, saving_throws')
         .in('slug', slugs)
       if (error) {
         console.warn('startEncounter stat_blocks lookup failed:', error)
@@ -179,10 +179,15 @@ export const createEncountersSlice = (set, get) => ({
         actionEconomy: makeActionEconomy(),
         abilityScores: sb?.ability_scores || {},
         savingThrows: sb?.saving_throws || [],
+        legendaryActionState: Array.isArray(sb?.legendary_actions) && sb.legendary_actions.length > 0
+          ? makeLegendaryActionState(3)
+          : null,
+        rechargeState: {},
         actionOptions: [
           ...((sb?.actions || []).map(a => ({ ...normalizeStatBlockAction(a), actionType: 'action' }))),
           ...((sb?.bonus_actions || []).map(a => ({ ...normalizeStatBlockAction(a), actionType: 'bonus_action' }))),
           ...((sb?.reactions || []).map(a => ({ ...normalizeStatBlockAction(a), actionType: 'reaction' }))),
+          ...((sb?.legendary_actions || []).map(a => ({ ...normalizeStatBlockAction(a), actionType: 'legendary' }))),
           ...((e.actions || []).map(a => ({ ...a, actionType: a.actionType || 'action', source: 'normalized' }))),
           ...((e.bonus_actions || []).map(a => ({ ...a, actionType: 'bonus_action', source: 'normalized' }))),
           ...((e.reactions || []).map(a => ({ ...a, actionType: 'reaction', source: 'normalized' }))),
