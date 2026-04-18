@@ -94,6 +94,22 @@ export function consumeActionEconomy(combatant, actionType) {
   return { ok: true, actionEconomy }
 }
 
+export function makeLegendaryActionState(total = 3) {
+  return { total, used: 0 }
+}
+
+export function useLegendaryAction(combatant, cost = 1) {
+  const state = combatant.legendaryActionState
+  if (!state) return { ok: false, legendaryActionState: null }
+  if (state.used + cost > state.total) return { ok: false, legendaryActionState: state }
+  return { ok: true, legendaryActionState: { ...state, used: state.used + cost } }
+}
+
+export function resetLegendaryActions(combatant) {
+  if (!combatant.legendaryActionState) return combatant
+  return { ...combatant, legendaryActionState: { ...combatant.legendaryActionState, used: 0 } }
+}
+
 export function buildSpellEffectMetadata(spell) {
   const rules = spell?.combatProfile?.rules || spell?.rules_json || {}
   const card = rules.card || {}

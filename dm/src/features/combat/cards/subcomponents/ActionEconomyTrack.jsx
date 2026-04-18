@@ -11,8 +11,9 @@ import { useCombatStore } from '../../../../stores/combatStore.js'
  * The store marks used; a "refresh" happens automatically on next-turn.
  */
 export default function ActionEconomyTrack({ combatant, showLegendary = false }) {
-  const useCombatantActionType = useCombatStore(s => s.useCombatantActionType)
-  const pushFeedEvent          = useCombatStore(s => s.pushFeedEvent)
+  const useCombatantActionType      = useCombatStore(s => s.useCombatantActionType)
+  const pushFeedEvent               = useCombatStore(s => s.pushFeedEvent)
+  const useCombatantLegendaryAction = useCombatStore(s => s.useCombatantLegendaryAction)
 
   const economy = combatant.actionEconomy || {}
 
@@ -22,7 +23,7 @@ export default function ActionEconomyTrack({ combatant, showLegendary = false })
     { key: 'reaction',     label: 'R',  ready: economy.reactionAvailable     !== false },
   ]
 
-  const legendary = combatant.resources?.legendaryActions
+  const legendary = combatant.legendaryActionState
 
   async function handleClick(pip) {
     if (!pip.ready) return
@@ -47,18 +48,24 @@ export default function ActionEconomyTrack({ combatant, showLegendary = false })
       ))}
 
       {showLegendary && legendary && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 4,
-          padding: '2px 8px',
-          border: '1px solid rgba(196,160,64,0.4)',
-          borderRadius: 'var(--radius)',
-          fontFamily: 'var(--font-mono)', fontSize: 9,
-          color: 'var(--warning)',
-          background: 'rgba(196,160,64,0.08)',
-        }}>
+        <button
+          title={`Legendary Actions: ${legendary.total - legendary.used} remaining — click to spend 1`}
+          onClick={() => useCombatantLegendaryAction(combatant.id, null, 1)}
+          disabled={legendary.used >= legendary.total}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            padding: '2px 8px',
+            borderRadius: 'var(--radius)',
+            fontFamily: 'var(--font-mono)', fontSize: 9,
+            color: legendary.used >= legendary.total ? 'var(--text-muted)' : 'var(--warning)',
+            background: legendary.used >= legendary.total ? 'rgba(255,255,255,0.03)' : 'rgba(196,160,64,0.08)',
+            cursor: legendary.used >= legendary.total ? 'not-allowed' : 'pointer',
+            border: `1px solid ${legendary.used >= legendary.total ? 'rgba(196,160,64,0.15)' : 'rgba(196,160,64,0.4)'}`,
+          }}
+        >
           <span>LA</span>
           <span>{legendary.total - legendary.used}/{legendary.total}</span>
-        </div>
+        </button>
       )}
 
       {combatant.concentration && (
