@@ -669,15 +669,24 @@ export const createCombatSlice = (set, get) => ({
   tryUseCombatActionType: async (characterId, actionType, context = 'action') => {
     const { combatActive, combatRound, initiativePhase, ilyaAssignedTo, combatActiveCombatantIndex, sessionRunId } = get()
     if (!combatActive || !actionType || actionType === 'special') return { ok: true, reason: null }
-    const combatCombatants = await get().fetchCombatantsForWrite()
-    const idx = combatCombatants.findIndex(c => c.id === characterId)
-    if (idx === -1) return { ok: true, reason: null }
-    if (combatActiveCombatantIndex !== idx) return { ok: false, reason: 'not_your_turn' }
-    const actor = combatCombatants[idx]
-    const consumed = consumeActionEconomy(actor, actionType)
+
+    // Check economy against in-memory combatants — these are updated immediately when the DM
+    // calls nextTurn(), whereas a DB round-trip can return the previous turn's stale values.
+    const inMemory = get().combatCombatants
+    const memIdx = inMemory.findIndex(c => c.id === characterId)
+    if (memIdx === -1) return { ok: true, reason: null }
+    if (combatActiveCombatantIndex !== memIdx) return { ok: false, reason: 'not_your_turn' }
+    const memActor = inMemory[memIdx]
+    const consumed = consumeActionEconomy(memActor, actionType)
     if (!consumed.ok) return { ok: false, reason: `${actionType}_unavailable` }
-    const updatedCombatants = combatCombatants.map((c, i) => (
-      i === idx ? { ...c, actionEconomy: consumed.actionEconomy } : c
+
+    // Write: fetch fresh DB state so our update merges cleanly with any concurrent writes.
+    const combatCombatants = await get().fetchCombatantsForWrite()
+    const dbIdx = combatCombatants.findIndex(c => c.id === characterId)
+    const writeBase = dbIdx !== -1 ? combatCombatants : inMemory
+    const writeIdx = dbIdx !== -1 ? dbIdx : memIdx
+    const updatedCombatants = writeBase.map((c, i) => (
+      i === writeIdx ? { ...c, actionEconomy: consumed.actionEconomy } : c
     ))
     set({ combatCombatants: updatedCombatants })
     const ts = new Date().toISOString()

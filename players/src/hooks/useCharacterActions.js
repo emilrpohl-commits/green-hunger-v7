@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { usePlayerStore } from '../stores/playerStore'
 import { parseCastingTimeMeta, ensureActionEconomy, applyDeterministicRollModifiers, getAcWithEffects } from '@shared/lib/combatRules.js'
+import { mapTargetingToTargetMode } from '@shared/lib/spellCompendium/mappers.js'
 import { inferHalfOnSuccess, makeSavePromptPayload, resolveSpellPath } from '@shared/lib/domain/spellResolution.js'
 import { applySpellConcentrationAfterCast } from '@shared/lib/combat/spellCombatResolver.js'
 import { rollD20Test } from '@shared/lib/rules/d20Test.js'
@@ -125,7 +126,13 @@ export default function useCharacterActions(characterId) {
     const next = { ...spell }
     const st = char?.stats && typeof char.stats === 'object' && !Array.isArray(char.stats) ? char.stats : {}
     if (!next.mechanic) next.mechanic = next.combatProfile?.resolutionType || 'utility'
-    if (!next.targetMode) next.targetMode = next.combatProfile?.targetMode || 'single'
+    if (!next.targetMode || next.targetMode === 'special') {
+      // 'special' is the DB fallback — try to re-derive from the targeting text so spells like
+      // Bane ("up to 3 creatures") get multi_select instead of single.
+      const targetingLabel = next.rules_json?.targeting_label || next.combatProfile?.rules?.targeting_label
+      const derived = targetingLabel ? mapTargetingToTargetMode(targetingLabel) : null
+      next.targetMode = (derived && derived !== 'special') ? derived : (next.combatProfile?.targetMode || 'single')
+    }
     const castingMeta = parseCastingTimeMeta(next.castingTime)
     next.actionType = next.actionType || castingMeta.actionType
     next.isBonusAction = next.isBonusAction ?? castingMeta.isBonusAction
