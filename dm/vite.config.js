@@ -15,6 +15,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@shared': path.join(root, 'shared'),
+      '@srd': path.join(root, 'docs', '5e-database-main', 'src'),
       '@rules-data': path.join(root, 'data', 'rules'),
       '@tools': path.join(root, 'tools'),
       '@supabase-root': path.join(root, 'supabase'),

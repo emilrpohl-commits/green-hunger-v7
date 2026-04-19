@@ -32,16 +32,13 @@ export default function SrdImportManager() {
     setLoading(true)
     setErr(null)
     try {
-      const next = {}
-      for (const { key } of TABLES) {
-        const { count, error } = await supabase
-          .from(key)
-          .select('*', { count: 'exact', head: true })
-          .eq('ruleset', ruleset)
-        if (error) next[key] = '—'
-        else next[key] = count ?? 0
-      }
-      setCounts(next)
+      const entries = await Promise.all(
+        TABLES.map(({ key }) =>
+          supabase.from(key).select('*', { count: 'exact', head: true }).eq('ruleset', ruleset)
+            .then(({ count, error }) => [key, error ? '—' : (count ?? 0)])
+        )
+      )
+      setCounts(Object.fromEntries(entries))
       const { data: logData, error: logErr } = await supabase
         .from('srd_import_log')
         .select('*')

@@ -200,6 +200,17 @@ export default function ImportModal({ type = 'auto', onClose, onSaved }) {
       const { modifiers: _m, ...sbPayload } = parsed
       result = await saveStatBlock(sbPayload)
     } else {
+      if (!parsed.name?.trim()) {
+        setSaveMsg({ type: 'error', text: 'Spell name is required' })
+        setSaving(false)
+        return
+      }
+      const lvl = Number(parsed.level)
+      if (!Number.isFinite(lvl) || lvl < 0 || lvl > 9) {
+        setSaveMsg({ type: 'error', text: 'Spell level must be 0–9' })
+        setSaving(false)
+        return
+      }
       // Map parsed spell to the shape SpellLibrary uses
       // Strip parser-only fields and rename higher_levels → higher_level_effect
       const { higher_levels: _hl, classes: _cl, ...spellRest } = parsed

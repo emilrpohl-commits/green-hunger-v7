@@ -111,17 +111,34 @@ function sanitizeSpellPayload(spell, campaignId) {
   )
 }
 
+const STAT_BLOCK_DB_COLUMNS = [
+  'id', 'campaign_id', 'slug', 'name', 'source', 'creature_type', 'size', 'alignment', 'cr',
+  'proficiency_bonus', 'ac', 'ac_note', 'max_hp', 'hit_dice', 'speed', 'ability_scores',
+  'saving_throws', 'skills', 'resistances', 'immunities', 'vulnerabilities', 'senses',
+  'languages', 'traits', 'actions', 'bonus_actions', 'reactions', 'legendary_actions',
+  'lair_actions', 'spellcasting', 'combat_prompts', 'dm_notes', 'loot_ids', 'portrait_url',
+  'token_url', 'portrait_original_storage_path', 'portrait_crop', 'portrait_thumb_storage_path',
+  'cloned_from_reference_id', 'tags', 'import_metadata', 'archived_at', 'updated_at',
+]
+
+function sanitizeStatBlockPayload(statBlock, campaignId) {
+  const withManaged = {
+    ...statBlock,
+    campaign_id: campaignId,
+    updated_at: new Date().toISOString(),
+  }
+  return Object.fromEntries(
+    Object.entries(withManaged).filter(([key]) => STAT_BLOCK_DB_COLUMNS.includes(key))
+  )
+}
+
 export function createEntityCrudSlice(set, get) {
   return {
     saveStatBlock: async (statBlock) => {
       const { campaign } = get()
       if (!campaign) return { error: 'No campaign loaded' }
 
-      const payload = {
-        ...statBlock,
-        campaign_id: campaign.id,
-        updated_at: new Date().toISOString(),
-      }
+      const payload = sanitizeStatBlockPayload(statBlock, campaign.id)
 
       let result
       if (statBlock.id) {

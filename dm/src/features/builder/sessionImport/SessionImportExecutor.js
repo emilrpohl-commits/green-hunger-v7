@@ -1,12 +1,13 @@
 /** Best-effort cleanup after a failed legacy import (session + stat blocks created in this pass). */
 export async function rollbackPartialImport(supabase, sessionId, statBlockIds) {
+  const now = new Date().toISOString()
   const errors = []
   if (sessionId) {
-    const { error } = await supabase.from('sessions').delete().eq('id', sessionId)
+    const { error } = await supabase.from('sessions').update({ archived_at: now }).eq('id', sessionId)
     if (error) errors.push(`Session rollback: ${error.message}`)
   }
   for (const sid of [...(statBlockIds || [])].reverse()) {
-    const { error } = await supabase.from('stat_blocks').delete().eq('id', sid)
+    const { error } = await supabase.from('stat_blocks').update({ archived_at: now }).eq('id', sid)
     if (error) errors.push(`Stat block rollback (${sid}): ${error.message}`)
   }
   return errors
