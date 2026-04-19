@@ -26,7 +26,6 @@ const NAV_ITEMS = [
   { id: 'characters', label: 'Character sheets', icon: '🧝' },
   { id: 'encounters', label: 'Encounters', icon: '🎯' },
   { id: 'reference', label: 'SRD reference', icon: '📚' },
-  { id: 'srd-import', label: 'SRD import', icon: '⬆️' },
   { id: 'toolbox', label: 'DM Toolbox', icon: '🧰' },
 ]
 
@@ -36,6 +35,7 @@ export default function BuilderLayout() {
   const [showDocxImport, setShowDocxImport] = useState(false)
   const [migrating, setMigrating] = useState(false)
   const [migrateResult, setMigrateResult] = useState(null)
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
   const loading = useCampaignStore(s => s.loading)
   const error = useCampaignStore(s => s.error)
@@ -43,10 +43,6 @@ export default function BuilderLayout() {
   const campaignChoices = useCampaignStore(s => s.campaignChoices)
   const sessions = useCampaignStore(s => s.sessions)
   const loadCampaign = useCampaignStore(s => s.loadCampaign)
-
-  useEffect(() => {
-    if (!campaign) loadCampaign()
-  }, [])
 
   const syncContentFromDb = useSessionStore(s => s.syncContentFromDb)
 
@@ -146,7 +142,7 @@ export default function BuilderLayout() {
       )
     }
 
-    if (editStatBlock !== undefined && activeSection === 'stat-blocks') {
+    if (editStatBlock && activeSection === 'stat-blocks') {
       if (editStatBlock !== null) {
         return (
           <StatBlockEditor
@@ -237,6 +233,38 @@ export default function BuilderLayout() {
             <span>{item.label}</span>
           </button>
         ))}
+
+        <div style={{ borderTop: '1px solid var(--border)', marginTop: 8 }}>
+          <button
+            onClick={() => setShowAdvanced(v => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '8px 16px', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%',
+              background: 'transparent',
+              color: 'var(--text-muted)', fontSize: 11,
+              fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em',
+            }}
+          >
+            <span>{showAdvanced ? '▾' : '▸'}</span>
+            <span>Advanced</span>
+          </button>
+          {showAdvanced && (
+            <button
+              onClick={() => { setActiveSection('srd-import'); setEditStatBlock(null) }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 16px 8px 28px', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%',
+                background: activeSection === 'srd-import' ? 'rgba(100,200,100,0.08)' : 'transparent',
+                borderLeft: activeSection === 'srd-import' ? '2px solid var(--green-bright)' : '2px solid transparent',
+                color: activeSection === 'srd-import' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                fontSize: 13,
+              }}
+            >
+              <span style={{ fontSize: 14 }}>⬆️</span>
+              <span>SRD import</span>
+            </button>
+          )}
+        </div>
 
         <div style={{ flex: 1 }} />
         <SoundDock compact showAssociations={false} />

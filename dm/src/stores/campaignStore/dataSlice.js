@@ -226,33 +226,41 @@ export function createDataSlice(set, get) {
           statBlockMap[sb.id] = sb
         })
 
-        const { data: spellsRaw } = await supabase
-          .from('spells')
-          .select('*')
-          .eq('campaign_id', campaign.id)
-          .order('level', { ascending: true })
-          .order('name', { ascending: true })
-        const campaignSpellsOnly = filterValidSpellRows(spellsRaw || [])
+        // Batch 1: all queries independent once campaign.id is known — run in parallel
+        const [
+          spellsResult,
+          compendiumResult,
+          legacySpellsResult,
+          npcsResult,
+          assetsResult,
+          audioAssetsResult,
+          audioPlaylistsResult,
+          encountersResult,
+          charactersResult,
+          arcsResult,
+        ] = await Promise.all([
+          supabase.from('spells').select('*').eq('campaign_id', campaign.id)
+            .order('level', { ascending: true }).order('name', { ascending: true }),
+          fetchSpellCompendiumAll(supabase).catch((e) => { console.warn('spell_compendium load:', e?.message || e); return [] }),
+          supabase.from('spells').select('*').is('campaign_id', null)
+            .order('level', { ascending: true }).order('name', { ascending: true }),
+          supabase.from('npcs').select('*').eq('campaign_id', campaign.id).order('name'),
+          supabase.from('assets').select('*').eq('campaign_id', campaign.id).order('title'),
+          supabase.from('audio_assets').select('*').eq('campaign_id', campaign.id).order('name'),
+          supabase.from('audio_playlists').select('*').eq('campaign_id', campaign.id).order('name'),
+          supabase.from('encounters').select('*').eq('campaign_id', campaign.id).order('title'),
+          supabase.from('characters').select('*').or(`campaign_id.eq.${campaign.id},campaign_id.is.null`).order('name'),
+          supabase.from('arcs').select('id, order').eq('campaign_id', campaign.id).order('order', { ascending: true }),
+        ])
 
-        let compendiumTableRows = []
-        try {
-          compendiumTableRows = await fetchSpellCompendiumAll(supabase)
-        } catch (e) {
-          console.warn('spell_compendium load:', e?.message || e)
-        }
-
-        let legacyGlobalSpells = []
-        try {
-          const { data: leg } = await supabase
-            .from('spells')
-            .select('*')
-            .is('campaign_id', null)
-            .order('level', { ascending: true })
-            .order('name', { ascending: true })
-          legacyGlobalSpells = filterValidSpellRows(leg || [])
-        } catch (e) {
-          console.warn('legacy global spells load:', e?.message || e)
-        }
+        const campaignSpellsOnly = filterValidSpellRows(spellsResult.data || [])
+        const compendiumTableRows = Array.isArray(compendiumResult) ? compendiumResult : []
+        const legacyGlobalSpells = filterValidSpellRows(legacySpellsResult.data || [])
+        if (audioAssetsResult.error) console.warn('audio_assets load:', audioAssetsResult.error.message)
+        if (audioPlaylistsResult.error) console.warn('audio_playlists load:', audioPlaylistsResult.error.message)
+        if (encountersResult.error) console.warn('encounters load:', encountersResult.error.message)
+        if (charactersResult.error) console.warn('characters load:', charactersResult.error.message)
+        if (arcsResult.error) throw new Error(`arcs: ${arcsResult.error.message}`)
 
         const compendiumMapped = compendiumTableRows.map(compendiumRowToDmListRow).filter(Boolean)
         const compendiumIds = new Set(compendiumMapped.map((s) => s.spell_id))
@@ -263,108 +271,47 @@ export function createDataSlice(set, get) {
           (a, b) => (a.level - b.level) || String(a.name || '').localeCompare(String(b.name || ''))
         )
 
-        const { data: npcs } = await supabase
-          .from('npcs')
-          .select('*')
-          .eq('campaign_id', campaign.id)
-          .order('name')
-
-        const { data: assets } = await supabase
-          .from('assets')
-          .select('*')
-          .eq('campaign_id', campaign.id)
-          .order('title')
-
-        const { data: audioAssetsRaw, error: audioAssetsErr } = await supabase
-          .from('audio_assets')
-          .select('*')
-          .eq('campaign_id', campaign.id)
-          .order('name')
-        if (audioAssetsErr) {
-          console.warn('audio_assets load:', audioAssetsErr.message)
-        }
-
-        const { data: audioPlaylistsRaw, error: audioPlaylistsErr } = await supabase
-          .from('audio_playlists')
-          .select('*')
-          .eq('campaign_id', campaign.id)
-          .order('name')
-        if (audioPlaylistsErr) {
-          console.warn('audio_playlists load:', audioPlaylistsErr.message)
-        }
-
-        let audioPlaylistItemsRaw = []
-        if ((audioPlaylistsRaw || []).length > 0) {
-          const playlistIds = (audioPlaylistsRaw || []).map((p) => p.id)
-          const { data: apItems, error: apItemsErr } = await supabase
-            .from('audio_playlist_items')
-            .select('*')
-            .in('playlist_id', playlistIds)
-            .order('position', { ascending: true })
-          if (apItemsErr) {
-            console.warn('audio_playlist_items load:', apItemsErr.message)
-          } else {
-            audioPlaylistItemsRaw = apItems || []
-          }
-        }
-
-        const { data: encountersRaw, error: encErr } = await supabase
-          .from('encounters')
-          .select('*')
-          .eq('campaign_id', campaign.id)
-          .order('title')
-        if (encErr) {
-          console.warn('encounters load:', encErr.message)
-        }
-
-        const { data: characterRows, error: chErr } = await supabase
-          .from('characters')
-          .select('*')
-          .or(`campaign_id.eq.${campaign.id},campaign_id.is.null`)
-          .order('name')
-        if (chErr) {
-          console.warn('characters load:', chErr.message)
-        }
-
-        const { data: arcs, error: arcErr } = await supabase
-          .from('arcs')
-          .select('id, order')
-          .eq('campaign_id', campaign.id)
-          .order('order', { ascending: true })
-        if (arcErr) throw new Error(`arcs: ${arcErr.message}`)
-
-        const arcRows = arcs || []
+        const audioPlaylistsRaw = audioPlaylistsResult.data || []
+        const arcRows = arcsResult.data || []
         const arcIds = arcRows.map((a) => a.id)
         const arcOrder = new Map(arcRows.map((a) => [a.id, a.order ?? 0]))
 
-        let adventureId = null
-        let sessionsRaw = []
-        if (arcIds.length > 0) {
-          const { data: adventures, error: advErr } = await supabase
-            .from('adventures')
-            .select('id, order, arc_id')
-            .in('arc_id', arcIds)
-          if (advErr) throw new Error(`adventures: ${advErr.message}`)
-          const advSorted = [...(adventures || [])].sort((a, b) => {
-            const ao = arcOrder.get(a.arc_id) ?? 0
-            const bo = arcOrder.get(b.arc_id) ?? 0
-            if (ao !== bo) return ao - bo
-            return (a.order || 0) - (b.order || 0)
-          })
-          adventureId = advSorted[0]?.id || null
-          const adventureIds = advSorted.map((a) => a.id)
-          if (adventureIds.length > 0) {
+        // Batch 2: two chains that each depend on Batch 1 results — run in parallel with each other
+        const [audioPlaylistItemsRaw, { adventureId, sessionsRaw }] = await Promise.all([
+          // playlist items depend on playlist IDs from Batch 1
+          (async () => {
+            if (audioPlaylistsRaw.length === 0) return []
+            const playlistIds = audioPlaylistsRaw.map((p) => p.id)
+            const { data: apItems, error: apItemsErr } = await supabase
+              .from('audio_playlist_items').select('*')
+              .in('playlist_id', playlistIds).order('position', { ascending: true })
+            if (apItemsErr) { console.warn('audio_playlist_items load:', apItemsErr.message); return [] }
+            return apItems || []
+          })(),
+          // sessions depend on arc IDs from Batch 1
+          (async () => {
+            if (arcIds.length === 0) return { adventureId: null, sessionsRaw: [] }
+            const { data: adventures, error: advErr } = await supabase
+              .from('adventures').select('id, order, arc_id').in('arc_id', arcIds)
+            if (advErr) throw new Error(`adventures: ${advErr.message}`)
+            const advSorted = [...(adventures || [])].sort((a, b) => {
+              const ao = arcOrder.get(a.arc_id) ?? 0
+              const bo = arcOrder.get(b.arc_id) ?? 0
+              if (ao !== bo) return ao - bo
+              return (a.order || 0) - (b.order || 0)
+            })
+            const adventureId = advSorted[0]?.id || null
+            const adventureIds = advSorted.map((a) => a.id)
+            if (adventureIds.length === 0) return { adventureId, sessionsRaw: [] }
             const { data: sessRows, error: se } = await supabase
-              .from('sessions')
-              .select('*')
-              .in('adventure_id', adventureIds)
+              .from('sessions').select('*').in('adventure_id', adventureIds)
               .order('session_number', { ascending: true })
               .order('order', { ascending: true })
               .order('created_at', { ascending: true })
             if (se) throw new Error(`sessions: ${se.message}`)
-            sessionsRaw = sessRows || []
-          }
-        }
+            return { adventureId, sessionsRaw: sessRows || [] }
+          })(),
+        ])
 
         const seen = new Set()
         const sessions = (sessionsRaw || []).filter(s => {
@@ -393,13 +340,13 @@ export function createDataSlice(set, get) {
           statBlockMap,
           spells: campaignSpellsOnly,
           compendiumSpells,
-          npcs: npcs || [],
-          assets: assets || [],
-          audioAssets: audioAssetsRaw || [],
-          audioPlaylists: audioPlaylistsRaw || [],
-          audioPlaylistItems: audioPlaylistItemsRaw || [],
-          encounters: encountersRaw || [],
-          characters: characterRows || [],
+          npcs: npcsResult.data || [],
+          assets: assetsResult.data || [],
+          audioAssets: audioAssetsResult.data || [],
+          audioPlaylists: audioPlaylistsRaw,
+          audioPlaylistItems: audioPlaylistItemsRaw,
+          encounters: encountersResult.data || [],
+          characters: charactersResult.data || [],
           archivedSessions,
           campaignChoices: [],
           loading: false,

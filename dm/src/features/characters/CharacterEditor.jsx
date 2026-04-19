@@ -11,8 +11,8 @@ import PortraitUploadField from '../../components/PortraitUploadField.jsx'
 import CharacterSpellLinksPanel from './CharacterSpellLinksPanel.jsx'
 import { supabase } from '@shared/lib/supabase.js'
 import EquipmentPickerModal from '../reference/EquipmentPickerModal.jsx'
-import SRD_RACES from '../../../../docs/5e-database-main/src/2014/5e-SRD-Races.json'
-import SRD_BACKGROUNDS from '../../../../docs/5e-database-main/src/2014/5e-SRD-Backgrounds.json'
+import SRD_RACES from '@srd/2014/5e-SRD-Races.json'
+import SRD_BACKGROUNDS from '@srd/2014/5e-SRD-Backgrounds.json'
 import { formatDcWithLabel } from '@shared/lib/rules/dcDisplay.js'
 
 function profBonusForLevel(level) {

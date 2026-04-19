@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { useCampaignStore } from '../../stores/campaignStore'
+import ToolboxEncounterBudget from '../toolbox/ToolboxEncounterBudget.jsx'
 
 function emptyParticipant() {
   return { stat_block_id: '', count: 1, initiative: '' }
@@ -26,6 +27,7 @@ export default function EncounterLibrary() {
 
   const [search, setSearch] = useState('')
   const [editingId, setEditingId] = useState(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
   const [formTitle, setFormTitle] = useState('')
   const [formType, setFormType] = useState('combat')
   const [formDifficulty, setFormDifficulty] = useState('')
@@ -163,13 +165,17 @@ export default function EncounterLibrary() {
     }
   }
 
-  const handleDelete = async (enc) => {
-    if (!window.confirm(`Delete encounter “${enc.title}”?`)) return
+  const handleDelete = async (encId) => {
+    if (confirmDeleteId !== encId) {
+      setConfirmDeleteId(encId)
+      return
+    }
+    setConfirmDeleteId(null)
     setBusy(true)
-    const del = await deleteEncounter(enc.id)
+    const del = await deleteEncounter(encId)
     setBusy(false)
     if (del.error) setMsg({ type: 'err', text: del.error })
-    else if (editingId === enc.id) resetForm()
+    else if (editingId === encId) resetForm()
   }
 
   if (!campaign) {
@@ -352,8 +358,15 @@ export default function EncounterLibrary() {
           <textarea style={{ ...taStyle }} rows={3} value={formNotes} onChange={(e) => setFormNotes(e.target.value)} />
         </div>
 
-        <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+        <div style={{ ...mono, fontSize: 10, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 20 }}>
           Saved encounters appear in Play → Encounters when DB encounters are enabled. Participants reference campaign stat blocks by UUID.
+        </div>
+
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20 }}>
+          <div style={{ ...mono, fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>
+            XP Budget
+          </div>
+          <ToolboxEncounterBudget compact />
         </div>
       </div>
     )
@@ -463,12 +476,13 @@ export default function EncounterLibrary() {
             </button>
             <button
               type="button"
-              onClick={() => handleDelete(enc)}
+              onClick={() => handleDelete(enc.id)}
+              onBlur={() => setConfirmDeleteId(null)}
               disabled={busy}
               style={{
                 padding: '4px 10px',
-                background: 'transparent',
-                border: '1px solid rgba(196,64,64,0.3)',
+                background: confirmDeleteId === enc.id ? 'rgba(196,64,64,0.12)' : 'transparent',
+                border: `1px solid ${confirmDeleteId === enc.id ? 'rgba(196,64,64,0.6)' : 'rgba(196,64,64,0.3)'}`,
                 borderRadius: 'var(--radius)',
                 cursor: 'pointer',
                 color: 'var(--danger)',
@@ -477,7 +491,7 @@ export default function EncounterLibrary() {
                 textTransform: 'uppercase',
               }}
             >
-              Delete
+              {confirmDeleteId === enc.id ? 'Confirm?' : 'Delete'}
             </button>
           </div>
         ))}

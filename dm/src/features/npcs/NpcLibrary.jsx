@@ -33,6 +33,7 @@ export default function NpcLibrary() {
   const [form, setForm] = useState(blankNpc())
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
   const baselineRef = useRef(null)
   const [autosaveStatus, setAutosaveStatus] = useState(null)
   const formRef = useRef(form)
@@ -182,6 +183,18 @@ export default function NpcLibrary() {
           <label style={labelStyle}>Notes</label>
           <textarea style={{ ...taStyle }} rows={2} value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
         </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Tags (comma-separated)</label>
+          <input
+            style={inputStyle}
+            value={(form.tags || []).join(', ')}
+            onChange={e => setForm(f => ({
+              ...f,
+              tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean),
+            }))}
+            placeholder="villain, recurring, faction-member…"
+          />
+        </div>
       </div>
     )
   }
@@ -206,19 +219,22 @@ export default function NpcLibrary() {
             <button onClick={() => startEdit(npc)} style={{ padding: '4px 10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text-secondary)', ...mono, fontSize: 9, textTransform: 'uppercase' }}>Edit</button>
             <button
               onClick={() => {
-                const label = (npc.name || '').trim() || 'this NPC'
-                if (
-                  !window.confirm(
-                    `Permanently delete "${label}"?\n\n` +
-                      'This removes the NPC record and portrait storage references from this campaign. This cannot be undone.',
-                  )
-                )
-                  return
-                deleteNpc(npc.id)
+                if (confirmDeleteId === npc.id) {
+                  deleteNpc(npc.id)
+                  setConfirmDeleteId(null)
+                } else {
+                  setConfirmDeleteId(npc.id)
+                }
               }}
-              style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(196,64,64,0.3)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--danger)', ...mono, fontSize: 9, textTransform: 'uppercase' }}
+              onBlur={() => setConfirmDeleteId(null)}
+              style={{
+                padding: '4px 10px', background: confirmDeleteId === npc.id ? 'rgba(196,64,64,0.12)' : 'transparent',
+                border: `1px solid ${confirmDeleteId === npc.id ? 'rgba(196,64,64,0.6)' : 'rgba(196,64,64,0.3)'}`,
+                borderRadius: 'var(--radius)', cursor: 'pointer',
+                color: 'var(--danger)', ...mono, fontSize: 9, textTransform: 'uppercase',
+              }}
             >
-              Delete
+              {confirmDeleteId === npc.id ? 'Confirm?' : 'Delete'}
             </button>
           </div>
         ))}
