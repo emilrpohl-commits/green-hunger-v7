@@ -122,10 +122,8 @@ export function buildSpellEffectMetadata(spell) {
       control: card.control || null,
     }
   }
-  const spellId = String(spell?.spellId || spell?.spell_id || spell?.name || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9_]/g, '_')
-    .replace(/^_+|_+$/g, '')
+  const normalize = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/^_+|_+$/g, '')
+  const spellId = normalize(spell?.spellId || spell?.spell_id || spell?.name)
   const mapping = {
     bane: { name: 'Bane', mechanic: '-1d4 attacks & saves', deterministic: true, effect_kinds: ['debuff'] },
     bless: { name: 'Bless', mechanic: '+1d4 attacks & saves', deterministic: true, effect_kinds: ['buff'] },
@@ -136,7 +134,10 @@ export function buildSpellEffectMetadata(spell) {
     shield_of_faith: { name: 'Shield of Faith', mechanic: '+2 AC', deterministic: true, effect_kinds: ['buff'] },
     sanctuary: { name: 'Sanctuary', mechanic: 'Protection ward', deterministic: true, effect_kinds: ['buff'] },
   }
-  return mapping[spellId] || null
+  if (mapping[spellId]) return mapping[spellId]
+  // Spell IDs from spell_compendium are compound (e.g. bane_lv1_srd5e_2014); fall back to name match.
+  const nameSlug = normalize(spell?.name)
+  return mapping[nameSlug] || null
 }
 
 function normalizeEffectName(effect) {
