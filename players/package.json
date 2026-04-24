@@ -7,7 +7,7 @@
     "build": "vite build",
     "lint": "eslint \"src/**/*.{js,jsx}\"",
     "format": "prettier --write \"src/**/*.{js,jsx}\"",
-    "typecheck": "tsc -p ../tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json",
     "preview": "vite preview",
     "test": "vitest run",
     "rules:smoke": "node ../tools/rulesLayerSmokeCheck.mjs"

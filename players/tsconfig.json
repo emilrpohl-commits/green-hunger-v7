@@ -1,0 +1,7 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "checkJs": true
+  },
+  "include": ["src/lib/diceHelpers.js", "src/lib/entityFilters.js"]
+}

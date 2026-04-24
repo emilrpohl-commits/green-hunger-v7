@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "checkJs": true
+  },
+  "include": [
+    "src/features/sessions/deleteScopeCopy.js",
+    "src/features/combat/lastManualDamageTypeStorage.js",
+    "src/features/builder/sessionImport/buildSessionImportPayload.js",
+    "src/features/builder/sessionImport/SessionImportParser.js",
+    "../shared/lib/parseSessionMarkdown.js"
+  ]
+}
